@@ -7,7 +7,7 @@ type Search = { url: string };
 
 export const Route = createFileRoute("/browse")({
   validateSearch: (search: Record<string, unknown>): Search => ({
-    url: typeof search.url === "string" ? search.url : "https://example.com",
+    url: typeof search["url"] === "string" ? (search["url"] as string) : "https://example.com",
   }),
   head: () => ({
     meta: [
