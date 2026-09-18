@@ -57,7 +57,7 @@ function rewriteSrcset(value: string, base: string, stealth: boolean) {
       const trimmed = part.trim();
       if (!trimmed) return trimmed;
       const [url, ...rest] = trimmed.split(/\s+/);
-      return [resolveAndProxy(url, base, stealth), ...rest].join(" ");
+      return [resolveAndProxy(url ?? "", base, stealth), ...rest].join(" ");
     })
     .join(", ");
 }
@@ -159,7 +159,7 @@ async function handle(request: Request) {
   headers.set(
     "user-agent",
     stealth
-      ? STEALTH_AGENTS[Math.floor(Math.random() * STEALTH_AGENTS.length)]
+      ? (STEALTH_AGENTS[Math.floor(Math.random() * STEALTH_AGENTS.length)] ?? DEFAULT_AGENT)
       : (request.headers.get("user-agent") ?? DEFAULT_AGENT),
   );
   headers.set("accept-language", headers.get("accept-language") ?? "en-SG,en;q=0.9");
@@ -171,7 +171,10 @@ async function handle(request: Request) {
     upstream = await fetch(targetUrl.toString(), {
       method: request.method,
       headers,
-      body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+      body:
+        request.method === "GET" || request.method === "HEAD"
+          ? null
+          : ((request.body ?? null) as BodyInit | null),
       redirect: "follow",
     });
   } catch (error) {

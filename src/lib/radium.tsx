@@ -44,7 +44,7 @@ type Ctx = {
 const RadiumContext = createContext<Ctx | null>(null);
 
 export function RadiumProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(PRESET_THEMES[0]);
+  const [theme, setThemeState] = useState<Theme>(PRESET_THEMES[0]!);
   const [customThemes, setCustomThemes] = useState<Theme[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [history, setHistory] = useState<{ url: string; at: number }[]>([]);
