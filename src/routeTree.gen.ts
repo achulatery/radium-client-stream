@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as ApiPublicPRouteImport } from './routes/api/public/p'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicPRoute = ApiPublicPRouteImport.update({
@@ -31,30 +37,34 @@ const ApiPublicPingRoute = ApiPublicPingRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/p' | '/api/public/ping'
+  fullPaths: '/' | '/$' | '/api/public/p' | '/api/public/ping'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/p' | '/api/public/ping'
-  id: '__root__' | '/' | '/api/public/p' | '/api/public/ping'
+  to: '/' | '/$' | '/api/public/p' | '/api/public/ping'
+  id: '__root__' | '/' | '/$' | '/api/public/p' | '/api/public/ping'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
   ApiPublicPRoute: typeof ApiPublicPRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/p': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
   ApiPublicPRoute: ApiPublicPRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
 }
