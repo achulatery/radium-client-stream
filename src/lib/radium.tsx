@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import {
-  PRESET_THEMES,
+  RADIUM_DARK,
+  RADIUM_LIGHT,
   STORAGE_KEYS,
   loadCustomThemes,
   saveCustomThemes,
@@ -17,20 +18,16 @@ import {
 } from "./themes";
 
 export type Settings = {
-  toolbarMode: boolean;
   stealth: boolean;
   singaporeClock: boolean;
 };
 
-const DEFAULT_SETTINGS: Settings = {
-  toolbarMode: false,
-  stealth: false,
-  singaporeClock: true,
-};
+const DEFAULT_SETTINGS: Settings = { stealth: false, singaporeClock: true };
 
 type Ctx = {
   theme: Theme;
   setTheme: (t: Theme) => void;
+  toggleMode: () => void;
   customThemes: Theme[];
   saveTheme: (t: Theme) => void;
   deleteTheme: (id: string) => void;
@@ -44,7 +41,7 @@ type Ctx = {
 const RadiumContext = createContext<Ctx | null>(null);
 
 export function RadiumProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(PRESET_THEMES[0]!);
+  const [theme, setThemeState] = useState<Theme>(RADIUM_DARK);
   const [customThemes, setCustomThemes] = useState<Theme[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [history, setHistory] = useState<{ url: string; at: number }[]>([]);
@@ -68,11 +65,21 @@ export function RadiumProvider({ children }: { children: ReactNode }) {
     for (const [k, v] of Object.entries(vars)) {
       document.documentElement.style.setProperty(k, v);
     }
+    document.documentElement.classList.toggle("dark", theme.mode === "dark");
+    document.documentElement.style.colorScheme = theme.mode;
   }, [theme]);
 
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);
     localStorage.setItem(STORAGE_KEYS.active, JSON.stringify(t));
+  }, []);
+
+  const toggleMode = useCallback(() => {
+    setThemeState((prev) => {
+      const next = prev.mode === "dark" ? RADIUM_LIGHT : RADIUM_DARK;
+      localStorage.setItem(STORAGE_KEYS.active, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const saveTheme = useCallback((t: Theme) => {
@@ -116,6 +123,7 @@ export function RadiumProvider({ children }: { children: ReactNode }) {
     () => ({
       theme,
       setTheme,
+      toggleMode,
       customThemes,
       saveTheme,
       deleteTheme,
@@ -128,6 +136,7 @@ export function RadiumProvider({ children }: { children: ReactNode }) {
     [
       theme,
       setTheme,
+      toggleMode,
       customThemes,
       saveTheme,
       deleteTheme,
