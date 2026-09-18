@@ -33,6 +33,54 @@ function Home() {
     navigate({ to: "/browse", search: { url } });
   };
 
+  if (settings.toolbarMode) {
+    return (
+      <div
+        className="flex min-h-screen flex-col"
+        style={{ background: "var(--rd-bg)", color: "var(--rd-text)" }}
+      >
+        <div
+          className="flex flex-wrap items-center gap-2 p-2"
+          style={{ background: "var(--rd-surface)" }}
+        >
+          <form
+            className="min-w-0 flex-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              go(query);
+            }}
+          >
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Enter a URL or search"
+              aria-label="Address bar"
+              className="w-full rounded-full px-4 py-2 text-sm outline-none"
+              style={{ background: "var(--rd-search)", color: "var(--rd-search-text)" }}
+            />
+          </form>
+          {settings.singaporeClock && <SingaporeClock />}
+          <PingCounter />
+          <Link
+            to="/settings"
+            className="rounded-full px-3 py-1.5 text-xs"
+            style={{ background: "var(--rd-button)", color: "var(--rd-button-text)" }}
+          >
+            Settings
+          </Link>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-1">
+          <p className="text-2xl font-semibold">
+            Radium<span style={{ color: "var(--rd-accent)" }}> Client</span>
+          </p>
+          <p className="text-xs" style={{ color: "var(--rd-muted)" }}>
+            branding by James Xie
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="flex min-h-screen flex-col"
