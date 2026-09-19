@@ -86,6 +86,9 @@ const CLIENT_PATCH = `<script>(function(){
     if(i&&i.url)return f(new Request(P(i.url),i),o); return f(i,o); };
   var xo=XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open=function(m,u){var a=[].slice.call(arguments);a[1]=P(u);return xo.apply(this,a)};
+  var hp=history.pushState,hr=history.replaceState;
+  history.pushState=function(s,t,u){return hp.call(this,s,t,u==null?u:P(String(u)))};
+  history.replaceState=function(s,t,u){return hr.call(this,s,t,u==null?u:P(String(u)))};
   var ws=window.WebSocket;
   if(ws){window.WebSocket=function(u,p){try{var t=new URL(u,B);var s=location.protocol==='https:'?'wss:':'ws:';
     return new ws(s+'//'+location.host+'/api/public/p?ws=1&u='+encodeURIComponent(t.toString()),p)}catch(e){return new ws(u,p)}};
@@ -98,6 +101,17 @@ const CLIENT_PATCH = `<script>(function(){
     var abs=new URL(h,B).toString();
     parent.postMessage({__radium:'navigate',url:abs},'*');
     location.href=P(abs);
+  },true);
+  document.addEventListener('submit',function(e){
+    var f=e.target;if(!f||f.tagName!=='FORM')return;
+    var method=(f.getAttribute('method')||'get').toLowerCase();
+    if(method!=='get')return;
+    e.preventDefault();
+    var action=new URL(f.getAttribute('action')||B,B);
+    var data=new FormData(f);
+    data.forEach(function(v,k){if(typeof v==='string')action.searchParams.set(k,v)});
+    parent.postMessage({__radium:'navigate',url:action.toString()},'*');
+    location.href=P(action.toString());
   },true);
   window.addEventListener('load',function(){parent.postMessage({__radium:'loaded',url:B},'*')});
 })();</script>`;
@@ -156,6 +170,16 @@ async function handle(request: Request) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  const cookie = headers.get("cookie");
+  if (cookie) {
+    const upstreamCookie = cookie
+      .split(";")
+      .map((part) => part.trim())
+      .filter((part) => !part.startsWith("radium_base="))
+      .join("; ");
+    if (upstreamCookie) headers.set("cookie", upstreamCookie);
+    else headers.delete("cookie");
+  }
   headers.set(
     "user-agent",
     stealth
@@ -187,6 +211,10 @@ async function handle(request: Request) {
   });
   outHeaders.set("x-radium-proxied", targetUrl.toString());
   outHeaders.set("access-control-allow-origin", "*");
+  outHeaders.append(
+    "set-cookie",
+    `radium_base=${encodeURIComponent(baseForNavigation(upstream.url || targetUrl.toString()))}; Path=/; SameSite=Lax`,
+  );
 
   const location = upstream.headers.get("location");
   if (location) {
@@ -223,6 +251,15 @@ async function handle(request: Request) {
 
   // Binary / media: stream through untouched so Range + 206 responses keep working.
   return new Response(upstream.body, { status: upstream.status, headers: outHeaders });
+}
+
+function baseForNavigation(value: string) {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return value;
+  }
 }
 
 export const Route = createFileRoute("/api/public/p")({

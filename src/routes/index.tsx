@@ -221,13 +221,6 @@ function BrowserTab() {
             />
           </div>
         </form>
-        <button
-          onClick={() => open("https://m.youtube.com/")}
-          className="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium"
-          style={{ background: "var(--rd-accent-alt)", color: "var(--rd-bg)" }}
-        >
-          ▶ YouTube
-        </button>
       </div>
 
       <div
@@ -307,13 +300,6 @@ function StartScreen({
             transport.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <button
-              onClick={() => open("https://m.youtube.com/")}
-              className="rounded-md px-8 py-3 text-sm font-semibold"
-              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
-            >
-              ▶ Open YouTube
-            </button>
             <button
               onClick={() => open("https://duckduckgo.com/")}
               className="rounded-md px-8 py-3 text-sm"
@@ -463,13 +449,13 @@ function SettingsTab() {
       name: theme.preset ? "Custom" : theme.name,
     });
 
-  const panel = "rounded-lg p-5";
-  const panelStyle = { background: "var(--rd-surface)", border: "1px solid var(--rd-line)" };
+  const section = "border-b py-4 last:border-b-0";
+  const sectionStyle = { borderColor: "var(--rd-line)" };
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <div className="mx-auto max-w-2xl space-y-5 pb-10">
-        <section className={panel} style={panelStyle}>
+    <div className="h-full overflow-auto px-5 py-2">
+      <div className="mx-auto max-w-2xl pb-8">
+        <section className={section} style={sectionStyle}>
           <h2 className="mb-3 font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
             MODE
           </h2>
@@ -490,7 +476,7 @@ function SettingsTab() {
           </div>
         </section>
 
-        <section className={panel} style={panelStyle}>
+        <section className={section} style={sectionStyle}>
           <h2 className="mb-3 font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
             PRESETS
           </h2>
@@ -512,7 +498,7 @@ function SettingsTab() {
           </div>
         </section>
 
-        <section className={panel} style={panelStyle}>
+        <section className={section} style={sectionStyle}>
           <h2 className="mb-3 font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
             COLORS · LIVE PREVIEW
           </h2>
@@ -557,7 +543,7 @@ function SettingsTab() {
         </section>
 
         {customThemes.length > 0 && (
-          <section className={panel} style={panelStyle}>
+          <section className={section} style={sectionStyle}>
             <h2 className="mb-3 font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
               SAVED THEMES
             </h2>
@@ -584,7 +570,7 @@ function SettingsTab() {
           </section>
         )}
 
-        <section className={panel} style={panelStyle}>
+        <section className={section} style={sectionStyle}>
           <h2 className="mb-3 font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
             SESSION
           </h2>
@@ -618,7 +604,7 @@ function SettingsTab() {
           ))}
         </section>
 
-        <section className={panel} style={panelStyle}>
+        <section className={section} style={sectionStyle}>
           <div className="flex items-center justify-between">
             <h2 className="font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
               HISTORY ({history.length})

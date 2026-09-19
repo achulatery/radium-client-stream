@@ -9,29 +9,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 export const Route = createFileRoute("/$")({
   server: {
     handlers: {
-      GET: ({ request }) => {
-        const referer = request.headers.get("referer");
-        if (referer) {
-          try {
-            const refUrl = new URL(referer);
-            const proxied = refUrl.searchParams.get("u");
-            if (refUrl.pathname === "/api/public/p" && proxied) {
-              const incoming = new URL(request.url);
-              const target = new URL(incoming.pathname + incoming.search, proxied).toString();
-              const stealth = refUrl.searchParams.get("stealth") === "1";
-              return new Response(null, {
-                status: 302,
-                headers: {
-                  location: `/api/public/p?u=${encodeURIComponent(target)}${stealth ? "&stealth=1" : ""}`,
-                },
-              });
-            }
-          } catch {
-            /* fall through to the 404 page */
-          }
-        }
-        return undefined as unknown as Response;
-      },
+      GET: ({ request }) => redirectEscapedNavigation(request),
+      POST: ({ request }) => redirectEscapedNavigation(request),
     },
   },
   head: () => ({
@@ -41,10 +20,50 @@ export const Route = createFileRoute("/$")({
       { name: "robots", content: "noindex" },
       { property: "og:title", content: "Page not found — Radium Client" },
       { property: "og:description", content: "This Radium Client page does not exist." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: NotFound,
 });
+
+function redirectEscapedNavigation(request: Request) {
+        const referer = request.headers.get("referer");
+        let proxied: string | null = null;
+        let stealth = false;
+        if (referer) {
+          try {
+            const refUrl = new URL(referer);
+            if (refUrl.pathname === "/api/public/p") {
+              proxied = refUrl.searchParams.get("u");
+              stealth = refUrl.searchParams.get("stealth") === "1";
+            }
+          } catch {
+            /* fall back to the navigation cookie */
+          }
+        }
+        if (!proxied) {
+          const match = request.headers.get("cookie")?.match(/(?:^|;\s*)radium_base=([^;]+)/);
+          if (match?.[1]) {
+            try {
+              proxied = decodeURIComponent(match[1]);
+            } catch {
+              proxied = null;
+            }
+          }
+        }
+        if (proxied) {
+          const incoming = new URL(request.url);
+          const target = new URL(incoming.pathname + incoming.search, proxied).toString();
+          return new Response(null, {
+            status: 302,
+            headers: {
+              location: `/api/public/p?u=${encodeURIComponent(target)}${stealth ? "&stealth=1" : ""}`,
+            },
+          });
+        }
+        return undefined as unknown as Response;
+}
 
 function NotFound() {
   return (
