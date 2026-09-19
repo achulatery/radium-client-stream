@@ -20,7 +20,7 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  component: RadiumApp;
+  component: RadiumApp,
 });
 
 type Tab = "browser" | "playground" | "settings";
