@@ -18,6 +18,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "Browse, test and theme the web through Radium Client's encrypted transport.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: RadiumApp,
@@ -122,6 +124,7 @@ function BrowserTab() {
   const [nonce, setNonce] = useState(0);
   const [status, setStatus] = useState("Transport ready");
   const frame = useRef<HTMLIFrameElement>(null);
+  const videoId = target ? getYouTubeVideoId(target) : null;
 
   const open = useCallback(
     (raw: string) => {
@@ -242,7 +245,18 @@ function BrowserTab() {
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {target ? (
+        {videoId ? (
+          <iframe
+            key={`youtube-${videoId}-${nonce}`}
+            ref={frame}
+            title="YouTube video player"
+            src={`https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1`}
+            className="h-full w-full border-0 bg-black"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
+        ) : target ? (
           <iframe
             key={nonce}
             ref={frame}
@@ -258,6 +272,21 @@ function BrowserTab() {
       </div>
     </div>
   );
+}
+
+function getYouTubeVideoId(raw: string) {
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.replace(/^www\./, "");
+    if (host === "youtu.be") return url.pathname.split("/").filter(Boolean)[0] ?? null;
+    if (host !== "youtube.com" && host !== "m.youtube.com") return null;
+    if (url.pathname === "/watch") return url.searchParams.get("v");
+    const parts = url.pathname.split("/").filter(Boolean);
+    if ((parts[0] === "shorts" || parts[0] === "live") && parts[1]) return parts[1];
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function StartScreen({
