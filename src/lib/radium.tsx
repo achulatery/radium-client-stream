@@ -171,7 +171,7 @@ export function normalizeQuery(input: string) {
 
 /** Proxy-friendly search endpoints that don't trigger bot walls on datacenter IPs. */
 export function searchUrl(query: string) {
-  return `https://www.startpage.com/sp/search?query=${encodeURIComponent(query)}`;
+  return `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
 }
 
 /** Extract a YouTube video id from any common YouTube URL shape. */
