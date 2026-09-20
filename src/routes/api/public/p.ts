@@ -120,6 +120,12 @@ const CLIENT_PATCH = `<script>(function(){
     parent.postMessage({__radium:'navigate',url:action.toString()},'*');
     location.href=P(action.toString());
   },true);
+  // Elements created or mutated by page scripts never went through the server
+  // rewrite, so their raw URLs escaped the proxy and 404'd.
+  var sa=Element.prototype.setAttribute;
+  Element.prototype.setAttribute=function(n,v){
+    try{if(/^(src|href|action|poster|formaction)$/i.test(n)&&typeof v==='string'&&v)v=P(v)}catch(e){}
+    return sa.call(this,n,v)};
   window.addEventListener('load',function(){parent.postMessage({__radium:'loaded',url:B},'*')});
 })();</script>`;
 
