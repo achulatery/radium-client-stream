@@ -29,6 +29,8 @@ export const Route = createFileRoute("/$")({
 
 function redirectEscapedNavigation(request: Request) {
   const referer = request.headers.get("referer");
+  const dest = request.headers.get("sec-fetch-dest");
+  const isSubresource = !!dest && dest !== "document" && dest !== "iframe" && dest !== "frame";
   let proxied: string | null = null;
   let stealth = false;
   if (referer) {
