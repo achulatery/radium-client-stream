@@ -120,95 +120,29 @@ function RadiumApp() {
 function BrowserTab() {
   const { settings, pushHistory, history } = useRadium();
   const [input, setInput] = useState("");
-  const [target, setTarget] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
+  const [last, setLast] = useState<string | null>(null);
   const [status, setStatus] = useState("Transport ready");
-  const frame = useRef<HTMLIFrameElement>(null);
-  const videoId = target ? getYouTubeVideoId(target) : null;
 
+  // Clean redirector: no in-page streaming iframes. Every query becomes a
+  // proxied link that opens in its own window, so nothing can stall here.
   const open = useCallback(
     (raw: string) => {
       const url = normalizeQuery(raw);
       if (!url) return;
-      setTarget(url);
+      const link = proxyUrl(url, settings.stealth);
       setInput(url);
-      setStatus(`Loading ${url}`);
-      setNonce((n) => n + 1);
+      setLast(link);
+      setStatus(`Opening ${url} in a new window`);
       pushHistory(url);
+      const win = window.open(link, "_blank", "noopener");
+      setStatus(win ? `Opened ${url}` : `Popup blocked — allow popups, or use the link below`);
     },
-    [pushHistory],
+    [pushHistory, settings.stealth],
   );
-
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
-      const data = event.data as { __radium?: string; url?: string };
-      if (!data?.__radium || !data.url) return;
-      if (data.__radium === "navigate") {
-        try {
-          const next = new URL(data.url);
-          if (next.protocol !== "http:" && next.protocol !== "https:") return;
-          setTarget(next.toString());
-          setInput(next.toString());
-          setStatus(`Loading ${next.toString()}`);
-          setNonce((value) => value + 1);
-          pushHistory(next.toString());
-        } catch {
-          return;
-        }
-      }
-      if (data.__radium === "loaded") {
-        setInput(data.url);
-        setStatus("Transport ready");
-      }
-    };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [pushHistory]);
-
-  const iconBtn =
-    "flex h-9 w-9 items-center justify-center rounded-md text-sm transition-opacity hover:opacity-75";
-  const iconStyle = { background: "var(--rd-button)", color: "var(--rd-button-text)" };
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 px-3 py-2">
-        <button
-          className={iconBtn}
-          style={iconStyle}
-          aria-label="Back"
-          onClick={() => frame.current?.contentWindow?.history.back()}
-        >
-          ←
-        </button>
-        <button
-          className={iconBtn}
-          style={iconStyle}
-          aria-label="Forward"
-          onClick={() => frame.current?.contentWindow?.history.forward()}
-        >
-          →
-        </button>
-        <button
-          className={iconBtn}
-          style={iconStyle}
-          aria-label="Reload"
-          onClick={() => setNonce((n) => n + 1)}
-        >
-          ⟳
-        </button>
-        <button
-          className={iconBtn}
-          style={iconStyle}
-          aria-label="Home"
-          onClick={() => {
-            setTarget(null);
-            setInput("");
-            setStatus("Transport ready");
-          }}
-        >
-          ⌂
-        </button>
         <form
           className="min-w-[200px] flex-1"
           onSubmit={(e) => {
@@ -232,73 +166,58 @@ function BrowserTab() {
               className="w-full bg-transparent font-mono text-sm outline-none"
               style={{ color: "var(--rd-search-text)" }}
             />
+            <button
+              type="submit"
+              className="shrink-0 rounded px-3 py-1 text-xs font-medium"
+              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
+            >
+              Open ↗
+            </button>
           </div>
         </form>
       </div>
 
       <div
-        className="flex items-center justify-between px-4 py-1.5 font-mono text-[11px] tracking-[0.12em]"
+        className="flex items-center justify-between gap-3 px-4 py-1.5 font-mono text-[11px] tracking-[0.12em]"
         style={{ borderTop: "1px solid var(--rd-line)", borderBottom: "1px solid var(--rd-line)", color: "var(--rd-muted)" }}
       >
         <span className="truncate">{status}</span>
-        <span style={{ color: "var(--rd-accent-alt)" }}>EDGE PROXY · ENCRYPTED</span>
+        <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>EDGE PROXY · ENCRYPTED</span>
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {videoId ? (
-          <iframe
-            key={`youtube-${videoId}-${nonce}`}
-            ref={frame}
-            title="YouTube video player"
-            src={`https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&hl=en&vq=tiny&enablejsapi=1&mute=1`}
-            loading="eager"
-            className="h-full w-full border-0 bg-black"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            referrerPolicy="strict-origin-when-cross-origin"
-            onLoad={() => {
-              setStatus("Transport ready");
-              const win = frame.current?.contentWindow;
-              if (!win) return;
-              const send = (message: unknown) => win.postMessage(JSON.stringify(message), "*");
-              send({ event: "listening", id: videoId });
-              // Lowest quality keeps startup fast on constrained links.
-              send({ event: "command", func: "setPlaybackQuality", args: ["small"] });
-              send({ event: "command", func: "playVideo", args: [] });
-            }}
-            allowFullScreen
-          />
-        ) : target ? (
-          <iframe
-            key={nonce}
-            ref={frame}
-            title="Proxied content"
-            src={proxyUrl(target, settings.stealth)}
-            className="h-full w-full border-0 bg-white"
-            sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            onLoad={() => setStatus("Transport ready")}
-          />
+        {last ? (
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+            <p className="text-sm" style={{ color: "var(--rd-muted)" }}>
+              Your proxied link is ready and opens in a new window:
+            </p>
+            <a
+              href={last}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="max-w-full truncate rounded-md px-5 py-2.5 font-mono text-xs"
+              style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
+            >
+              {last}
+            </a>
+            <button
+              onClick={() => {
+                setLast(null);
+                setInput("");
+                setStatus("Transport ready");
+              }}
+              className="text-xs underline"
+              style={{ color: "var(--rd-muted)" }}
+            >
+              New search
+            </button>
+          </div>
         ) : (
           <StartScreen open={open} history={history} />
         )}
       </div>
     </div>
   );
-}
-
-function getYouTubeVideoId(raw: string) {
-  try {
-    const url = new URL(raw);
-    const host = url.hostname.replace(/^www\./, "");
-    if (host === "youtu.be") return url.pathname.split("/").filter(Boolean)[0] ?? null;
-    if (host !== "youtube.com" && host !== "m.youtube.com") return null;
-    if (url.pathname === "/watch") return url.searchParams.get("v");
-    const parts = url.pathname.split("/").filter(Boolean);
-    if ((parts[0] === "shorts" || parts[0] === "live") && parts[1]) return parts[1];
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 function StartScreen({
