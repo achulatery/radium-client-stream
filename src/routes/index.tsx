@@ -1,7 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
-import { normalizeQuery, proxyUrl, useRadium } from "@/lib/radium";
+import {
+  getYouTubeVideoId,
+  normalizeQuery,
+  proxyUrl,
+  searchUrl,
+  useRadium,
+  youtubeEmbedUrl,
+} from "@/lib/radium";
 import { PRESET_THEMES, THEME_FIELDS, type Theme } from "@/lib/themes";
 
 export const Route = createFileRoute("/")({
@@ -120,24 +127,31 @@ function RadiumApp() {
 function BrowserTab() {
   const { settings, pushHistory, history } = useRadium();
   const [input, setInput] = useState("");
-  const [last, setLast] = useState<string | null>(null);
+  const [target, setTarget] = useState<string | null>(null);
   const [status, setStatus] = useState("Transport ready");
+  const [nonce, setNonce] = useState(0);
 
-  // Clean redirector: no in-page streaming iframes. Every query becomes a
-  // proxied link that opens in its own window, so nothing can stall here.
+  const videoId = target ? getYouTubeVideoId(target) : null;
+  const frameSrc = target
+    ? videoId
+      ? youtubeEmbedUrl(videoId)
+      : proxyUrl(target, settings.stealth)
+    : null;
+
+  // Everything renders inside Radium. YouTube URLs are converted to their
+  // embed player (which skips the bot/sign-in wall); everything else is
+  // loaded through the edge proxy.
   const open = useCallback(
     (raw: string) => {
       const url = normalizeQuery(raw);
       if (!url) return;
-      const link = proxyUrl(url, settings.stealth);
       setInput(url);
-      setLast(link);
-      setStatus(`Opening ${url} in a new window`);
+      setTarget(url);
+      setNonce((n) => n + 1);
+      setStatus(getYouTubeVideoId(url) ? "Loading player…" : `Loading ${url}`);
       pushHistory(url);
-      const win = window.open(link, "_blank", "noopener");
-      setStatus(win ? `Opened ${url}` : `Popup blocked — allow popups, or use the link below`);
     },
-    [pushHistory, settings.stealth],
+    [pushHistory],
   );
 
   return (
@@ -186,32 +200,35 @@ function BrowserTab() {
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {last ? (
-          <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-            <p className="text-sm" style={{ color: "var(--rd-muted)" }}>
-              Your proxied link is ready and opens in a new window:
-            </p>
-            <a
-              href={last}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="max-w-full truncate rounded-md px-5 py-2.5 font-mono text-xs"
-              style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
-            >
-              {last}
-            </a>
+        {frameSrc ? (
+          <>
+            <iframe
+              key={`${videoId ? "yt" : "web"}-${nonce}`}
+              src={frameSrc}
+              title={videoId ? "YouTube video player" : "Proxied content"}
+              className="h-full w-full"
+              style={{ border: "none", background: "var(--rd-bg)" }}
+              loading="eager"
+              allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+              onLoad={() => setStatus("Transport ready")}
+              {...(videoId
+                ? {}
+                : { sandbox: "allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" })}
+            />
             <button
               onClick={() => {
-                setLast(null);
+                setTarget(null);
                 setInput("");
                 setStatus("Transport ready");
               }}
-              className="text-xs underline"
-              style={{ color: "var(--rd-muted)" }}
+              className="absolute right-3 bottom-3 rounded-md px-3 py-1.5 font-mono text-[11px]"
+              style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
             >
-              New search
+              CLOSE
             </button>
-          </div>
+          </>
         ) : (
           <StartScreen open={open} history={history} />
         )}
@@ -271,7 +288,7 @@ function StartScreen({
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <button
-              onClick={() => open("https://duckduckgo.com/")}
+              onClick={() => open(searchUrl("radium client"))}
               className="rounded-md px-8 py-3 text-sm"
               style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
             >
