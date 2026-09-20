@@ -187,6 +187,15 @@ async function handle(request: Request) {
     if (upstreamCookie) headers.set("cookie", upstreamCookie);
     else headers.delete("cookie");
   }
+  // Google/YouTube otherwise bounce every fresh session to a consent page on
+  // accounts.google.com, whose in-page navigation is what produced 404s.
+  if (/(?:^|\.)(?:google\.[a-z.]+|youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(targetUrl.hostname)) {
+    const existing = headers.get("cookie") ?? "";
+    const extras: string[] = [];
+    if (!/\bSOCS=/.test(existing)) extras.push("SOCS=CAESEwgDEgk0ODE3Nzk3MjQaAmVuIAEaBgiA_LyaBg");
+    if (!/\bCONSENT=/.test(existing)) extras.push("CONSENT=YES+cb");
+    if (extras.length) headers.set("cookie", [existing, ...extras].filter(Boolean).join("; "));
+  }
   headers.set(
     "user-agent",
     stealth
