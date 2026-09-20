@@ -7,7 +7,7 @@ import {
   proxyUrl,
   searchUrl,
   useRadium,
-  youtubeEmbedUrl,
+  videoPlayerUrl,
 } from "@/lib/radium";
 import { PRESET_THEMES, THEME_FIELDS, type Theme } from "@/lib/themes";
 
@@ -132,15 +132,12 @@ function BrowserTab() {
   const [nonce, setNonce] = useState(0);
 
   const videoId = target ? getYouTubeVideoId(target) : null;
-  const frameSrc = target
-    ? videoId
-      ? youtubeEmbedUrl(videoId)
-      : proxyUrl(target, settings.stealth)
-    : null;
+  const playerHref = videoId ? videoPlayerUrl(videoId) : null;
+  const frameSrc = target && !videoId ? proxyUrl(target, settings.stealth) : null;
 
-  // Everything renders inside Radium. YouTube URLs are converted to their
-  // embed player (which skips the bot/sign-in wall); everything else is
-  // loaded through the edge proxy.
+  // Videos route to a bot-check-free player (Invidious embed) opened in a
+  // clean new tab — no iframe, so no connection-security errors. Everything
+  // else loads through the edge proxy inside Radium.
   const open = useCallback(
     (raw: string) => {
       const url = normalizeQuery(raw);
@@ -148,7 +145,14 @@ function BrowserTab() {
       setInput(url);
       setTarget(url);
       setNonce((n) => n + 1);
-      setStatus(getYouTubeVideoId(url) ? "Loading player…" : `Loading ${url}`);
+      const id = getYouTubeVideoId(url);
+      if (id) {
+        const href = videoPlayerUrl(id);
+        window.open(href, "_blank", "noopener");
+        setStatus("Player opened in a new tab");
+      } else {
+        setStatus(`Loading ${url}`);
+      }
       pushHistory(url);
     },
     [pushHistory],
