@@ -171,7 +171,7 @@ export function normalizeQuery(input: string) {
 
 /** Proxy-friendly search endpoints that don't trigger bot walls on datacenter IPs. */
 export function searchUrl(query: string) {
-  return `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+  return `https://searx.be/search?q=${encodeURIComponent(query)}`;
 }
 
 /** Extract a YouTube video id from any common YouTube URL shape. */
@@ -194,9 +194,7 @@ export function getYouTubeVideoId(raw: string): string | null {
   return null;
 }
 
-/** Build the embeddable player URL for a video id. */
-export function youtubeEmbedUrl(videoId: string) {
-  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(
-    videoId,
-  )}?autoplay=1&playsinline=1&rel=0&hl=en&modestbranding=1`;
+/** Build a bot-check-free player URL (Invidious embed) for a video id. */
+export function videoPlayerUrl(videoId: string) {
+  return `https://yewtu.be/embed/${encodeURIComponent(videoId)}`;
 }
