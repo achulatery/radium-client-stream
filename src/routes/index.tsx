@@ -1,7 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
-import { normalizeQuery, proxyUrl, useRadium } from "@/lib/radium";
+import {
+  getYouTubeVideoId,
+  normalizeQuery,
+  proxyUrl,
+  searchUrl,
+  useRadium,
+  youtubeEmbedUrl,
+} from "@/lib/radium";
 import { PRESET_THEMES, THEME_FIELDS, type Theme } from "@/lib/themes";
 
 export const Route = createFileRoute("/")({
