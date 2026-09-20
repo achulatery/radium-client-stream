@@ -193,32 +193,35 @@ function BrowserTab() {
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {last ? (
-          <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-            <p className="text-sm" style={{ color: "var(--rd-muted)" }}>
-              Your proxied link is ready and opens in a new window:
-            </p>
-            <a
-              href={last}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="max-w-full truncate rounded-md px-5 py-2.5 font-mono text-xs"
-              style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
-            >
-              {last}
-            </a>
+        {frameSrc ? (
+          <>
+            <iframe
+              key={`${videoId ? "yt" : "web"}-${nonce}`}
+              src={frameSrc}
+              title={videoId ? "YouTube video player" : "Proxied content"}
+              className="h-full w-full"
+              style={{ border: "none", background: "var(--rd-bg)" }}
+              loading="eager"
+              allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+              onLoad={() => setStatus("Transport ready")}
+              {...(videoId
+                ? {}
+                : { sandbox: "allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" })}
+            />
             <button
               onClick={() => {
-                setLast(null);
+                setTarget(null);
                 setInput("");
                 setStatus("Transport ready");
               }}
-              className="text-xs underline"
-              style={{ color: "var(--rd-muted)" }}
+              className="absolute right-3 bottom-3 rounded-md px-3 py-1.5 font-mono text-[11px]"
+              style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
             >
-              New search
+              CLOSE
             </button>
-          </div>
+          </>
         ) : (
           <StartScreen open={open} history={history} />
         )}
