@@ -171,7 +171,7 @@ export function normalizeQuery(input: string) {
 
 /** Proxy-friendly search endpoints that don't trigger bot walls on datacenter IPs. */
 export function searchUrl(query: string) {
-  return `https://searx.be/search?q=${encodeURIComponent(query)}`;
+  return `https://www.startpage.com/sp/search?query=${encodeURIComponent(query)}`;
 }
 
 /** Extract a YouTube video id from any common YouTube URL shape. */
@@ -196,5 +196,5 @@ export function getYouTubeVideoId(raw: string): string | null {
 
 /** Build a bot-check-free player URL (Invidious embed) for a video id. */
 export function videoPlayerUrl(videoId: string) {
-  return `https://yewtu.be/embed/${encodeURIComponent(videoId)}`;
+  return `https://piped.video/watch?v=${encodeURIComponent(videoId)}`;
 }
