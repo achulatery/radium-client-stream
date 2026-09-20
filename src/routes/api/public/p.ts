@@ -75,10 +75,15 @@ function rewriteCss(css: string, base: string, stealth: boolean) {
 const CLIENT_PATCH = `<script>(function(){
   var B=document.currentScript.getAttribute('data-base');
   var S=document.currentScript.getAttribute('data-stealth')==='1';
+  function U(u){try{if(typeof u!=='string')u=String(u);var x=new URL(u,location.origin);
+    if(x.origin===location.origin&&x.pathname==='/api/public/p'){var t=x.searchParams.get('u');if(t)return t}
+    return new URL(u,B).toString();
+  }catch(e){return u}}
   function P(u){try{if(typeof u!=='string')u=String(u);if(!u)return u;
     if(/^(data:|blob:|javascript:|about:|mailto:|tel:)/i.test(u))return u;
-    if(u.indexOf('/api/public/p?u=')===0)return u;
-    return '/api/public/p?u='+encodeURIComponent(new URL(u,B).toString())+(S?'&stealth=1':'');
+    var x=new URL(u,location.origin);
+    if(x.origin===location.origin&&x.pathname==='/api/public/p'&&x.searchParams.has('u'))return x.pathname+x.search;
+    return '/api/public/p?u='+encodeURIComponent(U(u))+(S?'&stealth=1':'');
   }catch(e){return u}}
   window.__radiumProxy=P;
   var f=window.fetch;
@@ -98,7 +103,7 @@ const CLIENT_PATCH = `<script>(function(){
     if(!a)return;var h=a.getAttribute('href')||'';
     if(/^(javascript:|#|mailto:|tel:)/i.test(h))return;
     e.preventDefault();
-    var abs=new URL(h,B).toString();
+    var abs=U(h);
     parent.postMessage({__radium:'navigate',url:abs},'*');
     location.href=P(abs);
   },true);
@@ -107,9 +112,11 @@ const CLIENT_PATCH = `<script>(function(){
     var method=(f.getAttribute('method')||'get').toLowerCase();
     if(method!=='get')return;
     e.preventDefault();
-    var action=new URL(f.getAttribute('action')||B,B);
+    var action=new URL(U(f.getAttribute('action')||B));
     var data=new FormData(f);
-    data.forEach(function(v,k){if(typeof v==='string')action.searchParams.set(k,v)});
+    var keys=[];data.forEach(function(_v,k){if(keys.indexOf(k)<0)keys.push(k)});
+    keys.forEach(function(k){action.searchParams.delete(k)});
+    data.forEach(function(v,k){if(typeof v==='string')action.searchParams.append(k,v)});
     parent.postMessage({__radium:'navigate',url:action.toString()},'*');
     location.href=P(action.toString());
   },true);
@@ -211,10 +218,6 @@ async function handle(request: Request) {
   });
   outHeaders.set("x-radium-proxied", targetUrl.toString());
   outHeaders.set("access-control-allow-origin", "*");
-  outHeaders.append(
-    "set-cookie",
-    `radium_base=${encodeURIComponent(baseForNavigation(upstream.url || targetUrl.toString()))}; Path=/; SameSite=Lax`,
-  );
 
   const location = upstream.headers.get("location");
   if (location) {
@@ -227,6 +230,11 @@ async function handle(request: Request) {
   if (type.includes("text/html")) {
     const body = rewriteHtml(await upstream.text(), base, stealth);
     outHeaders.set("content-type", "text/html; charset=utf-8");
+    outHeaders.set("referrer-policy", "same-origin");
+    outHeaders.append(
+      "set-cookie",
+      `radium_base=${encodeURIComponent(baseForNavigation(base))}; Path=/; SameSite=Lax`,
+    );
     return new Response(body, { status: upstream.status, headers: outHeaders });
   }
 
