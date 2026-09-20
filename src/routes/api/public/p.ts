@@ -244,6 +244,7 @@ async function handle(request: Request) {
   );
   headers.set("accept-language", headers.get("accept-language") ?? "en-SG,en;q=0.9");
   headers.set("referer", targetUrl.origin + "/");
+  if (request.method !== "GET" && request.method !== "HEAD") headers.set("origin", targetUrl.origin);
   headers.delete("accept-encoding");
 
   let upstream: Response;
@@ -252,10 +253,10 @@ async function handle(request: Request) {
       method: request.method,
       headers,
       body:
-        request.method === "GET" || request.method === "HEAD"
-          ? null
-          : ((request.body ?? null) as BodyInit | null),
-      redirect: "follow",
+        request.method === "GET" || request.method === "HEAD" ? null : await request.arrayBuffer(),
+      // Manual: sign-in hands out its session cookies on the redirect hops, and
+      // following them server-side would swallow those cookies.
+      redirect: "manual",
     });
   } catch (error) {
     return new Response(`Upstream request failed: ${(error as Error).message}`, { status: 502 });
@@ -268,9 +269,22 @@ async function handle(request: Request) {
   outHeaders.set("x-radium-proxied", targetUrl.toString());
   outHeaders.set("access-control-allow-origin", "*");
 
+  const setCookies =
+    typeof upstream.headers.getSetCookie === "function"
+      ? upstream.headers.getSetCookie()
+      : ((upstream.headers.get("set-cookie") ? [upstream.headers.get("set-cookie")!] : []) as string[]);
+  for (const raw of setCookies) {
+    const rewritten = rewriteSetCookie(raw, scope);
+    if (rewritten) outHeaders.append("set-cookie", rewritten);
+  }
+
   const location = upstream.headers.get("location");
   if (location) {
-    outHeaders.set("location", resolveAndProxy(location, upstream.url || targetUrl.toString(), stealth));
+    const resolved = resolveAndProxy(location, upstream.url || targetUrl.toString(), stealth);
+    outHeaders.set("location", resolved);
+    if (upstream.status >= 300 && upstream.status < 400) {
+      return new Response(null, { status: upstream.status, headers: outHeaders });
+    }
   }
 
   const type = (upstream.headers.get("content-type") ?? "").toLowerCase();
