@@ -65,9 +65,12 @@ function redirectEscapedNavigation(request: Request) {
         },
       });
     } catch {
-      return undefined as unknown as Response;
+      /* fall through to the 404 handling below */
     }
   }
+  // Assets, scripts and API calls must not receive the HTML 404 page: strict MIME
+  // checking then reports a broken stylesheet/script instead of a missing file.
+  if (isSubresource) return new Response("Not found", { status: 404 });
   return undefined as unknown as Response;
 }
 
