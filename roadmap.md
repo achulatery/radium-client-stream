@@ -1,2 +1,3 @@
-
 - [x] Fix YouTube video and Shorts playback through the proxy; sign-in is out of scope
+- [ ] Pin YouTube region back to Singapore (gl=SG hints, PREF cookie)
+- [ ] Fix slow "loading into video" on YouTube watch/Shorts pages
