@@ -75,8 +75,18 @@ function proxyPath(target: string, stealth: boolean) {
   return `/api/public/p?u=${encodeURIComponent(target)}${stealth ? "&stealth=1" : ""}`;
 }
 
+/** Browsers decode entities in attribute values; we must too, before wrapping. */
+function decodeAttrEntities(value: string): string {
+  return value
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
 function resolveAndProxy(raw: string, base: string, stealth: boolean): string {
-  const value = raw.trim();
+  const value = decodeAttrEntities(raw.trim());
   if (!value) return raw;
   if (/^(data:|blob:|javascript:|mailto:|tel:|about:|#)/i.test(value)) return value;
   if (value.startsWith("/api/public/p?u=")) return value;

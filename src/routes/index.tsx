@@ -256,6 +256,7 @@ function BrowserTab() {
             className="h-full w-full border-0 bg-black"
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             referrerPolicy="strict-origin-when-cross-origin"
+            onLoad={() => setStatus("Transport ready")}
             allowFullScreen
           />
         ) : target ? (
