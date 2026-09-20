@@ -166,5 +166,37 @@ export function normalizeQuery(input: string) {
   if (!q) return null;
   const looksLikeUrl = /^https?:\/\//i.test(q) || /^[\w-]+(\.[\w-]+)+(\/|$|:\d)/.test(q);
   if (looksLikeUrl) return /^https?:\/\//i.test(q) ? q : `https://${q}`;
-  return `https://duckduckgo.com/?q=${encodeURIComponent(q)}`;
+  return searchUrl(q);
+}
+
+/** Proxy-friendly search endpoints that don't trigger bot walls on datacenter IPs. */
+export function searchUrl(query: string) {
+  return `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+}
+
+/** Extract a YouTube video id from any common YouTube URL shape. */
+export function getYouTubeVideoId(raw: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^www\.|^m\./, "").toLowerCase();
+  const ok = (id: string | null | undefined) =>
+    id && /^[\w-]{6,20}$/.test(id) ? id : null;
+  if (host === "youtu.be") return ok(u.pathname.split("/").filter(Boolean)[0]);
+  if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    if (u.pathname === "/watch") return ok(u.searchParams.get("v"));
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (parts[0] === "shorts" || parts[0] === "live" || parts[0] === "embed") return ok(parts[1]);
+  }
+  return null;
+}
+
+/** Build the embeddable player URL for a video id. */
+export function youtubeEmbedUrl(videoId: string) {
+  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(
+    videoId,
+  )}?autoplay=1&playsinline=1&rel=0&hl=en&modestbranding=1`;
 }
