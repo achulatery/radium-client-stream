@@ -1,5 +1,4 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { getRequest } from "@tanstack/react-start/server";
 
 /**
  * Catch-all. Proxied pages sometimes navigate to a root-relative path (YouTube's
@@ -9,8 +8,9 @@ import { getRequest } from "@tanstack/react-start/server";
  * page.
  */
 export const Route = createFileRoute("/$")({
-  loader: () => {
+  loader: async () => {
     if (typeof window !== "undefined") return null;
+    const { escapedNavigationTarget } = await import("@/lib/escaped-nav.server");
     const target = escapedNavigationTarget();
     if (target) throw redirect({ href: target });
     return null;
@@ -29,46 +29,6 @@ export const Route = createFileRoute("/$")({
   component: NotFound,
 });
 
-function escapedNavigationTarget(): string | null {
-  let request: Request;
-  try {
-    request = getRequest();
-  } catch {
-    return null;
-  }
-  const referer = request.headers.get("referer");
-  let proxied: string | null = null;
-  let stealth = false;
-  if (referer) {
-    try {
-      const refUrl = new URL(referer);
-      if (refUrl.pathname === "/api/public/p") {
-        proxied = refUrl.searchParams.get("u");
-        stealth = refUrl.searchParams.get("stealth") === "1";
-      }
-    } catch {
-      /* fall back to the navigation cookie */
-    }
-  }
-  if (!proxied) {
-    const match = request.headers.get("cookie")?.match(/(?:^|;\s*)radium_base=([^;]+)/);
-    if (match?.[1]) {
-      try {
-        proxied = decodeURIComponent(match[1]);
-      } catch {
-        proxied = null;
-      }
-    }
-  }
-  if (!proxied) return null;
-  try {
-    const incoming = new URL(request.url);
-    const target = new URL(incoming.pathname + incoming.search, proxied).toString();
-    return `/api/public/p?u=${encodeURIComponent(target)}${stealth ? "&stealth=1" : ""}`;
-  } catch {
-    return null;
-  }
-}
 
 
 function NotFound() {
