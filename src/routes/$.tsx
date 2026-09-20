@@ -29,6 +29,8 @@ export const Route = createFileRoute("/$")({
 
 function redirectEscapedNavigation(request: Request) {
   const referer = request.headers.get("referer");
+  const dest = request.headers.get("sec-fetch-dest");
+  const isSubresource = !!dest && dest !== "document" && dest !== "iframe" && dest !== "frame";
   let proxied: string | null = null;
   let stealth = false;
   if (referer) {
@@ -63,9 +65,12 @@ function redirectEscapedNavigation(request: Request) {
         },
       });
     } catch {
-      return undefined as unknown as Response;
+      /* fall through to the 404 handling below */
     }
   }
+  // Assets, scripts and API calls must not receive the HTML 404 page: strict MIME
+  // checking then reports a broken stylesheet/script instead of a missing file.
+  if (isSubresource) return new Response("Not found", { status: 404 });
   return undefined as unknown as Response;
 }
 

@@ -22,7 +22,44 @@ const STRIPPED_RESPONSE_HEADERS = new Set([
   "cross-origin-opener-policy",
   "cross-origin-embedder-policy",
   "report-to",
+  "set-cookie",
 ]);
+
+/** Group cookies by registrable domain so each site only gets its own jar. */
+function cookieScope(hostname: string) {
+  const parts = hostname.toLowerCase().split(".");
+  const key = parts.length > 2 ? parts.slice(-2).join(".") : hostname.toLowerCase();
+  return key.replace(/[^a-z0-9]/g, "_");
+}
+
+/** Upstream cookies are re-issued for our own origin, scoped by site. */
+function rewriteSetCookie(raw: string, scope: string) {
+  const [pair, ...attrs] = raw.split(";");
+  if (!pair || !pair.includes("=")) return null;
+  const eq = pair.indexOf("=");
+  const name = pair.slice(0, eq).trim();
+  const value = pair.slice(eq + 1).trim();
+  if (!name) return null;
+  const kept = attrs
+    .map((a) => a.trim())
+    .filter((a) => /^(expires|max-age|httponly)/i.test(a));
+  return [`rdm_${scope}__${encodeURIComponent(name)}=${value}`, "Path=/", "SameSite=Lax", ...kept].join("; ");
+}
+
+/** Reverse of rewriteSetCookie: hand a site back only the cookies it set. */
+function upstreamCookieHeader(cookieHeader: string, scope: string) {
+  const prefix = `rdm_${scope}__`;
+  const out: string[] = [];
+  for (const part of cookieHeader.split(";")) {
+    const trimmed = part.trim();
+    if (!trimmed.startsWith(prefix)) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 0) continue;
+    const name = decodeURIComponent(trimmed.slice(prefix.length, eq));
+    out.push(`${name}=${trimmed.slice(eq + 1)}`);
+  }
+  return out.join("; ");
+}
 
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
@@ -120,6 +157,12 @@ const CLIENT_PATCH = `<script>(function(){
     parent.postMessage({__radium:'navigate',url:action.toString()},'*');
     location.href=P(action.toString());
   },true);
+  // Elements created or mutated by page scripts never went through the server
+  // rewrite, so their raw URLs escaped the proxy and 404'd.
+  var sa=Element.prototype.setAttribute;
+  Element.prototype.setAttribute=function(n,v){
+    try{if(/^(src|href|action|poster|formaction)$/i.test(n)&&typeof v==='string'&&v)v=P(v)}catch(e){}
+    return sa.call(this,n,v)};
   window.addEventListener('load',function(){parent.postMessage({__radium:'loaded',url:B},'*')});
 })();</script>`;
 
@@ -177,15 +220,21 @@ async function handle(request: Request) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-  const cookie = headers.get("cookie");
+  const scope = cookieScope(targetUrl.hostname);
+  const cookie = request.headers.get("cookie");
+  headers.delete("cookie");
   if (cookie) {
-    const upstreamCookie = cookie
-      .split(";")
-      .map((part) => part.trim())
-      .filter((part) => !part.startsWith("radium_base="))
-      .join("; ");
+    const upstreamCookie = upstreamCookieHeader(cookie, scope);
     if (upstreamCookie) headers.set("cookie", upstreamCookie);
-    else headers.delete("cookie");
+  }
+  // Google/YouTube otherwise bounce every fresh session to a consent page on
+  // accounts.google.com, whose in-page navigation is what produced 404s.
+  if (/(?:^|\.)(?:google\.[a-z.]+|youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(targetUrl.hostname)) {
+    const existing = headers.get("cookie") ?? "";
+    const extras: string[] = [];
+    if (!/\bSOCS=/.test(existing)) extras.push("SOCS=CAESEwgDEgk0ODE3Nzk3MjQaAmVuIAEaBgiA_LyaBg");
+    if (!/\bCONSENT=/.test(existing)) extras.push("CONSENT=YES+cb");
+    if (extras.length) headers.set("cookie", [existing, ...extras].filter(Boolean).join("; "));
   }
   headers.set(
     "user-agent",
@@ -195,6 +244,7 @@ async function handle(request: Request) {
   );
   headers.set("accept-language", headers.get("accept-language") ?? "en-SG,en;q=0.9");
   headers.set("referer", targetUrl.origin + "/");
+  if (request.method !== "GET" && request.method !== "HEAD") headers.set("origin", targetUrl.origin);
   headers.delete("accept-encoding");
 
   let upstream: Response;
@@ -203,10 +253,10 @@ async function handle(request: Request) {
       method: request.method,
       headers,
       body:
-        request.method === "GET" || request.method === "HEAD"
-          ? null
-          : ((request.body ?? null) as BodyInit | null),
-      redirect: "follow",
+        request.method === "GET" || request.method === "HEAD" ? null : await request.arrayBuffer(),
+      // Manual: sign-in hands out its session cookies on the redirect hops, and
+      // following them server-side would swallow those cookies.
+      redirect: "manual",
     });
   } catch (error) {
     return new Response(`Upstream request failed: ${(error as Error).message}`, { status: 502 });
@@ -219,9 +269,22 @@ async function handle(request: Request) {
   outHeaders.set("x-radium-proxied", targetUrl.toString());
   outHeaders.set("access-control-allow-origin", "*");
 
+  const setCookies =
+    typeof upstream.headers.getSetCookie === "function"
+      ? upstream.headers.getSetCookie()
+      : ((upstream.headers.get("set-cookie") ? [upstream.headers.get("set-cookie")!] : []) as string[]);
+  for (const raw of setCookies) {
+    const rewritten = rewriteSetCookie(raw, scope);
+    if (rewritten) outHeaders.append("set-cookie", rewritten);
+  }
+
   const location = upstream.headers.get("location");
   if (location) {
-    outHeaders.set("location", resolveAndProxy(location, upstream.url || targetUrl.toString(), stealth));
+    const resolved = resolveAndProxy(location, upstream.url || targetUrl.toString(), stealth);
+    outHeaders.set("location", resolved);
+    if (upstream.status >= 300 && upstream.status < 400) {
+      return new Response(null, { status: upstream.status, headers: outHeaders });
+    }
   }
 
   const type = (upstream.headers.get("content-type") ?? "").toLowerCase();
@@ -231,10 +294,22 @@ async function handle(request: Request) {
     const body = rewriteHtml(await upstream.text(), base, stealth);
     outHeaders.set("content-type", "text/html; charset=utf-8");
     outHeaders.set("referrer-policy", "same-origin");
-    outHeaders.append(
-      "set-cookie",
-      `radium_base=${encodeURIComponent(baseForNavigation(base))}; Path=/; SameSite=Lax`,
-    );
+    // Only the top proxied frame owns the navigation fallback. Nested frames
+    // (Google consent/auth) are referred by a proxy URL; skip those so a later
+    // escaped navigation still resolves against the real page.
+    const referer = request.headers.get("referer") ?? "";
+    let nestedFrame = false;
+    try {
+      nestedFrame = new URL(referer).pathname === "/api/public/p";
+    } catch {
+      nestedFrame = false;
+    }
+    if (!nestedFrame) {
+      outHeaders.append(
+        "set-cookie",
+        `radium_base=${encodeURIComponent(baseForNavigation(base))}; Path=/; SameSite=Lax`,
+      );
+    }
     return new Response(body, { status: upstream.status, headers: outHeaders });
   }
 
