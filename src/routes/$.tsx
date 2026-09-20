@@ -1,17 +1,19 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { getRequest } from "@tanstack/react-start/server";
 
 /**
  * Catch-all. Proxied pages sometimes navigate to a root-relative path (YouTube's
  * own search box does this), which lands here instead of on the proxy. When the
  * referer is a proxied page we resolve the path against it and bounce back into
- * the proxy, so in-site navigation keeps working.
+ * the proxy, so in-site navigation keeps working. Anything else renders the 404
+ * page.
  */
 export const Route = createFileRoute("/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => redirectEscapedNavigation(request),
-      POST: ({ request }) => redirectEscapedNavigation(request),
-    },
+  loader: () => {
+    if (typeof window !== "undefined") return null;
+    const target = escapedNavigationTarget();
+    if (target) throw redirect({ href: target });
+    return null;
   },
   head: () => ({
     meta: [
@@ -27,10 +29,14 @@ export const Route = createFileRoute("/$")({
   component: NotFound,
 });
 
-function redirectEscapedNavigation(request: Request) {
+function escapedNavigationTarget(): string | null {
+  let request: Request;
+  try {
+    request = getRequest();
+  } catch {
+    return null;
+  }
   const referer = request.headers.get("referer");
-  const dest = request.headers.get("sec-fetch-dest");
-  const isSubresource = !!dest && dest !== "document" && dest !== "iframe" && dest !== "frame";
   let proxied: string | null = null;
   let stealth = false;
   if (referer) {
@@ -54,25 +60,16 @@ function redirectEscapedNavigation(request: Request) {
       }
     }
   }
-  if (proxied) {
-    try {
-      const incoming = new URL(request.url);
-      const target = new URL(incoming.pathname + incoming.search, proxied).toString();
-      return new Response(null, {
-        status: request.method === "POST" ? 307 : 302,
-        headers: {
-          location: `/api/public/p?u=${encodeURIComponent(target)}${stealth ? "&stealth=1" : ""}`,
-        },
-      });
-    } catch {
-      /* fall through to the 404 handling below */
-    }
+  if (!proxied) return null;
+  try {
+    const incoming = new URL(request.url);
+    const target = new URL(incoming.pathname + incoming.search, proxied).toString();
+    return `/api/public/p?u=${encodeURIComponent(target)}${stealth ? "&stealth=1" : ""}`;
+  } catch {
+    return null;
   }
-  // Assets, scripts and API calls must not receive the HTML 404 page: strict MIME
-  // checking then reports a broken stylesheet/script instead of a missing file.
-  if (isSubresource) return new Response("Not found", { status: 404 });
-  return undefined as unknown as Response;
 }
+
 
 function NotFound() {
   return (
