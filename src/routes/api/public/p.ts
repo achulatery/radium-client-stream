@@ -240,10 +240,16 @@ async function handle(request: Request) {
     const body = rewriteHtml(await upstream.text(), base, stealth);
     outHeaders.set("content-type", "text/html; charset=utf-8");
     outHeaders.set("referrer-policy", "same-origin");
-    outHeaders.append(
-      "set-cookie",
-      `radium_base=${encodeURIComponent(baseForNavigation(base))}; Path=/; SameSite=Lax`,
-    );
+    // Only top-level page loads own the navigation fallback; sub-frames (Google
+    // consent/auth frames) must not overwrite it or later escapes misresolve.
+    const dest = request.headers.get("sec-fetch-dest");
+    const isTopDocument = !dest || dest === "document" || dest === "empty";
+    if (isTopDocument) {
+      outHeaders.append(
+        "set-cookie",
+        `radium_base=${encodeURIComponent(baseForNavigation(base))}; Path=/; SameSite=Lax`,
+      );
+    }
     return new Response(body, { status: upstream.status, headers: outHeaders });
   }
 
