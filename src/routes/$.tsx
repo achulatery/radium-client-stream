@@ -28,41 +28,45 @@ export const Route = createFileRoute("/$")({
 });
 
 function redirectEscapedNavigation(request: Request) {
-        const referer = request.headers.get("referer");
-        let proxied: string | null = null;
-        let stealth = false;
-        if (referer) {
-          try {
-            const refUrl = new URL(referer);
-            if (refUrl.pathname === "/api/public/p") {
-              proxied = refUrl.searchParams.get("u");
-              stealth = refUrl.searchParams.get("stealth") === "1";
-            }
-          } catch {
-            /* fall back to the navigation cookie */
-          }
-        }
-        if (!proxied) {
-          const match = request.headers.get("cookie")?.match(/(?:^|;\s*)radium_base=([^;]+)/);
-          if (match?.[1]) {
-            try {
-              proxied = decodeURIComponent(match[1]);
-            } catch {
-              proxied = null;
-            }
-          }
-        }
-        if (proxied) {
-          const incoming = new URL(request.url);
-          const target = new URL(incoming.pathname + incoming.search, proxied).toString();
-          return new Response(null, {
-            status: 302,
-            headers: {
-              location: `/api/public/p?u=${encodeURIComponent(target)}${stealth ? "&stealth=1" : ""}`,
-            },
-          });
-        }
-        return undefined as unknown as Response;
+  const referer = request.headers.get("referer");
+  let proxied: string | null = null;
+  let stealth = false;
+  if (referer) {
+    try {
+      const refUrl = new URL(referer);
+      if (refUrl.pathname === "/api/public/p") {
+        proxied = refUrl.searchParams.get("u");
+        stealth = refUrl.searchParams.get("stealth") === "1";
+      }
+    } catch {
+      /* fall back to the navigation cookie */
+    }
+  }
+  if (!proxied) {
+    const match = request.headers.get("cookie")?.match(/(?:^|;\s*)radium_base=([^;]+)/);
+    if (match?.[1]) {
+      try {
+        proxied = decodeURIComponent(match[1]);
+      } catch {
+        proxied = null;
+      }
+    }
+  }
+  if (proxied) {
+    try {
+      const incoming = new URL(request.url);
+      const target = new URL(incoming.pathname + incoming.search, proxied).toString();
+      return new Response(null, {
+        status: request.method === "POST" ? 307 : 302,
+        headers: {
+          location: `/api/public/p?u=${encodeURIComponent(target)}${stealth ? "&stealth=1" : ""}`,
+        },
+      });
+    } catch {
+      return undefined as unknown as Response;
+    }
+  }
+  return undefined as unknown as Response;
 }
 
 function NotFound() {

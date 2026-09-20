@@ -138,11 +138,21 @@ function BrowserTab() {
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
       const data = event.data as { __radium?: string; url?: string };
       if (!data?.__radium || !data.url) return;
       if (data.__radium === "navigate") {
-        setInput(data.url);
-        setStatus(`Loading ${data.url}`);
+        try {
+          const next = new URL(data.url);
+          if (next.protocol !== "http:" && next.protocol !== "https:") return;
+          setTarget(next.toString());
+          setInput(next.toString());
+          setStatus(`Loading ${next.toString()}`);
+          setNonce((value) => value + 1);
+          pushHistory(next.toString());
+        } catch {
+          return;
+        }
       }
       if (data.__radium === "loaded") {
         setInput(data.url);
@@ -151,7 +161,7 @@ function BrowserTab() {
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [pushHistory]);
 
   const iconBtn =
     "flex h-9 w-9 items-center justify-center rounded-md text-sm transition-opacity hover:opacity-75";
