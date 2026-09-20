@@ -1,20 +1,11 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
 /**
- * Catch-all. Proxied pages sometimes navigate to a root-relative path (YouTube's
- * own search box does this), which lands here instead of on the proxy. When the
- * referer is a proxied page we resolve the path against it and bounce back into
- * the proxy, so in-site navigation keeps working. Anything else renders the 404
- * page.
+ * Catch-all 404 page. Root-relative navigations that escape a proxied page are
+ * bounced back into the proxy by the request middleware in src/start.ts before
+ * they ever reach this route.
  */
 export const Route = createFileRoute("/$")({
-  loader: async () => {
-    if (typeof window !== "undefined") return null;
-    const { escapedNavigationTarget } = await import("@/lib/escaped-nav.server");
-    const target = escapedNavigationTarget();
-    if (target) throw redirect({ href: target });
-    return null;
-  },
   head: () => ({
     meta: [
       { title: "Page not found — Radium Client" },
@@ -28,6 +19,7 @@ export const Route = createFileRoute("/$")({
   }),
   component: NotFound,
 });
+
 
 
 
