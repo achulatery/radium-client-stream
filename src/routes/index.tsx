@@ -250,8 +250,7 @@ function BrowserTab() {
             key={`youtube-${videoId}-${nonce}`}
             ref={frame}
             title="YouTube video player"
-            // youtube-nocookie skips the consent wall that stalled "loading into the video".
-            src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&hl=en`}
+            src={`https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&hl=en`}
             loading="eager"
             className="h-full w-full border-0 bg-black"
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
