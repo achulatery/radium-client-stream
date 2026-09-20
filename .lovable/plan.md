@@ -1,32 +1,28 @@
-# Pin YouTube back to the Singapore region
+# Plan: Route around bot blocks with privacy frontends
 
-## Why it happens
+The bot-check walls (YouTube "sign in to prove you're not a bot", DuckDuckGo blocks) happen because requests come from a datacenter IP that these sites distrust. This plan routes search and video traffic to privacy-focused alternative frontends instead of the main sites.
 
-YouTube decides a visitor's country mostly from the internet address (IP) it sees. Radium's requests to YouTube leave from edge servers, and the edge location can shift — right now YouTube is seeing a Netherlands address, so it serves Dutch region content. A true Singapore-only exit would need a dedicated server hosted in Singapore, which this setup cannot guarantee. What we can do is send YouTube explicit region hints it does respect.
+## What changes
 
-## Fix
+### 1. Search goes through a SearXNG instance
+- Update `normalizeQuery()` in `src/lib/radium.tsx`: non-URL input becomes `https://searx.be/search?q=<query>` instead of `html.duckduckgo.com`.
+- SearXNG is an open metasearch engine with no bot checks; results load through the existing proxy inside Radium.
+- If searx.be is unreliable, add a small ordered fallback list of public instances (searx.be, search.brave4u-style alternates not needed — keep a short constant list) — first instance is the default; no auto-retry complexity.
 
-1. **Force region hints on every proxied YouTube request** (`src/routes/api/public/p.ts`)
-   - When the target host is youtube.com / m.youtube.com / music.youtube.com, append `gl=SG` and `hl=en` to the target URL if not already present.
-   - Send a YouTube `PREF` preference cookie (`gl=SG&hl=en`) alongside the existing consent cookies for YouTube hosts.
-   - `Accept-Language: en-SG,en;q=0.9` is already sent — keep it.
+### 2. YouTube videos route to Invidious / Piped player pages
+- Keep the existing `getYouTubeVideoId()` extraction (already handles youtu.be, /watch?v=, /shorts/, /live/).
+- Replace `youtubeEmbedUrl(videoId)` with an Invidious embed: `https://yewtu.be/embed/<VIDEO_ID>` (fallback constant list: yewtu.be first, then piped.video watch URL if needed — single default, no retry logic).
+- This page is designed for datacenter traffic and does not show the Google bot wall.
 
-2. **Region-hint the direct player** (`src/routes/index.tsx`)
-   - The watch/Shorts player loads YouTube's official player directly from the browser, so it follows the user's own region. Add `hl=en` to the embed URL and keep `gl=SG` behavior documented as best-effort (the embed follows the viewer's IP; only the in-proxy pages can be hinted).
+### 3. Videos open in a clean new tab; pages stay inside Radium
+- Video links (anything with a YouTube video ID): open the Invidious/Piped URL via `window.open(url, "_blank", "noopener")`, show an on-screen "Open player ↗" link as fallback if the popup is blocked, and set status to "Player opened in a new tab". No iframe for videos at all — removes the iframe connection-security errors.
+- Everything else (searches, regular sites): stays inside Radium through the existing proxy as it does now.
 
-3. **Redirect region switches back to SG**
-   - In the proxy, when YouTube responds with a redirect to a different regional homepage or `?gl=XX`, rewrite the location to keep `gl=SG`.
-
-## Verification
-
-- Load `https://www.youtube.com` through the address bar and confirm the footer/settings country shows Singapore and trending titles match SG.
-- Open a watch page and a Shorts page and confirm playback still works.
-
-## Limitation (be upfront with user)
-
-Region cannot be 100% pinned without a real Singapore server. These hints make YouTube consistently show Singapore for pages served through Radium; the embedded player may still reflect the viewer's actual connection.
+## Files
+- `src/lib/radium.tsx` — search target URL constant.
+- `src/routes/index.tsx` — video handling: replace the YouTube embed iframe with the new-tab player flow + fallback link; keep the proxied iframe for non-video URLs.
 
 ## Technical notes
-
-- `p.ts`: add `withSgRegion(url)` helper applied in the target-normalization step for YouTube hosts; extend the consent-cookie injection block to add `PREF`; adjust Location rewriting.
-- `index.tsx`: one-line change to the embed `src`.
+- Constants: `SEARCH_URL = "https://searx.be/search?q="`, `PLAYER_URL = (id) => "https://yewtu.be/embed/" + id`.
+- No changes to the proxy route, theme system, settings, or layout.
+- Verify with Playwright: a search query loads searx.be results inside Radium; a YouTube watch/shorts URL opens the yewtu.be player in a new tab; typecheck passes.
