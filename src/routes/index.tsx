@@ -120,24 +120,31 @@ function RadiumApp() {
 function BrowserTab() {
   const { settings, pushHistory, history } = useRadium();
   const [input, setInput] = useState("");
-  const [last, setLast] = useState<string | null>(null);
+  const [target, setTarget] = useState<string | null>(null);
   const [status, setStatus] = useState("Transport ready");
+  const [nonce, setNonce] = useState(0);
 
-  // Clean redirector: no in-page streaming iframes. Every query becomes a
-  // proxied link that opens in its own window, so nothing can stall here.
+  const videoId = target ? getYouTubeVideoId(target) : null;
+  const frameSrc = target
+    ? videoId
+      ? youtubeEmbedUrl(videoId)
+      : proxyUrl(target, settings.stealth)
+    : null;
+
+  // Everything renders inside Radium. YouTube URLs are converted to their
+  // embed player (which skips the bot/sign-in wall); everything else is
+  // loaded through the edge proxy.
   const open = useCallback(
     (raw: string) => {
       const url = normalizeQuery(raw);
       if (!url) return;
-      const link = proxyUrl(url, settings.stealth);
       setInput(url);
-      setLast(link);
-      setStatus(`Opening ${url} in a new window`);
+      setTarget(url);
+      setNonce((n) => n + 1);
+      setStatus(getYouTubeVideoId(url) ? "Loading player…" : `Loading ${url}`);
       pushHistory(url);
-      const win = window.open(link, "_blank", "noopener");
-      setStatus(win ? `Opened ${url}` : `Popup blocked — allow popups, or use the link below`);
     },
-    [pushHistory, settings.stealth],
+    [pushHistory],
   );
 
   return (
