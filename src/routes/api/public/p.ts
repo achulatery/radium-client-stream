@@ -22,7 +22,44 @@ const STRIPPED_RESPONSE_HEADERS = new Set([
   "cross-origin-opener-policy",
   "cross-origin-embedder-policy",
   "report-to",
+  "set-cookie",
 ]);
+
+/** Group cookies by registrable domain so each site only gets its own jar. */
+function cookieScope(hostname: string) {
+  const parts = hostname.toLowerCase().split(".");
+  const key = parts.length > 2 ? parts.slice(-2).join(".") : hostname.toLowerCase();
+  return key.replace(/[^a-z0-9]/g, "_");
+}
+
+/** Upstream cookies are re-issued for our own origin, scoped by site. */
+function rewriteSetCookie(raw: string, scope: string) {
+  const [pair, ...attrs] = raw.split(";");
+  if (!pair || !pair.includes("=")) return null;
+  const eq = pair.indexOf("=");
+  const name = pair.slice(0, eq).trim();
+  const value = pair.slice(eq + 1).trim();
+  if (!name) return null;
+  const kept = attrs
+    .map((a) => a.trim())
+    .filter((a) => /^(expires|max-age|httponly)/i.test(a));
+  return [`rdm_${scope}__${encodeURIComponent(name)}=${value}`, "Path=/", "SameSite=Lax", ...kept].join("; ");
+}
+
+/** Reverse of rewriteSetCookie: hand a site back only the cookies it set. */
+function upstreamCookieHeader(cookieHeader: string, scope: string) {
+  const prefix = `rdm_${scope}__`;
+  const out: string[] = [];
+  for (const part of cookieHeader.split(";")) {
+    const trimmed = part.trim();
+    if (!trimmed.startsWith(prefix)) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 0) continue;
+    const name = decodeURIComponent(trimmed.slice(prefix.length, eq));
+    out.push(`${name}=${trimmed.slice(eq + 1)}`);
+  }
+  return out.join("; ");
+}
 
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
