@@ -220,15 +220,12 @@ async function handle(request: Request) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-  const cookie = headers.get("cookie");
+  const scope = cookieScope(targetUrl.hostname);
+  const cookie = request.headers.get("cookie");
+  headers.delete("cookie");
   if (cookie) {
-    const upstreamCookie = cookie
-      .split(";")
-      .map((part) => part.trim())
-      .filter((part) => !part.startsWith("radium_base="))
-      .join("; ");
+    const upstreamCookie = upstreamCookieHeader(cookie, scope);
     if (upstreamCookie) headers.set("cookie", upstreamCookie);
-    else headers.delete("cookie");
   }
   // Google/YouTube otherwise bounce every fresh session to a consent page on
   // accounts.google.com, whose in-page navigation is what produced 404s.
