@@ -240,11 +240,17 @@ async function handle(request: Request) {
     const body = rewriteHtml(await upstream.text(), base, stealth);
     outHeaders.set("content-type", "text/html; charset=utf-8");
     outHeaders.set("referrer-policy", "same-origin");
-    // Only top-level page loads own the navigation fallback; sub-frames (Google
-    // consent/auth frames) must not overwrite it or later escapes misresolve.
-    const dest = request.headers.get("sec-fetch-dest");
-    const isTopDocument = !dest || dest === "document" || dest === "empty";
-    if (isTopDocument) {
+    // Only the top proxied frame owns the navigation fallback. Nested frames
+    // (Google consent/auth) are referred by a proxy URL; skip those so a later
+    // escaped navigation still resolves against the real page.
+    const referer = request.headers.get("referer") ?? "";
+    let nestedFrame = false;
+    try {
+      nestedFrame = new URL(referer).pathname === "/api/public/p";
+    } catch {
+      nestedFrame = false;
+    }
+    if (!nestedFrame) {
       outHeaders.append(
         "set-cookie",
         `radium_base=${encodeURIComponent(baseForNavigation(base))}; Path=/; SameSite=Lax`,
