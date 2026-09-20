@@ -215,6 +215,15 @@ async function handle(request: Request) {
     return new Response("Only http/https targets are supported", { status: 400 });
   }
 
+  const isYouTube = /(?:^|\.)(?:youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(targetUrl.hostname);
+  const isGoogle = /(?:^|\.)google\.[a-z.]+$/i.test(targetUrl.hostname);
+  // YouTube derives region from the requesting IP, which is whatever edge node
+  // handled the fetch (seen as NL, US, ...). Pin it with explicit hints.
+  if (isYouTube) {
+    if (!targetUrl.searchParams.has("gl")) targetUrl.searchParams.set("gl", "SG");
+    if (!targetUrl.searchParams.has("hl")) targetUrl.searchParams.set("hl", "en");
+  }
+
   const headers = new Headers();
   for (const name of FORWARDED_REQUEST_HEADERS) {
     const value = request.headers.get(name);
@@ -229,11 +238,14 @@ async function handle(request: Request) {
   }
   // Google/YouTube otherwise bounce every fresh session to a consent page on
   // accounts.google.com, whose in-page navigation is what produced 404s.
-  if (/(?:^|\.)(?:google\.[a-z.]+|youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(targetUrl.hostname)) {
+  if (isYouTube || isGoogle) {
     const existing = headers.get("cookie") ?? "";
     const extras: string[] = [];
     if (!/\bSOCS=/.test(existing)) extras.push("SOCS=CAESEwgDEgk0ODE3Nzk3MjQaAmVuIAEaBgiA_LyaBg");
     if (!/\bCONSENT=/.test(existing)) extras.push("CONSENT=YES+cb");
+    // YouTube's own region preference; keeps the site on Singapore even when
+    // the edge IP geolocates elsewhere.
+    if (isYouTube && !/\bPREF=/.test(existing)) extras.push("PREF=gl=SG&hl=en");
     if (extras.length) headers.set("cookie", [existing, ...extras].filter(Boolean).join("; "));
   }
   headers.set(
