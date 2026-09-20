@@ -288,7 +288,7 @@ function StartScreen({
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <button
-              onClick={() => open("https://duckduckgo.com/")}
+              onClick={() => open(searchUrl("radium client"))}
               className="rounded-md px-8 py-3 text-sm"
               style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
             >
