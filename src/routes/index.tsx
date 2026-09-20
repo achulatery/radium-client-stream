@@ -250,12 +250,21 @@ function BrowserTab() {
             key={`youtube-${videoId}-${nonce}`}
             ref={frame}
             title="YouTube video player"
-            src={`https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&hl=en`}
+            src={`https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&hl=en&vq=tiny&enablejsapi=1&mute=1`}
             loading="eager"
             className="h-full w-full border-0 bg-black"
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             referrerPolicy="strict-origin-when-cross-origin"
-            onLoad={() => setStatus("Transport ready")}
+            onLoad={() => {
+              setStatus("Transport ready");
+              const win = frame.current?.contentWindow;
+              if (!win) return;
+              const send = (message: unknown) => win.postMessage(JSON.stringify(message), "*");
+              send({ event: "listening", id: videoId });
+              // Lowest quality keeps startup fast on constrained links.
+              send({ event: "command", func: "setPlaybackQuality", args: ["small"] });
+              send({ event: "command", func: "playVideo", args: [] });
+            }}
             allowFullScreen
           />
         ) : target ? (
@@ -267,6 +276,7 @@ function BrowserTab() {
             className="h-full w-full border-0 bg-white"
             sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation"
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            onLoad={() => setStatus("Transport ready")}
           />
         ) : (
           <StartScreen open={open} history={history} />
