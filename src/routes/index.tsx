@@ -397,7 +397,7 @@ function YouTubeTab() {
   };
 
   const embed = selected?.videoId
-    ? `${instance ?? "https://yewtu.be"}/embed/${selected.videoId}?autoplay=1&quality=dash`
+    ? `https://www.youtube-nocookie.com/embed/${selected.videoId}?autoplay=1&rel=0&hl=en&gl=SG&playsinline=1`
     : null;
 
   return (
