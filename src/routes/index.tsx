@@ -1,4 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Code2,
+  Home,
+  LockKeyhole,
+  RefreshCw,
+  Search,
+  Settings,
+  ShieldCheck,
+  Sun,
+  Youtube,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
 import {
@@ -50,26 +63,26 @@ function RadiumApp() {
 
   return (
     <div
-      className="flex h-screen flex-col overflow-hidden font-sans"
+      className="radium-shell flex h-screen min-h-[520px] flex-col overflow-hidden font-sans"
       style={{ background: "var(--rd-bg)", color: "var(--rd-text)" }}
     >
       <header
-        className="flex items-center justify-between gap-3 px-4 py-3"
+        className="flex h-14 shrink-0 items-center justify-between gap-3 px-4 sm:px-5"
         style={{ borderBottom: "1px solid var(--rd-line)" }}
       >
         <div className="flex items-center gap-3">
           <RadiumMark />
-          <span className="text-lg font-semibold tracking-[0.18em]">RADIUM</span>
+          <span className="text-sm font-bold tracking-[0.22em]">RADIUM</span>
           <span
-            className="font-mono text-[11px] tracking-[0.3em]"
+            className="font-mono text-[9px] tracking-[0.28em]"
             style={{ color: "var(--rd-muted)" }}
           >
             CLIENT
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="hidden items-center gap-2 font-mono text-[11px] tracking-[0.2em] sm:flex">
-            <span className="h-2 w-2 rounded-full" style={{ background: "var(--rd-accent-alt)" }} />
+          <span className="hidden items-center gap-2 font-mono text-[9px] tracking-[0.18em] sm:flex">
+            <span className="status-glow h-1.5 w-1.5 rounded-full" style={{ background: "var(--rd-accent-alt)" }} />
             PROTECTED
           </span>
           {settings.singaporeClock && <SingaporeClock />}
@@ -77,10 +90,10 @@ function RadiumApp() {
           <button
             onClick={toggleMode}
             aria-label="Toggle dark and light mode"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-sm"
+            className="flex h-8 w-8 items-center justify-center rounded-sm"
             style={{ background: "var(--rd-button)", color: "var(--rd-button-text)" }}
           >
-            {theme.mode === "dark" ? "☀" : "☾"}
+            <Sun size={14} />
           </button>
           <span
             className="hidden font-mono text-[11px] tracking-[0.2em] md:inline"
@@ -91,7 +104,7 @@ function RadiumApp() {
         </div>
       </header>
 
-      <nav className="flex items-end gap-1 px-3" style={{ borderBottom: "1px solid var(--rd-line)" }}>
+      <nav className="flex h-11 shrink-0 items-stretch gap-0 px-3" style={{ background: "var(--rd-surface)", borderBottom: "1px solid var(--rd-line)" }}>
         {(
           [
             ["browser", "Browser"],
@@ -102,13 +115,16 @@ function RadiumApp() {
           <button
             key={id}
             onClick={() => setTab(id)}
-            className="px-5 py-3 text-sm transition-colors"
+            className="flex min-w-24 items-center justify-center gap-2 border-x px-4 text-xs transition-colors"
             style={{
               color: tab === id ? "var(--rd-text)" : "var(--rd-muted)",
-              background: tab === id ? "var(--rd-surface)" : "transparent",
+              background: tab === id ? "var(--rd-bg)" : "transparent",
               borderBottom: `2px solid ${tab === id ? "var(--rd-accent-alt)" : "transparent"}`,
+              borderLeftColor: tab === id ? "var(--rd-line)" : "transparent",
+              borderRightColor: tab === id ? "var(--rd-line)" : "transparent",
             }}
           >
+            {id === "browser" ? <ShieldCheck size={13} /> : id === "youtube" ? <Youtube size={14} /> : <Settings size={13} />}
             {label}
           </button>
         ))}
@@ -125,7 +141,7 @@ function RadiumApp() {
         style={{ borderTop: "1px solid var(--rd-line)", color: "var(--rd-muted)" }}
       >
         <span className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full" style={{ background: "var(--rd-accent-alt)" }} />
+          <ShieldCheck size={12} style={{ color: "var(--rd-accent-alt)" }} />
           RADIUM SESSION
         </span>
         <span>EDGE TRANSPORT · ENCRYPTED</span>
@@ -162,7 +178,14 @@ function BrowserTab() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2 px-3 py-2">
+        <div className="hidden items-center gap-1 sm:flex">
+          {[ArrowLeft, ArrowRight, RefreshCw, Home].map((Icon, index) => (
+            <button key={index} type="button" aria-label={["Back", "Forward", "Refresh", "Home"][index]} className="toolbar-icon">
+              <Icon size={15} />
+            </button>
+          ))}
+        </div>
         <form
           className="min-w-[200px] flex-1"
           onSubmit={(e) => {
@@ -171,12 +194,10 @@ function BrowserTab() {
           }}
         >
           <div
-            className="flex items-center gap-2 rounded-md px-3 py-2"
+            className="flex h-9 items-center gap-2 rounded-sm px-3"
             style={{ background: "var(--rd-search)", border: "1px solid var(--rd-line)" }}
           >
-            <span className="text-xs" style={{ color: "var(--rd-accent-alt)" }}>
-              🔒
-            </span>
+            <LockKeyhole size={13} style={{ color: "var(--rd-accent-alt)" }} />
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -188,10 +209,11 @@ function BrowserTab() {
             />
             <button
               type="submit"
-              className="shrink-0 rounded px-3 py-1 text-xs font-medium"
+              className="shrink-0 p-1"
               style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
+              aria-label="Open address"
             >
-              Open ↗
+              <Search size={14} />
             </button>
           </div>
         </form>
@@ -247,27 +269,27 @@ function StartScreen({
   history: { url: string; at: number }[];
 }) {
   return (
-    <div
-      className="h-full overflow-auto px-4 py-10"
+      <div
+        className="radium-grid h-full overflow-auto px-4 py-10"
       style={{
         backgroundImage:
           "linear-gradient(var(--rd-line) 1px, transparent 1px), linear-gradient(90deg, var(--rd-line) 1px, transparent 1px)",
         backgroundSize: "72px 72px",
       }}
     >
-      <div className="relative mx-auto max-w-3xl">
+        <div className="relative mx-auto max-w-[680px] pt-[2vh] sm:pt-[4vh]">
         <div
           className="absolute inset-0 translate-x-3 translate-y-3 rounded-sm"
           style={{ border: "2px solid var(--rd-accent)" }}
           aria-hidden
         />
         <div
-          className="relative px-6 py-14 text-center"
+            className="relative px-6 py-10 text-center sm:px-12 sm:py-12"
           style={{ background: "var(--rd-surface)", border: "1px solid var(--rd-line)" }}
         >
-          <div className="mb-8 flex justify-center">
+          <div className="mb-6 flex justify-center">
             <span
-              className="flex h-24 w-24 items-center justify-center rounded-2xl text-5xl font-semibold"
+              className="flex h-16 w-16 items-center justify-center rounded-md text-3xl font-bold"
               style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
             >
               R
@@ -279,7 +301,7 @@ function StartScreen({
           >
             RADIUM CLIENT · READY
           </p>
-          <h1 className="mx-auto mt-4 max-w-xl text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
+          <h1 className="mx-auto mt-4 max-w-xl text-4xl font-bold leading-[1.02] sm:text-6xl">
             The web,
             <br />
             uncontained.
@@ -288,20 +310,20 @@ function StartScreen({
             Enter an address above or launch a site through Radium's accelerated encrypted
             transport.
           </p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-8 grid gap-2 sm:grid-cols-2">
             <button
               onClick={() => open(searchUrl("radium client"))}
-              className="rounded-md px-8 py-3 text-sm"
-              style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
+              className="flex items-center justify-center gap-2 rounded-sm px-8 py-3 text-sm font-semibold"
+              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)", border: "1px solid var(--rd-accent)" }}
             >
-              Search
+              <Search size={15} /> Search
             </button>
             <button
               onClick={() => open("https://github.com/")}
-              className="rounded-md px-8 py-3 text-sm"
+              className="flex items-center justify-center gap-2 rounded-sm px-8 py-3 text-sm"
               style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
             >
-              GitHub
+              <Code2 size={15} /> GitHub
             </button>
           </div>
           {history.length > 0 && (
