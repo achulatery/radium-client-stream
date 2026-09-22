@@ -196,41 +196,7 @@ function BrowserTab() {
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {playerHref ? (
-          <div
-            className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center"
-            style={{
-              backgroundImage:
-                "linear-gradient(var(--rd-line) 1px, transparent 1px), linear-gradient(90deg, var(--rd-line) 1px, transparent 1px)",
-              backgroundSize: "72px 72px",
-            }}
-          >
-            <p className="max-w-md text-sm" style={{ color: "var(--rd-muted)" }}>
-              The player opened in a new tab. If your browser blocked it, use
-              the button below.
-            </p>
-            <a
-              href={playerHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-md px-5 py-2.5 text-sm font-medium"
-              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
-            >
-              Open player ↗
-            </a>
-            <button
-              onClick={() => {
-                setTarget(null);
-                setInput("");
-                setStatus("Transport ready");
-              }}
-              className="rounded-md px-3 py-1.5 font-mono text-[11px]"
-              style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
-            >
-              CLOSE
-            </button>
-          </div>
-        ) : frameSrc ? (
+        {frameSrc ? (
           <>
             <iframe
               key={`web-${nonce}`}
