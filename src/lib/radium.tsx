@@ -194,7 +194,11 @@ export function getYouTubeVideoId(raw: string): string | null {
   return null;
 }
 
-/** Build a bot-check-free player URL (Invidious embed) for a video id. */
+/**
+ * Watch pages trip YouTube's bot wall; the embed endpoint is far less
+ * restricted, so every video resolves to an embed player URL instead.
+ */
 export function videoPlayerUrl(videoId: string) {
-  return `https://piped.video/watch?v=${encodeURIComponent(videoId)}`;
+  const id = encodeURIComponent(videoId);
+  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&hl=en&gl=SG&vq=tiny&playsinline=1`;
 }

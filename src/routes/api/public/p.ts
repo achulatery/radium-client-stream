@@ -1,13 +1,113 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const STEALTH_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+/**
+ * Authentic modern desktop browser identities. Mobile/Linux/old-Chrome strings
+ * are what Google's bot heuristics score hardest, so the pool is desktop only
+ * and each entry ships matching client hints.
+ */
+const DESKTOP_AGENTS: { ua: string; hints: Record<string, string> }[] = [
+  {
+    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    hints: {
+      "sec-ch-ua": '"Chromium";v="141", "Not;A=Brand";v="24", "Google Chrome";v="141"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+    },
+  },
+  {
+    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
+    hints: {
+      "sec-ch-ua": '"Chromium";v="140", "Not;A=Brand";v="24", "Microsoft Edge";v="140"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+    },
+  },
+  {
+    ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    hints: {
+      "sec-ch-ua": '"Chromium";v="141", "Not;A=Brand";v="24", "Google Chrome";v="141"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"macOS"',
+    },
+  },
 ];
 
-const DEFAULT_AGENT = STEALTH_AGENTS[0]!;
+const DEFAULT_AGENT = DESKTOP_AGENTS[0]!;
+
+/** Headers that would expose the data-center hop to Google's security systems. */
+const PROXY_FINGERPRINT_HEADERS = [
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+  "x-forwarded-port",
+  "x-real-ip",
+  "forwarded",
+  "via",
+  "x-radium-proxied",
+  "cf-connecting-ip",
+  "cf-ipcountry",
+  "cf-ray",
+  "cf-visitor",
+  "cf-worker",
+  "cdn-loop",
+  "true-client-ip",
+  "x-vercel-forwarded-for",
+  "x-request-id",
+];
+
+/** Cookie names accepted from the operator-supplied YouTube session string. */
+const SESSION_COOKIE_NAMES = [
+  "SID",
+  "HSID",
+  "SSID",
+  "SAPISID",
+  "APISID",
+  "__Secure-1PSID",
+  "__Secure-3PSID",
+  "__Secure-1PAPISID",
+  "__Secure-3PAPISID",
+  "LOGIN_INFO",
+  "VISITOR_INFO1_LIVE",
+  "PREF",
+];
+
+/** Parse and whitelist a pasted "SID=...; HSID=...; SAPISID=..." string. */
+function sessionCookie(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const out: string[] = [];
+  for (const part of raw.split(";")) {
+    const trimmed = part.trim();
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const name = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim();
+    if (!value) continue;
+    if (SESSION_COOKIE_NAMES.some((n) => n.toLowerCase() === name.toLowerCase())) {
+      out.push(`${name}=${value}`);
+    }
+  }
+  return out.length ? out.join("; ") : null;
+}
+
+/** youtube.com/watch?v=ID, /shorts/ID, youtu.be/ID -> nocookie embed URL. */
+function youtubeEmbedTarget(url: URL): URL | null {
+  const host = url.hostname.replace(/^www\.|^m\./, "").toLowerCase();
+  const parts = url.pathname.split("/").filter(Boolean);
+  const valid = (id: string | null | undefined) => (id && /^[\w-]{6,20}$/.test(id) ? id : null);
+  let id: string | null = null;
+  if (host === "youtu.be") id = valid(parts[0]);
+  else if (host === "youtube.com" && url.pathname === "/watch") id = valid(url.searchParams.get("v"));
+  else if (host === "youtube.com" && (parts[0] === "shorts" || parts[0] === "live")) id = valid(parts[1]);
+  if (!id) return null;
+  const embed = new URL(`https://www.youtube-nocookie.com/embed/${id}`);
+  embed.searchParams.set("autoplay", "1");
+  embed.searchParams.set("rel", "0");
+  embed.searchParams.set("playsinline", "1");
+  const t = url.searchParams.get("t") ?? url.searchParams.get("start");
+  if (t) embed.searchParams.set("start", t.replace(/[^0-9]/g, "") || "0");
+  return embed;
+}
+
 
 const STRIPPED_RESPONSE_HEADERS = new Set([
   "content-security-policy",
@@ -133,6 +233,11 @@ const CLIENT_PATCH = `<script>(function(){
     return '/api/public/p?u='+encodeURIComponent(U(u))+(S?'&stealth=1':'');
   }catch(e){return u}}
   window.__radiumProxy=P;
+  // Automation fingerprint hiding: headless/driver tells that Google scores.
+  try{Object.defineProperty(navigator,'webdriver',{get:function(){return false},configurable:true})}catch(e){}
+  try{if(!navigator.languages||!navigator.languages.length)Object.defineProperty(navigator,'languages',{get:function(){return['en-SG','en']}})}catch(e){}
+  try{if(!(navigator.plugins&&navigator.plugins.length))Object.defineProperty(navigator,'plugins',{get:function(){return[1,2,3]}})}catch(e){}
+  try{delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol}catch(e){}
   var f=window.fetch;
   window.fetch=function(i,o){ if(typeof i==='string')return f(P(i),o);
     if(i&&i.url)return f(new Request(P(i.url),i),o); return f(i,o); };
@@ -227,9 +332,13 @@ async function handle(request: Request) {
 
   const isYouTube = /(?:^|\.)(?:youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(targetUrl.hostname);
   const isGoogle = /(?:^|\.)google\.[a-z.]+$/i.test(targetUrl.hostname);
-  // YouTube derives region from the requesting IP, which is whatever edge node
-  // handled the fetch (seen as NL, US, ...). Pin it with explicit hints.
+  // Watch pages carry the heaviest bot checks (PoToken, "not a bot" wall); the
+  // embed endpoint serves the same player context with far fewer checks.
   if (isYouTube) {
+    const embedded = youtubeEmbedTarget(targetUrl);
+    if (embedded) targetUrl = embedded;
+    // YouTube derives region from the requesting IP, which is whatever edge node
+    // handled the fetch (seen as NL, US, ...). Pin it with explicit hints.
     if (!targetUrl.searchParams.has("gl")) targetUrl.searchParams.set("gl", "SG");
     if (!targetUrl.searchParams.has("hl")) targetUrl.searchParams.set("hl", "en");
   }
@@ -239,6 +348,8 @@ async function handle(request: Request) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  // Never let a data-center hop signature reach the upstream site.
+  for (const name of PROXY_FINGERPRINT_HEADERS) headers.delete(name);
   const scope = cookieScope(targetUrl.hostname);
   const cookie = request.headers.get("cookie");
   headers.delete("cookie");
@@ -256,14 +367,21 @@ async function handle(request: Request) {
     // YouTube's own region preference; keeps the site on Singapore even when
     // the edge IP geolocates elsewhere.
     if (isYouTube && !/\bPREF=/.test(existing)) extras.push("PREF=gl=SG&hl=en");
+    // Operator-supplied signed-in session (SID/HSID/SAPISID/...). A real
+    // account session is the strongest signal against YouTube's bot checks.
+    const session = sessionCookie(process.env["YOUTUBE_SESSION_COOKIE"]);
+    if (session) extras.push(session);
     if (extras.length) headers.set("cookie", [existing, ...extras].filter(Boolean).join("; "));
   }
-  headers.set(
-    "user-agent",
-    stealth
-      ? (STEALTH_AGENTS[Math.floor(Math.random() * STEALTH_AGENTS.length)] ?? DEFAULT_AGENT)
-      : (request.headers.get("user-agent") ?? DEFAULT_AGENT),
-  );
+
+  // Always present as a real desktop browser: a random identity in stealth
+  // mode, a stable one otherwise, with matching client hints.
+  const identity =
+    stealth || isYouTube || isGoogle
+      ? (DESKTOP_AGENTS[Math.floor(Math.random() * DESKTOP_AGENTS.length)] ?? DEFAULT_AGENT)
+      : DEFAULT_AGENT;
+  headers.set("user-agent", identity.ua);
+  for (const [k, v] of Object.entries(identity.hints)) headers.set(k, v);
   headers.set("accept-language", headers.get("accept-language") ?? "en-SG,en;q=0.9");
   headers.set("referer", targetUrl.origin + "/");
   if (request.method !== "GET" && request.method !== "HEAD") headers.set("origin", targetUrl.origin);
