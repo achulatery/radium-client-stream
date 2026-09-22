@@ -5,8 +5,6 @@ import {
   Code2,
   Home,
   LockKeyhole,
-  MoreHorizontal,
-  Plus,
   RefreshCw,
   Search,
   Settings,
