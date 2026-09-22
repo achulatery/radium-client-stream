@@ -233,6 +233,11 @@ const CLIENT_PATCH = `<script>(function(){
     return '/api/public/p?u='+encodeURIComponent(U(u))+(S?'&stealth=1':'');
   }catch(e){return u}}
   window.__radiumProxy=P;
+  // Automation fingerprint hiding: headless/driver tells that Google scores.
+  try{Object.defineProperty(navigator,'webdriver',{get:function(){return false},configurable:true})}catch(e){}
+  try{if(!navigator.languages||!navigator.languages.length)Object.defineProperty(navigator,'languages',{get:function(){return['en-SG','en']}})}catch(e){}
+  try{if(!(navigator.plugins&&navigator.plugins.length))Object.defineProperty(navigator,'plugins',{get:function(){return[1,2,3]}})}catch(e){}
+  try{delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol}catch(e){}
   var f=window.fetch;
   window.fetch=function(i,o){ if(typeof i==='string')return f(P(i),o);
     if(i&&i.url)return f(new Request(P(i.url),i),o); return f(i,o); };
