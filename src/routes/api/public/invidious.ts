@@ -6,11 +6,12 @@ import { z } from "zod";
  * Public instances only, no authentication. Each action returns structured JSON.
  */
 const INSTANCES = [
+  "https://invidious.f5.si",
   "https://inv.nadeko.net",
-  "https://invidious.nerdvpn.de",
+  "https://iv.ggtyler.dev",
+  "https://invidious.jing.rocks",
   "https://yewtu.be",
   "https://vid.puffyan.us",
-  "https://invidious.snopyta.org",
 ];
 
 const UPSTREAM_TIMEOUT_MS = 12_000;

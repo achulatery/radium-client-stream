@@ -355,11 +355,11 @@ function YouTubeTab() {
     setStatus(`Loading ${v.videoId}…`);
     const [meta, cm] = await Promise.all([getVideo(v.videoId), getComments(v.videoId)]);
     if (meta.success) {
-      setSelected(meta.video);
+      setSelected({ ...v, ...meta.video });
       setInstance(meta.instance);
-      setStatus(meta.video.title);
+      setStatus(meta.video.title || v.title);
     } else {
-      setStatus(meta.error);
+      setStatus(v.title || v.videoId);
     }
     if (cm.success) setComments(cm.comments);
   };
@@ -397,7 +397,7 @@ function YouTubeTab() {
   };
 
   const embed = selected?.videoId
-    ? `${instance ?? "https://yewtu.be"}/embed/${selected.videoId}?autoplay=1&quality=dash`
+    ? `https://www.youtube-nocookie.com/embed/${selected.videoId}?autoplay=1&rel=0&hl=en&gl=SG&playsinline=1`
     : null;
 
   return (
