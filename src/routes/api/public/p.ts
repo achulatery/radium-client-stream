@@ -55,6 +55,60 @@ const PROXY_FINGERPRINT_HEADERS = [
   "x-request-id",
 ];
 
+/** Cookie names accepted from the operator-supplied YouTube session string. */
+const SESSION_COOKIE_NAMES = [
+  "SID",
+  "HSID",
+  "SSID",
+  "SAPISID",
+  "APISID",
+  "__Secure-1PSID",
+  "__Secure-3PSID",
+  "__Secure-1PAPISID",
+  "__Secure-3PAPISID",
+  "LOGIN_INFO",
+  "VISITOR_INFO1_LIVE",
+  "PREF",
+];
+
+/** Parse and whitelist a pasted "SID=...; HSID=...; SAPISID=..." string. */
+function sessionCookie(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const out: string[] = [];
+  for (const part of raw.split(";")) {
+    const trimmed = part.trim();
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const name = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim();
+    if (!value) continue;
+    if (SESSION_COOKIE_NAMES.some((n) => n.toLowerCase() === name.toLowerCase())) {
+      out.push(`${name}=${value}`);
+    }
+  }
+  return out.length ? out.join("; ") : null;
+}
+
+/** youtube.com/watch?v=ID, /shorts/ID, youtu.be/ID -> nocookie embed URL. */
+function youtubeEmbedTarget(url: URL): URL | null {
+  const host = url.hostname.replace(/^www\.|^m\./, "").toLowerCase();
+  const parts = url.pathname.split("/").filter(Boolean);
+  const valid = (id: string | null | undefined) => (id && /^[\w-]{6,20}$/.test(id) ? id : null);
+  let id: string | null = null;
+  if (host === "youtu.be") id = valid(parts[0]);
+  else if (host === "youtube.com" && url.pathname === "/watch") id = valid(url.searchParams.get("v"));
+  else if (host === "youtube.com" && (parts[0] === "shorts" || parts[0] === "live")) id = valid(parts[1]);
+  if (!id) return null;
+  const embed = new URL(`https://www.youtube-nocookie.com/embed/${id}`);
+  embed.searchParams.set("autoplay", "1");
+  embed.searchParams.set("rel", "0");
+  embed.searchParams.set("playsinline", "1");
+  const t = url.searchParams.get("t") ?? url.searchParams.get("start");
+  if (t) embed.searchParams.set("start", t.replace(/[^0-9]/g, "") || "0");
+  return embed;
+}
+
+
 const STRIPPED_RESPONSE_HEADERS = new Set([
   "content-security-policy",
   "content-security-policy-report-only",
