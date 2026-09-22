@@ -32,7 +32,7 @@ export const Route = createFileRoute("/")({
   component: RadiumApp,
 });
 
-type Tab = "browser" | "playground" | "settings";
+type Tab = "browser" | "youtube" | "settings";
 
 function RadiumApp() {
   const [tab, setTab] = useState<Tab>("browser");
@@ -85,7 +85,7 @@ function RadiumApp() {
         {(
           [
             ["browser", "Browser"],
-            ["playground", "Playground"],
+            ["youtube", "YouTube"],
             ["settings", "Settings"],
           ] as [Tab, string][]
         ).map(([id, label]) => (
@@ -106,7 +106,7 @@ function RadiumApp() {
 
       <div className="min-h-0 flex-1">
         {tab === "browser" && <BrowserTab />}
-        {tab === "playground" && <PlaygroundTab />}
+        {tab === "youtube" && <YouTubeTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
 
@@ -314,93 +314,98 @@ function StartScreen({
   );
 }
 
-type Probe = { url: string; status: number | string; ms: number; type: string };
+const PIPED_BASE = "https://piped.video";
 
-function PlaygroundTab() {
-  const { settings } = useRadium();
-  const [url, setUrl] = useState("https://www.youtube.com/");
-  const [probes, setProbes] = useState<Probe[]>([]);
-  const [busy, setBusy] = useState(false);
+function YouTubeTab() {
+  const [query, setQuery] = useState("");
+  const [src, setSrc] = useState(`${PIPED_BASE}/trending?region=SG`);
+  const [nonce, setNonce] = useState(0);
 
-  const run = async () => {
-    const target = normalizeQuery(url);
-    if (!target) return;
-    setBusy(true);
-    const start = performance.now();
-    try {
-      const res = await fetch(proxyUrl(target, settings.stealth), { method: "GET" });
-      setProbes((p) => [
-        {
-          url: target,
-          status: res.status,
-          ms: Math.round(performance.now() - start),
-          type: res.headers.get("content-type")?.split(";")[0] ?? "unknown",
-        },
-        ...p,
-      ]);
-    } catch (error) {
-      setProbes((p) => [
-        {
-          url: target,
-          status: (error as Error).message,
-          ms: Math.round(performance.now() - start),
-          type: "error",
-        },
-        ...p,
-      ]);
-    }
-    setBusy(false);
+  const load = (url: string) => {
+    setSrc(url);
+    setNonce((n) => n + 1);
+  };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = query.trim();
+    if (!raw) return;
+    const videoId = getYouTubeVideoId(raw);
+    load(
+      videoId
+        ? `${PIPED_BASE}/watch?v=${videoId}`
+        : `${PIPED_BASE}/results?search_query=${encodeURIComponent(raw)}`,
+    );
   };
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <div className="mx-auto max-w-2xl space-y-5">
-        <div>
-          <h2 className="text-lg font-semibold">Compatibility playground</h2>
-          <p className="mt-1 text-sm" style={{ color: "var(--rd-muted)" }}>
-            Check whether a site answers through the proxy, how fast, and what it returns.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className="flex-1 rounded-md px-3 py-2 font-mono text-sm outline-none"
-            style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }}
-            aria-label="URL to test"
-          />
-          <button
-            onClick={run}
-            disabled={busy}
-            className="rounded-md px-5 py-2 text-sm font-medium disabled:opacity-60"
-            style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
+    <div className="flex h-full flex-col">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+        <form className="min-w-[200px] flex-1" onSubmit={submit}>
+          <div
+            className="flex items-center gap-2 rounded-md px-3 py-2"
+            style={{ background: "var(--rd-search)", border: "1px solid var(--rd-line)" }}
           >
-            {busy ? "Testing…" : "Test"}
-          </button>
-        </div>
-        <div className="space-y-2">
-          {probes.map((p, i) => (
-            <div
-              key={`${p.url}-${i}`}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 font-mono text-xs"
-              style={{ background: "var(--rd-surface)", border: "1px solid var(--rd-line)" }}
+            <span className="text-xs" style={{ color: "var(--rd-accent-alt)" }}>
+              ▶
+            </span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search YouTube or paste a video link"
+              aria-label="YouTube search"
+              autoComplete="off"
+              className="w-full bg-transparent font-mono text-sm outline-none"
+              style={{ color: "var(--rd-search-text)" }}
+            />
+            <button
+              type="submit"
+              className="shrink-0 rounded px-3 py-1 text-xs font-medium"
+              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
             >
-              <span className="truncate" style={{ maxWidth: "60%" }}>
-                {p.url}
-              </span>
-              <span
-                style={{
-                  color:
-                    typeof p.status === "number" && p.status < 400
-                      ? "var(--rd-accent-alt)"
-                      : "#f85149",
-                }}
-              >
-                {p.status} · {p.ms} ms · {p.type}
-              </span>
-            </div>
-          ))}
-        </div>
+              Watch ▶
+            </button>
+          </div>
+        </form>
+        <button
+          onClick={() => load(`${PIPED_BASE}/trending?region=SG`)}
+          className="rounded-md px-4 py-2 text-xs"
+          style={{
+            background: "var(--rd-button)",
+            color: "var(--rd-button-text)",
+            border: "1px solid var(--rd-line)",
+          }}
+        >
+          Trending
+        </button>
+      </div>
+
+      <div
+        className="flex items-center justify-between gap-3 px-4 py-1.5 font-mono text-[11px] tracking-[0.12em]"
+        style={{
+          borderTop: "1px solid var(--rd-line)",
+          borderBottom: "1px solid var(--rd-line)",
+          color: "var(--rd-muted)",
+        }}
+      >
+        <span className="truncate">{src}</span>
+        <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>
+          PIPED · DIRECT
+        </span>
+      </div>
+
+      <div className="min-h-0 flex-1">
+        <iframe
+          key={`piped-${nonce}`}
+          src={src}
+          title="Piped"
+          className="h-full w-full"
+          style={{ border: "none", background: "var(--rd-bg)" }}
+          loading="eager"
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
       </div>
     </div>
   );
