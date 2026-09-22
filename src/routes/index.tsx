@@ -1,6 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
+import {
+  formatDuration,
+  formatViews,
+  getComments,
+  getTrending,
+  getVideo,
+  searchVideos,
+  type InvidiousComment,
+  type InvidiousVideo,
+} from "@/lib/invidious";
 import {
   getYouTubeVideoId,
   normalizeQuery,
