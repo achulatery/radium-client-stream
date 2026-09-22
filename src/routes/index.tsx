@@ -32,7 +32,7 @@ export const Route = createFileRoute("/")({
   component: RadiumApp,
 });
 
-type Tab = "browser" | "playground" | "settings";
+type Tab = "browser" | "youtube" | "settings";
 
 function RadiumApp() {
   const [tab, setTab] = useState<Tab>("browser");
@@ -85,7 +85,7 @@ function RadiumApp() {
         {(
           [
             ["browser", "Browser"],
-            ["playground", "Playground"],
+            ["youtube", "YouTube"],
             ["settings", "Settings"],
           ] as [Tab, string][]
         ).map(([id, label]) => (
@@ -106,7 +106,7 @@ function RadiumApp() {
 
       <div className="min-h-0 flex-1">
         {tab === "browser" && <BrowserTab />}
-        {tab === "playground" && <PlaygroundTab />}
+        {tab === "youtube" && <YouTubeTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
 
