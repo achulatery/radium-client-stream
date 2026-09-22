@@ -22,7 +22,7 @@ export function PingCounter() {
     };
   }, []);
 
-  const color = ms === null ? "var(--rd-muted)" : ms < 100 ? "#39d353" : ms < 300 ? "#e3b341" : "#f85149";
+  const color = ms === null ? "var(--rd-muted)" : ms < 100 ? "var(--rd-accent-alt)" : ms < 300 ? "var(--rd-accent)" : "var(--destructive)";
 
   return (
     <div className="flex items-center gap-2 font-mono text-[11px] tracking-[0.14em]">
@@ -58,7 +58,7 @@ export function SingaporeClock() {
 export function RadiumMark({ size = 40 }: { size?: number }) {
   return (
     <span
-      className="inline-flex items-center justify-center rounded-lg font-semibold"
+      className="inline-flex items-center justify-center rounded-sm font-bold"
       style={{
         width: size,
         height: size,

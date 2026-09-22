@@ -140,5 +140,45 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    margin: 0;
+  }
+}
+
+@layer components {
+  .radium-shell {
+    letter-spacing: 0;
+  }
+
+  .radium-grid {
+    background-color: var(--rd-bg);
+  }
+
+  .status-glow {
+    box-shadow: 0 0 8px var(--rd-accent-alt);
+  }
+
+  .toolbar-icon {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    color: var(--rd-muted);
+  }
+
+  .toolbar-icon:hover {
+    background: var(--rd-button);
+    color: var(--rd-text);
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--rd-accent-alt);
+    outline-offset: 2px;
   }
 }
