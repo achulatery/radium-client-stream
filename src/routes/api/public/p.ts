@@ -1,13 +1,59 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const STEALTH_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+/**
+ * Authentic modern desktop browser identities. Mobile/Linux/old-Chrome strings
+ * are what Google's bot heuristics score hardest, so the pool is desktop only
+ * and each entry ships matching client hints.
+ */
+const DESKTOP_AGENTS: { ua: string; hints: Record<string, string> }[] = [
+  {
+    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    hints: {
+      "sec-ch-ua": '"Chromium";v="141", "Not;A=Brand";v="24", "Google Chrome";v="141"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+    },
+  },
+  {
+    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
+    hints: {
+      "sec-ch-ua": '"Chromium";v="140", "Not;A=Brand";v="24", "Microsoft Edge";v="140"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+    },
+  },
+  {
+    ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    hints: {
+      "sec-ch-ua": '"Chromium";v="141", "Not;A=Brand";v="24", "Google Chrome";v="141"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"macOS"',
+    },
+  },
 ];
 
-const DEFAULT_AGENT = STEALTH_AGENTS[0]!;
+const DEFAULT_AGENT = DESKTOP_AGENTS[0]!;
+
+/** Headers that would expose the data-center hop to Google's security systems. */
+const PROXY_FINGERPRINT_HEADERS = [
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+  "x-forwarded-port",
+  "x-real-ip",
+  "forwarded",
+  "via",
+  "x-radium-proxied",
+  "cf-connecting-ip",
+  "cf-ipcountry",
+  "cf-ray",
+  "cf-visitor",
+  "cf-worker",
+  "cdn-loop",
+  "true-client-ip",
+  "x-vercel-forwarded-for",
+  "x-request-id",
+];
 
 const STRIPPED_RESPONSE_HEADERS = new Set([
   "content-security-policy",
