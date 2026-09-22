@@ -273,9 +273,13 @@ async function handle(request: Request) {
 
   const isYouTube = /(?:^|\.)(?:youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(targetUrl.hostname);
   const isGoogle = /(?:^|\.)google\.[a-z.]+$/i.test(targetUrl.hostname);
-  // YouTube derives region from the requesting IP, which is whatever edge node
-  // handled the fetch (seen as NL, US, ...). Pin it with explicit hints.
+  // Watch pages carry the heaviest bot checks (PoToken, "not a bot" wall); the
+  // embed endpoint serves the same player context with far fewer checks.
   if (isYouTube) {
+    const embedded = youtubeEmbedTarget(targetUrl);
+    if (embedded) targetUrl = embedded;
+    // YouTube derives region from the requesting IP, which is whatever edge node
+    // handled the fetch (seen as NL, US, ...). Pin it with explicit hints.
     if (!targetUrl.searchParams.has("gl")) targetUrl.searchParams.set("gl", "SG");
     if (!targetUrl.searchParams.has("hl")) targetUrl.searchParams.set("hl", "en");
   }
@@ -285,6 +289,8 @@ async function handle(request: Request) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  // Never let a data-center hop signature reach the upstream site.
+  for (const name of PROXY_FINGERPRINT_HEADERS) headers.delete(name);
   const scope = cookieScope(targetUrl.hostname);
   const cookie = request.headers.get("cookie");
   headers.delete("cookie");
@@ -302,14 +308,21 @@ async function handle(request: Request) {
     // YouTube's own region preference; keeps the site on Singapore even when
     // the edge IP geolocates elsewhere.
     if (isYouTube && !/\bPREF=/.test(existing)) extras.push("PREF=gl=SG&hl=en");
+    // Operator-supplied signed-in session (SID/HSID/SAPISID/...). A real
+    // account session is the strongest signal against YouTube's bot checks.
+    const session = sessionCookie(process.env["YOUTUBE_SESSION_COOKIE"]);
+    if (session) extras.push(session);
     if (extras.length) headers.set("cookie", [existing, ...extras].filter(Boolean).join("; "));
   }
-  headers.set(
-    "user-agent",
-    stealth
-      ? (STEALTH_AGENTS[Math.floor(Math.random() * STEALTH_AGENTS.length)] ?? DEFAULT_AGENT)
-      : (request.headers.get("user-agent") ?? DEFAULT_AGENT),
-  );
+
+  // Always present as a real desktop browser: a random identity in stealth
+  // mode, a stable one otherwise, with matching client hints.
+  const identity =
+    stealth || isYouTube || isGoogle
+      ? (DESKTOP_AGENTS[Math.floor(Math.random() * DESKTOP_AGENTS.length)] ?? DEFAULT_AGENT)
+      : DEFAULT_AGENT;
+  headers.set("user-agent", identity.ua);
+  for (const [k, v] of Object.entries(identity.hints)) headers.set(k, v);
   headers.set("accept-language", headers.get("accept-language") ?? "en-SG,en;q=0.9");
   headers.set("referer", targetUrl.origin + "/");
   if (request.method !== "GET" && request.method !== "HEAD") headers.set("origin", targetUrl.origin);
