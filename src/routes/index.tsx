@@ -133,11 +133,10 @@ function BrowserTab() {
 
   const videoId = target ? getYouTubeVideoId(target) : null;
   const playerHref = videoId ? videoPlayerUrl(videoId) : null;
-  const frameSrc = target && !videoId ? proxyUrl(target, settings.stealth) : null;
+  const frameSrc = target ? proxyUrl(playerHref ?? target, settings.stealth) : null;
 
-  // Videos route to a bot-check-free player (Invidious embed) opened in a
-  // clean new tab — no iframe, so no connection-security errors. Everything
-  // else loads through the edge proxy inside Radium.
+  // Watch/Shorts URLs resolve to the embed player, then load through the edge
+  // proxy inside Radium. Everything else proxies as-is.
   const open = useCallback(
     (raw: string) => {
       const url = normalizeQuery(raw);
@@ -145,14 +144,7 @@ function BrowserTab() {
       setInput(url);
       setTarget(url);
       setNonce((n) => n + 1);
-      const id = getYouTubeVideoId(url);
-      if (id) {
-        const href = videoPlayerUrl(id);
-        window.open(href, "_blank", "noopener");
-        setStatus("Player opened in a new tab");
-      } else {
-        setStatus(`Loading ${url}`);
-      }
+      setStatus(getYouTubeVideoId(url) ? "Loading player" : `Loading ${url}`);
       pushHistory(url);
     },
     [pushHistory],
