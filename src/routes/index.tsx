@@ -1,6 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
+import {
+  formatDuration,
+  formatViews,
+  getComments,
+  getTrending,
+  getVideo,
+  searchVideos,
+  type InvidiousComment,
+  type InvidiousVideo,
+} from "@/lib/invidious";
 import {
   getYouTubeVideoId,
   normalizeQuery,
@@ -314,32 +324,84 @@ function StartScreen({
   );
 }
 
-const PIPED_BASE = "https://piped.video";
-
 function YouTubeTab() {
   const [query, setQuery] = useState("");
-  const [src, setSrc] = useState(`${PIPED_BASE}/trending?region=SG`);
-  const [nonce, setNonce] = useState(0);
+  const [status, setStatus] = useState("Loading trending…");
+  const [instance, setInstance] = useState<string | null>(null);
+  const [results, setResults] = useState<InvidiousVideo[]>([]);
+  const [selected, setSelected] = useState<InvidiousVideo | null>(null);
+  const [comments, setComments] = useState<InvidiousComment[]>([]);
+  const [busy, setBusy] = useState(false);
 
-  const load = (url: string) => {
-    setSrc(url);
-    setNonce((n) => n + 1);
+  const loadTrending = useCallback(async () => {
+    setBusy(true);
+    setStatus("Loading trending…");
+    const res = await getTrending({ region: "SG" });
+    setBusy(false);
+    if (!res.success) return setStatus(res.error);
+    setInstance(res.instance);
+    setResults(res.results);
+    setStatus(`Trending · ${res.results.length} videos`);
+  }, []);
+
+  useEffect(() => {
+    void loadTrending();
+  }, [loadTrending]);
+
+  const openVideo = async (v: InvidiousVideo) => {
+    if (!v.videoId) return;
+    setSelected(v);
+    setComments([]);
+    setStatus(`Loading ${v.videoId}…`);
+    const [meta, cm] = await Promise.all([getVideo(v.videoId), getComments(v.videoId)]);
+    if (meta.success) {
+      setSelected(meta.video);
+      setInstance(meta.instance);
+      setStatus(meta.video.title);
+    } else {
+      setStatus(meta.error);
+    }
+    if (cm.success) setComments(cm.comments);
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const raw = query.trim();
     if (!raw) return;
     const videoId = getYouTubeVideoId(raw);
-    load(
-      videoId
-        ? `${PIPED_BASE}/watch?v=${videoId}`
-        : `${PIPED_BASE}/results?search_query=${encodeURIComponent(raw)}`,
-    );
+    if (videoId) {
+      await openVideo({
+        videoId,
+        title: videoId,
+        author: "",
+        authorId: null,
+        viewCount: null,
+        published: null,
+        publishedText: null,
+        lengthSeconds: null,
+        liveNow: false,
+        thumbnail: null,
+        description: null,
+      });
+      return;
+    }
+    setBusy(true);
+    setSelected(null);
+    setStatus(`Searching “${raw}”…`);
+    const res = await searchVideos(raw, { region: "SG" });
+    setBusy(false);
+    if (!res.success) return setStatus(res.error);
+    setInstance(res.instance);
+    setResults(res.results);
+    setStatus(`${res.results.length} results for “${raw}”`);
   };
 
+  const embed = selected?.videoId
+    ? `${instance ?? "https://yewtu.be"}/embed/${selected.videoId}?autoplay=1&quality=dash`
+    : null;
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center gap-2 px-3 py-2">
         <form className="min-w-[200px] flex-1" onSubmit={submit}>
           <div
@@ -360,15 +422,19 @@ function YouTubeTab() {
             />
             <button
               type="submit"
-              className="shrink-0 rounded px-3 py-1 text-xs font-medium"
+              disabled={busy}
+              className="shrink-0 rounded px-3 py-1 text-xs font-medium disabled:opacity-60"
               style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
             >
-              Watch ▶
+              Search
             </button>
           </div>
         </form>
         <button
-          onClick={() => load(`${PIPED_BASE}/trending?region=SG`)}
+          onClick={() => {
+            setSelected(null);
+            void loadTrending();
+          }}
           className="rounded-md px-4 py-2 text-xs"
           style={{
             background: "var(--rd-button)",
@@ -378,6 +444,22 @@ function YouTubeTab() {
         >
           Trending
         </button>
+        {selected && (
+          <button
+            onClick={() => {
+              setSelected(null);
+              setComments([]);
+            }}
+            className="rounded-md px-4 py-2 text-xs"
+            style={{
+              background: "var(--rd-button)",
+              color: "var(--rd-button-text)",
+              border: "1px solid var(--rd-line)",
+            }}
+          >
+            ← Back
+          </button>
+        )}
       </div>
 
       <div
@@ -388,24 +470,104 @@ function YouTubeTab() {
           color: "var(--rd-muted)",
         }}
       >
-        <span className="truncate">{src}</span>
+        <span className="truncate">{status}</span>
         <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>
-          PIPED · DIRECT
+          INVIDIOUS API
         </span>
       </div>
 
-      <div className="min-h-0 flex-1">
-        <iframe
-          key={`piped-${nonce}`}
-          src={src}
-          title="Piped"
-          className="h-full w-full"
-          style={{ border: "none", background: "var(--rd-bg)" }}
-          loading="eager"
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-          allowFullScreen
-          referrerPolicy="strict-origin-when-cross-origin"
-        />
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {selected ? (
+          <div className="space-y-4">
+            {embed && (
+              <div className="aspect-video w-full overflow-hidden rounded-lg" style={{ background: "#000" }}>
+                <iframe
+                  key={embed}
+                  src={embed}
+                  title={selected.title}
+                  className="h-full w-full"
+                  style={{ border: "none" }}
+                  allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
+              </div>
+            )}
+            <div className="space-y-1">
+              <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>
+                {selected.title}
+              </h2>
+              <p className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>
+                {[
+                  selected.author,
+                  formatViews(selected.viewCount),
+                  selected.publishedText,
+                  formatDuration(selected.lengthSeconds),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            </div>
+            {selected.description && (
+              <p
+                className="max-h-40 overflow-y-auto whitespace-pre-wrap text-xs"
+                style={{ color: "var(--rd-muted)" }}
+              >
+                {selected.description}
+              </p>
+            )}
+            <div className="space-y-3">
+              <h3 className="font-mono text-[11px] tracking-[0.12em]" style={{ color: "var(--rd-accent-alt)" }}>
+                COMMENTS {comments.length ? `· ${comments.length}` : ""}
+              </h3>
+              {comments.length === 0 && (
+                <p className="text-xs" style={{ color: "var(--rd-muted)" }}>
+                  No comments loaded.
+                </p>
+              )}
+              {comments.map((c, i) => (
+                <div key={c.commentId ?? i} className="space-y-1">
+                  <p className="font-mono text-[11px]" style={{ color: "var(--rd-accent)" }}>
+                    {c.author} · {c.publishedText ?? ""} · ♥ {c.likeCount}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--rd-text)" }}>
+                    {c.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {results.map((v) => (
+              <button
+                key={v.videoId}
+                onClick={() => void openVideo(v)}
+                className="overflow-hidden rounded-lg text-left"
+                style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
+              >
+                {v.thumbnail && (
+                  <img src={v.thumbnail} alt="" className="aspect-video w-full object-cover" loading="lazy" />
+                )}
+                <div className="space-y-1 p-2">
+                  <p className="line-clamp-2 text-xs font-medium" style={{ color: "var(--rd-text)" }}>
+                    {v.title}
+                  </p>
+                  <p className="truncate font-mono text-[10px]" style={{ color: "var(--rd-muted)" }}>
+                    {[v.author, formatViews(v.viewCount), formatDuration(v.lengthSeconds)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+              </button>
+            ))}
+            {results.length === 0 && !busy && (
+              <p className="text-xs" style={{ color: "var(--rd-muted)" }}>
+                Nothing to show yet.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
