@@ -174,7 +174,49 @@ export const Route = createFileRoute("/api/public/invidious")({
         const { data, instance, errors } = await fetchFromInstances(upstreamPath(p));
         if (!data) {
           console.error(`Invidious upstream failed: ${errors.join(" | ")}`);
-          return json({ success: false, error: "No Invidious instance responded", details: errors }, 502);
+
+          // Graceful degradation: never fail the UI with a 502.
+          if (p.action === "comments") {
+            return json({ success: true, instance: null, action: "comments", commentCount: null, comments: [], continuation: null });
+          }
+
+          if (p.action === "video" && p.id) {
+            // YouTube's public oEmbed endpoint needs no auth and is highly available.
+            try {
+              const oe = await fetch(
+                `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${p.id}`)}&format=json`,
+                { headers: { accept: "application/json" }, signal: AbortSignal.timeout(4000) },
+              );
+              if (oe.ok) {
+                const meta = (await oe.json()) as { title?: string; author_name?: string; thumbnail_url?: string };
+                return json({
+                  success: true,
+                  instance: "youtube-oembed",
+                  action: "video",
+                  video: {
+                    videoId: p.id,
+                    title: meta.title ?? "",
+                    author: meta.author_name ?? "",
+                    authorId: null,
+                    viewCount: null,
+                    published: null,
+                    publishedText: null,
+                    lengthSeconds: null,
+                    liveNow: false,
+                    thumbnail: meta.thumbnail_url ?? `https://i.ytimg.com/vi/${p.id}/mqdefault.jpg`,
+                    description: "",
+                    likeCount: null,
+                    genre: null,
+                    embedUrl: `https://www.youtube-nocookie.com/embed/${p.id}`,
+                  },
+                });
+              }
+            } catch (err) {
+              console.error(`oEmbed fallback failed: ${String(err)}`);
+            }
+          }
+
+          return json({ success: false, error: "No Invidious instance responded", details: errors }, 200);
         }
 
         if (p.action === "search" || p.action === "trending") {
