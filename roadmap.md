@@ -1,3 +1,4 @@
-- [x] Fix YouTube video and Shorts playback through the proxy; sign-in is out of scope
-- [x] Pin YouTube region back to Singapore (gl=SG hints, PREF cookie)
-- [x] Fix slow "loading into video" on YouTube watch/Shorts pages
+- [ ] Make YouTube playback immediate and independent of Invidious metadata/comments
+- [ ] Fail Invidious lookups quickly without an endless loading state
+- [ ] Restyle Settings to match the attached lightweight row layout
+- [ ] Verify video failure handling and Settings in the browser
