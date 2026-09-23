@@ -20,9 +20,20 @@ import {
 export type Settings = {
   stealth: boolean;
   singaporeClock: boolean;
+  transport: "edge";
+  wispServer: string;
+  homePage: string;
+  httpCache: boolean;
 };
 
-const DEFAULT_SETTINGS: Settings = { stealth: false, singaporeClock: true };
+const DEFAULT_SETTINGS: Settings = {
+  stealth: false,
+  singaporeClock: true,
+  transport: "edge",
+  wispServer: "wss://wisp.mercurywork.shop/",
+  homePage: "https://google.com",
+  httpCache: true,
+};
 
 type Ctx = {
   theme: Theme;

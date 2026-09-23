@@ -14,7 +14,7 @@ const INSTANCES = [
   "https://vid.puffyan.us",
 ];
 
-const UPSTREAM_TIMEOUT_MS = 12_000;
+const UPSTREAM_TIMEOUT_MS = 2_500;
 
 const paramsSchema = z.object({
   action: z.enum(["search", "video", "comments", "trending"]),
@@ -62,7 +62,7 @@ function upstreamPath(p: z.infer<typeof paramsSchema>): string {
 
 async function fetchFromInstances(path: string) {
   const errors: string[] = [];
-  for (const base of INSTANCES) {
+  const request = async (base: string) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
     try {
@@ -72,18 +72,27 @@ async function fetchFromInstances(path: string) {
         redirect: "follow",
       });
       if (!res.ok) {
-        errors.push(`${base} -> ${res.status}`);
-        continue;
+        throw new Error(`HTTP ${res.status}`);
       }
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) throw new Error("Invalid response");
       const data = (await res.json()) as unknown;
-      return { data, instance: base, errors };
+      return { data, instance: base };
     } catch (error) {
-      errors.push(`${base} -> ${error instanceof Error ? error.message : "failed"}`);
+      const message = error instanceof Error ? error.message : "failed";
+      errors.push(`${base} -> ${message}`);
+      throw error;
     } finally {
       clearTimeout(timer);
     }
+  };
+
+  try {
+    const winner = await Promise.any(INSTANCES.map(request));
+    return { ...winner, errors };
+  } catch {
+    return { data: null, instance: null, errors };
   }
-  return { data: null, instance: null, errors };
 }
 
 type RawVideo = {

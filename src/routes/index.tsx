@@ -5,6 +5,7 @@ import {
   Code2,
   Home,
   LockKeyhole,
+  Moon,
   RefreshCw,
   Search,
   Settings,
@@ -349,11 +350,11 @@ function StartScreen({
 function YouTubeTab() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("Loading trending…");
-  const [instance, setInstance] = useState<string | null>(null);
   const [results, setResults] = useState<InvidiousVideo[]>([]);
   const [selected, setSelected] = useState<InvidiousVideo | null>(null);
   const [comments, setComments] = useState<InvidiousComment[]>([]);
   const [busy, setBusy] = useState(false);
+  const [playerState, setPlayerState] = useState<"idle" | "loading" | "ready" | "error">("idle");
 
   const loadTrending = useCallback(async () => {
     setBusy(true);
@@ -361,7 +362,6 @@ function YouTubeTab() {
     const res = await getTrending({ region: "SG" });
     setBusy(false);
     if (!res.success) return setStatus(res.error);
-    setInstance(res.instance);
     setResults(res.results);
     setStatus(`Trending · ${res.results.length} videos`);
   }, []);
@@ -370,20 +370,27 @@ function YouTubeTab() {
     void loadTrending();
   }, [loadTrending]);
 
-  const openVideo = async (v: InvidiousVideo) => {
+  const openVideo = (v: InvidiousVideo) => {
     if (!v.videoId) return;
     setSelected(v);
     setComments([]);
-    setStatus(`Loading ${v.videoId}…`);
-    const [meta, cm] = await Promise.all([getVideo(v.videoId), getComments(v.videoId)]);
-    if (meta.success) {
-      setSelected({ ...v, ...meta.video });
-      setInstance(meta.instance);
-      setStatus(meta.video.title || v.title);
-    } else {
-      setStatus(v.title || v.videoId);
-    }
-    if (cm.success) setComments(cm.comments);
+    setPlayerState("loading");
+    setStatus(v.title || "Opening player…");
+
+    const videoId = v.videoId;
+    void getVideo(videoId).then((meta) => {
+      if (!meta.success) return;
+      setSelected((current) =>
+        current?.videoId === videoId ? { ...current, ...meta.video } : current,
+      );
+    });
+    void getComments(videoId).then((response) => {
+      if (!response.success) return;
+      setSelected((current) => {
+        if (current?.videoId === videoId) setComments(response.comments);
+        return current;
+      });
+    });
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -392,7 +399,7 @@ function YouTubeTab() {
     if (!raw) return;
     const videoId = getYouTubeVideoId(raw);
     if (videoId) {
-      await openVideo({
+      openVideo({
         videoId,
         title: videoId,
         author: "",
@@ -413,7 +420,6 @@ function YouTubeTab() {
     const res = await searchVideos(raw, { region: "SG" });
     setBusy(false);
     if (!res.success) return setStatus(res.error);
-    setInstance(res.instance);
     setResults(res.results);
     setStatus(`${res.results.length} results for “${raw}”`);
   };
@@ -494,7 +500,7 @@ function YouTubeTab() {
       >
         <span className="truncate">{status}</span>
         <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>
-          INVIDIOUS API
+          DIRECT PLAYER · OPTIONAL DETAILS
         </span>
       </div>
 
@@ -502,7 +508,7 @@ function YouTubeTab() {
         {selected ? (
           <div className="space-y-4">
             {embed && (
-              <div className="aspect-video w-full overflow-hidden rounded-lg" style={{ background: "#000" }}>
+              <div className="relative aspect-video w-full overflow-hidden rounded-md" style={{ background: "var(--rd-surface)" }}>
                 <iframe
                   key={embed}
                   src={embed}
@@ -512,7 +518,20 @@ function YouTubeTab() {
                   allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                   allowFullScreen
                   referrerPolicy="strict-origin-when-cross-origin"
+                  onLoad={() => {
+                    setPlayerState("ready");
+                    setStatus(selected.title || "Player ready");
+                  }}
+                  onError={() => {
+                    setPlayerState("error");
+                    setStatus("The video player could not load. Try another video.");
+                  }}
                 />
+                {playerState === "loading" && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 px-3 py-2 font-mono text-[10px]" style={{ background: "var(--rd-surface)", color: "var(--rd-muted)" }}>
+                    Connecting to player…
+                  </div>
+                )}
               </div>
             )}
             <div className="space-y-1">
@@ -564,7 +583,7 @@ function YouTubeTab() {
             {results.map((v) => (
               <button
                 key={v.videoId}
-                onClick={() => void openVideo(v)}
+                onClick={() => openVideo(v)}
                 className="overflow-hidden rounded-lg text-left"
                 style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
               >
@@ -617,101 +636,85 @@ function SettingsTab() {
       name: theme.preset ? "Custom" : theme.name,
     });
 
-  const section = "border-b py-4 last:border-b-0";
-  const sectionStyle = { borderColor: "var(--rd-line)" };
+  const rowClass = "grid gap-4 border-b py-6 sm:grid-cols-[minmax(0,1fr)_minmax(260px,44%)] sm:items-center";
+  const rowStyle = { borderColor: "var(--rd-line)" };
+  const accentChoices = ["#c2f53c", "#19d3d1", "#f044b7", "#ff9418"];
+
+  const rowCopy = (title: string, hint: string) => (
+    <div>
+      <h2 className="text-sm font-semibold">{title}</h2>
+      <p className="mt-1 text-xs" style={{ color: "var(--rd-muted)" }}>{hint}</p>
+    </div>
+  );
 
   return (
-    <div className="h-full overflow-auto px-5 py-2">
-      <div className="mx-auto max-w-2xl pb-8">
-        <section className={section} style={sectionStyle}>
-          <h2 className="mb-3 font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
-            MODE
-          </h2>
-          <div className="flex gap-2">
-            {(["dark", "light"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setTheme(PRESET_THEMES.find((p) => p.mode === mode) ?? theme)}
-                className="rounded-md px-4 py-2 text-sm capitalize"
-                style={{
-                  background: theme.mode === mode ? "var(--rd-accent)" : "var(--rd-button)",
-                  color: theme.mode === mode ? "var(--rd-bg)" : "var(--rd-button-text)",
-                }}
-              >
-                {mode} mode
+    <div className="h-full overflow-auto px-5 sm:px-8">
+      <div className="mx-auto max-w-5xl pb-8">
+        <section className={rowClass} style={rowStyle}>
+          {rowCopy("Transport", "Network engine used for proxied requests")}
+          <select aria-label="Transport" value={settings.transport} onChange={() => undefined} className="h-11 rounded-sm px-3 font-mono text-xs outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }}>
+            <option value="edge">Edge proxy</option>
+          </select>
+        </section>
+
+        <section className={rowClass} style={rowStyle}>
+          {rowCopy("Wisp server", "Encrypted relay endpoint")}
+          <input aria-label="Wisp server" value={settings.wispServer} onChange={(e) => updateSettings({ wispServer: e.target.value })} className="h-11 rounded-sm px-3 font-mono text-xs outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }} />
+        </section>
+
+        <section className={rowClass} style={rowStyle}>
+          {rowCopy("Home page", "Opens when you select Home")}
+          <input aria-label="Home page" value={settings.homePage} onChange={(e) => updateSettings({ homePage: e.target.value })} className="h-11 rounded-sm px-3 font-mono text-xs outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }} />
+        </section>
+
+        <section className={rowClass} style={rowStyle}>
+          {rowCopy("HTTP cache", "Reuse recent responses for faster browsing")}
+          <label className="justify-self-start sm:justify-self-end">
+            <span className="sr-only">HTTP cache</span>
+            <input type="checkbox" checked={settings.httpCache} onChange={(e) => updateSettings({ httpCache: e.target.checked })} className="peer sr-only" />
+            <span className="flex h-7 w-12 items-center rounded-full p-1 transition-colors peer-focus-visible:outline-2" style={{ background: settings.httpCache ? "var(--rd-accent)" : "var(--rd-button)" }}>
+              <span className="h-5 w-5 rounded-full transition-transform" style={{ background: "var(--rd-bg)", transform: settings.httpCache ? "translateX(20px)" : "translateX(0)" }} />
+            </span>
+          </label>
+        </section>
+
+        <section className={rowClass} style={rowStyle}>
+          {rowCopy("Interface mode", "Switch between dark and white workspaces")}
+          <button onClick={() => setTheme(PRESET_THEMES.find((p) => p.mode !== theme.mode) ?? theme)} className="flex h-10 items-center gap-2 justify-self-start rounded-sm px-4 text-xs sm:justify-self-end" style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}>
+            {theme.mode === "dark" ? <Moon size={15} style={{ color: "var(--rd-accent)" }} /> : <Sun size={15} style={{ color: "var(--rd-accent)" }} />}
+            {theme.mode === "dark" ? "Dark" : "White"}
+          </button>
+        </section>
+
+        <section className={rowClass} style={rowStyle}>
+          {rowCopy("Client colour", "Choose Radium's active signal colour")}
+          <div className="flex gap-3 justify-self-start sm:justify-self-end">
+            {accentChoices.map((color) => (
+              <button key={color} aria-label={`Use ${color} accent`} onClick={() => update("accent", color)} className="flex h-9 w-9 items-center justify-center rounded-sm" style={{ background: color, outline: theme.accent.toLowerCase() === color.toLowerCase() ? "2px solid var(--rd-text)" : "1px solid var(--rd-line)", outlineOffset: "3px" }}>
+                {theme.accent.toLowerCase() === color.toLowerCase() && <span style={{ color: "var(--rd-bg)" }}>✓</span>}
               </button>
             ))}
           </div>
         </section>
 
-        <section className={section} style={sectionStyle}>
-          <h2 className="mb-3 font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
-            PRESETS
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {PRESET_THEMES.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setTheme(p)}
-                className="rounded-md px-3 py-1.5 text-xs"
-                style={{
-                  background: p.button,
-                  color: p.buttonText,
-                  outline: theme.id === p.id ? `2px solid ${p.accent}` : "1px solid var(--rd-line)",
-                }}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className={section} style={sectionStyle}>
-          <h2 className="mb-3 font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
-            COLORS · LIVE PREVIEW
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+        <details className="border-b py-5" style={rowStyle}>
+          <summary className="cursor-pointer text-sm font-semibold">Advanced appearance</summary>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {THEME_FIELDS.map((f) => (
               <label key={f.key} className="flex items-center justify-between gap-3 text-sm">
                 <span>{f.label}</span>
-                <input
-                  type="color"
-                  value={String(theme[f.key] ?? "#000000")}
-                  onChange={(e) => update(f.key, e.target.value)}
-                  className="h-8 w-14 cursor-pointer rounded border-0 bg-transparent"
-                />
+                <input type="color" value={String(theme[f.key] ?? "#000000")} onChange={(e) => update(f.key, e.target.value)} className="h-8 w-14 cursor-pointer border-0 bg-transparent" />
               </label>
             ))}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <input
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              className="rounded-md px-3 py-2 text-sm outline-none"
-              style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }}
-              placeholder="Theme name"
-            />
-            <button
-              onClick={() => {
-                const saved: Theme = {
-                  ...theme,
-                  id: `custom-${Date.now()}`,
-                  name: draftName || "My theme",
-                  preset: false,
-                };
-                saveTheme(saved);
-                setTheme(saved);
-              }}
-              className="rounded-md px-4 py-2 text-sm font-medium"
-              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
-            >
-              Save theme
-            </button>
+            <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="rounded-sm px-3 py-2 text-sm outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }} placeholder="Theme name" />
+            <button onClick={() => { const saved: Theme = { ...theme, id: `custom-${Date.now()}`, name: draftName || "My theme", preset: false }; saveTheme(saved); setTheme(saved); }} className="rounded-sm px-4 py-2 text-sm font-medium" style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}>Save theme</button>
           </div>
-        </section>
+        </details>
 
         {customThemes.length > 0 && (
-          <section className={section} style={sectionStyle}>
+          <section className="border-b py-5" style={rowStyle}>
             <h2 className="mb-3 font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
               SAVED THEMES
             </h2>
@@ -738,7 +741,7 @@ function SettingsTab() {
           </section>
         )}
 
-        <section className={section} style={sectionStyle}>
+        <section className="border-b py-5" style={rowStyle}>
           <h2 className="mb-3 font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
             SESSION
           </h2>
@@ -772,7 +775,7 @@ function SettingsTab() {
           ))}
         </section>
 
-        <section className={section} style={sectionStyle}>
+        <section className="border-b py-5" style={rowStyle}>
           <div className="flex items-center justify-between">
             <h2 className="font-mono text-[11px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
               HISTORY ({history.length})
