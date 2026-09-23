@@ -1,4 +1,4 @@
 - [x] Make YouTube playback immediate and independent of Invidious metadata/comments
 - [x] Fail Invidious lookups quickly without an endless loading state
 - [x] Restyle Settings to match the attached lightweight row layout
-- [ ] Verify video failure handling and Settings in the browser
+- [x] Verify video failure handling and Settings in the browser
