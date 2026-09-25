@@ -171,6 +171,15 @@ const FORWARDED_REQUEST_HEADERS = [
   "if-modified-since",
 ];
 
+const UPSTREAM_CONNECT_TIMEOUT_MS = 12_000;
+
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, HEAD, POST, OPTIONS",
+  "access-control-allow-headers": "Content-Type, Range, Accept, Accept-Language",
+  "access-control-expose-headers": "Content-Length, Content-Range, Accept-Ranges, X-Radium-Proxied",
+};
+
 function proxyPath(target: string, stealth: boolean) {
   return `/api/public/p?u=${encodeURIComponent(target)}${stealth ? "&stealth=1" : ""}`;
 }
@@ -388,6 +397,8 @@ async function handle(request: Request) {
   headers.delete("accept-encoding");
 
   let upstream: Response;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), UPSTREAM_CONNECT_TIMEOUT_MS);
   try {
     upstream = await fetch(targetUrl.toString(), {
       method: request.method,
@@ -397,9 +408,21 @@ async function handle(request: Request) {
       // Manual: sign-in hands out its session cookies on the redirect hops, and
       // following them server-side would swallow those cookies.
       redirect: "manual",
+      signal: controller.signal,
     });
   } catch (error) {
-    return new Response(`Upstream request failed: ${(error as Error).message}`, { status: 502 });
+    const timedOut = controller.signal.aborted;
+    return Response.json(
+      {
+        error: timedOut ? "The upstream website did not respond in time." : "The upstream website could not be reached.",
+      },
+      {
+        status: timedOut ? 504 : 502,
+        headers: CORS_HEADERS,
+      },
+    );
+  } finally {
+    clearTimeout(timeout);
   }
 
   const outHeaders = new Headers();
@@ -407,7 +430,7 @@ async function handle(request: Request) {
     if (!STRIPPED_RESPONSE_HEADERS.has(key.toLowerCase())) outHeaders.set(key, value);
   });
   outHeaders.set("x-radium-proxied", targetUrl.toString());
-  outHeaders.set("access-control-allow-origin", "*");
+  for (const [name, value] of Object.entries(CORS_HEADERS)) outHeaders.set(name, value);
 
   const setCookies =
     typeof upstream.headers.getSetCookie === "function"
@@ -488,6 +511,7 @@ function baseForNavigation(value: string) {
 export const Route = createFileRoute("/api/public/p")({
   server: {
     handlers: {
+      OPTIONS: () => new Response(null, { status: 204, headers: CORS_HEADERS }),
       GET: ({ request }) => handle(request),
       HEAD: ({ request }) => handle(request),
       POST: ({ request }) => handle(request),
