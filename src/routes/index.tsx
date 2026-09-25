@@ -160,14 +160,10 @@ function BrowserTab() {
 
   const videoId = target ? getYouTubeVideoId(target) : null;
   const playerHref = videoId ? videoPlayerUrl(videoId) : null;
-  // YouTube signs media URLs for the IP that loaded the player. If the player
-  // HTML is rewritten through our edge proxy, its googlevideo requests are
-  // sent from a different IP and the signature is rejected. Keep the official
-  // privacy player inside Radium, but let it fetch its own media directly.
-  const frameSrc = target ? (playerHref ?? proxyUrl(target, settings.stealth)) : null;
+  const frameSrc = target ? proxyUrl(playerHref ?? target, settings.stealth) : null;
 
-  // Watch/Shorts URLs resolve to YouTube's privacy player inside Radium.
-  // Everything else continues through the edge proxy.
+  // Watch/Shorts URLs resolve to the embed player, then load through the edge
+  // proxy inside Radium. Everything else proxies as-is.
   const open = useCallback(
     (raw: string) => {
       const url = normalizeQuery(raw);
@@ -243,10 +239,7 @@ function BrowserTab() {
               style={{ border: "none", background: "var(--rd-bg)" }}
               loading="eager"
               referrerPolicy="strict-origin-when-cross-origin"
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-              onLoad={() => setStatus(videoId ? "Player ready" : "Transport ready")}
-              onError={() => setStatus(videoId ? "Player could not load" : "Transport failed")}
+              onLoad={() => setStatus("Transport ready")}
               sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation"
             />
             <button
