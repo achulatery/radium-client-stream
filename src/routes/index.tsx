@@ -397,6 +397,8 @@ function OptionsMenu({ provider, onPick }: { provider: Provider; onPick: (p: Pro
   );
 }
 
+const EMBED = "__embed__";
+
 function PipedView({ options }: { options: React.ReactNode }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("Finding a working Piped server…");
@@ -416,15 +418,45 @@ function PipedView({ options }: { options: React.ReactNode }) {
   }, []);
 
   const open = async (id: string) => {
+    const card = results.find((x) => x.videoId === id);
+    const fallback: PipedVideo = {
+      videoId: id,
+      title: card?.title ?? "Video",
+      author: card?.author ?? "",
+      views: card?.views ?? null,
+      duration: card?.duration ?? null,
+      description: "",
+      thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+      hls: null,
+      streams: [],
+    };
     setBusy(true);
     setStatus("Loading streams…");
     const r = await pipedStreams(id);
     setBusy(false);
-    if (!r.success) return setStatus(r.error);
+    if (!r.success || !r.video.streams.length) {
+      setVideo(fallback);
+      setQuality(EMBED);
+      setStatus(`${fallback.title} · backup player (Piped streams unavailable)`);
+      return;
+    }
     setInstance(r.instance);
     setVideo(r.video);
-    setQuality(r.video.streams[0]?.url ?? "");
-    setStatus(r.video.streams.length ? r.video.title : "No playable streams for this video");
+    setQuality(r.video.streams[0].url);
+    setStatus(r.video.title);
+  };
+
+  const onStreamError = () => {
+    if (!video) return;
+    const i = video.streams.findIndex((s) => s.url === quality);
+    const next = video.streams[i + 1];
+    if (next) {
+      setQuality(next.url);
+      setStatus(`Stream failed — trying ${next.quality}`);
+    } else {
+      setQuality(EMBED);
+      setStatus(`${video.title} · switched to backup player`);
+    }
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -489,17 +521,30 @@ function PipedView({ options }: { options: React.ReactNode }) {
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {video ? (
           <div className="space-y-3">
-            <video
-              key={quality}
-              src={quality || undefined}
-              poster={video.thumbnail}
-              controls
-              autoPlay
-              playsInline
-              className="aspect-video w-full rounded-md"
-              style={{ background: "var(--rd-surface)" }}
-              onError={() => setStatus("This stream failed — pick another quality")}
-            />
+            {quality === EMBED ? (
+              <iframe
+                key={video.videoId}
+                src={`https://www.youtube-nocookie.com/embed/${video.videoId}?autoplay=1&mute=1&rel=0&hl=en&gl=SG&playsinline=1`}
+                title={video.title}
+                allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
+                className="aspect-video w-full rounded-md border-0"
+                style={{ background: "var(--rd-surface)" }}
+              />
+            ) : (
+              <video
+                key={quality}
+                src={quality || undefined}
+                poster={video.thumbnail}
+                controls
+                autoPlay
+                playsInline
+                className="aspect-video w-full rounded-md"
+                style={{ background: "var(--rd-surface)" }}
+                onError={onStreamError}
+              />
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>QUALITY</span>
               <select
@@ -513,6 +558,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
                     {s.quality}
                   </option>
                 ))}
+                <option value={EMBED}>Backup player</option>
               </select>
             </div>
             <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>{video.title}</h2>

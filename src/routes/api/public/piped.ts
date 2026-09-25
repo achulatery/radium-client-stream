@@ -3,19 +3,16 @@ import { z } from "zod";
 
 /** Public Piped API instances; the first is preferred, the rest are automatic fallbacks. */
 const INSTANCES = [
+  "https://api.piped.private.coffee",
+  "https://pipedapi.ducks.party",
   "https://pipedapi.moomoo.me",
   "https://pipedapi.kavin.rocks",
   "https://pipedapi.adminforge.de",
-  "https://api.piped.private.coffee",
   "https://pipedapi.reallyaweso.me",
-  "https://pipedapi.drgns.space",
   "https://pipedapi.leptons.xyz",
-  "https://piped-api.lunar.icu",
-  "https://pipedapi.darkness.services",
-  "https://pipedapi.ducks.party",
 ];
 
-const TIMEOUT_MS = 4_000;
+const TIMEOUT_MS = 3_500;
 let lastGood: string | null = null;
 
 const schema = z.object({
