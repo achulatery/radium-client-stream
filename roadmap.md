@@ -2,3 +2,6 @@
 - [x] Fail Invidious lookups quickly without an endless loading state
 - [x] Restyle Settings to match the attached lightweight row layout
 - [x] Verify video failure handling and Settings in the browser
+- [ ] Keep YouTube player media off the edge proxy to preserve signed stream URLs
+- [ ] Bound stalled upstream connections and support proxy preflight requests
+- [ ] Verify YouTube playback requests and ordinary proxied browsing
