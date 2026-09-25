@@ -133,7 +133,7 @@ export const Route = createFileRoute("/api/public/piped")({
             videoStreams?: RawStream[];
           };
           const streams = (d.videoStreams ?? [])
-            .filter((s) => s.url && !s.videoOnly)
+            .filter((s) => s.url && !s.videoOnly && !/hls/i.test(s.quality ?? ""))
             .map((s) => ({ url: s.url!, quality: s.quality ?? `${s.height ?? "?"}p`, mimeType: s.mimeType ?? "" }))
             .sort((a, b) => parseInt(b.quality) - parseInt(a.quality));
           return json({
