@@ -33,6 +33,7 @@ import {
   useRadium,
   videoPlayerUrl,
 } from "@/lib/radium";
+import { pipedSearch, pipedStreams, pipedTrending, type PipedItem, type PipedVideo } from "@/lib/piped";
 import { PRESET_THEMES, THEME_FIELDS, type Theme } from "@/lib/themes";
 
 export const Route = createFileRoute("/")({
@@ -347,7 +348,213 @@ function StartScreen({
   );
 }
 
+type Provider = "invidious" | "piped";
+
 function YouTubeTab() {
+  const [provider, setProvider] = useState<Provider>("piped");
+  const options = <OptionsMenu provider={provider} onPick={setProvider} />;
+  return provider === "piped" ? (
+    <PipedView key="piped" options={options} />
+  ) : (
+    <InvidiousView key="invidious" options={options} />
+  );
+}
+
+const btnStyle = {
+  background: "var(--rd-button)",
+  color: "var(--rd-button-text)",
+  border: "1px solid var(--rd-line)",
+} as const;
+
+function OptionsMenu({ provider, onPick }: { provider: Provider; onPick: (p: Provider) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen((o) => !o)} className="rounded-md px-4 py-2 text-xs" style={btnStyle}>
+        Options · {provider === "piped" ? "Piped" : "Invidious"}
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-md text-xs"
+          style={{ background: "var(--rd-surface)", border: "1px solid var(--rd-line)" }}
+        >
+          {(["piped", "invidious"] as Provider[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => {
+                onPick(p);
+                setOpen(false);
+              }}
+              className="block w-full px-3 py-2 text-left"
+              style={{ color: p === provider ? "var(--rd-accent)" : "var(--rd-text)" }}
+            >
+              Connect to {p === "piped" ? "Piped" : "Invidious"}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PipedView({ options }: { options: React.ReactNode }) {
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("Finding a working Piped server…");
+  const [instance, setInstance] = useState<string | null>(null);
+  const [results, setResults] = useState<PipedItem[]>([]);
+  const [video, setVideo] = useState<PipedVideo | null>(null);
+  const [quality, setQuality] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void pipedTrending().then((r) => {
+      if (!r.success) return setStatus(`${r.error} — try searching`);
+      setInstance(r.instance);
+      setResults(r.results);
+      setStatus(`Trending · ${r.results.length} videos`);
+    });
+  }, []);
+
+  const open = async (id: string) => {
+    setBusy(true);
+    setStatus("Loading streams…");
+    const r = await pipedStreams(id);
+    setBusy(false);
+    if (!r.success) return setStatus(r.error);
+    setInstance(r.instance);
+    setVideo(r.video);
+    setQuality(r.video.streams[0]?.url ?? "");
+    setStatus(r.video.streams.length ? r.video.title : "No playable streams for this video");
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = query.trim();
+    if (!raw) return;
+    const id = getYouTubeVideoId(raw) ?? (/^[\w-]{11}$/.test(raw) ? raw : null);
+    if (id) return void open(id);
+    setBusy(true);
+    setVideo(null);
+    setStatus(`Searching “${raw}”…`);
+    const r = await pipedSearch(raw);
+    setBusy(false);
+    if (!r.success) return setStatus(r.error);
+    setInstance(r.instance);
+    setResults(r.results);
+    setStatus(`${r.results.length} results for “${raw}”`);
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+        <form className="min-w-[200px] flex-1" onSubmit={submit}>
+          <div
+            className="flex items-center gap-2 rounded-md px-3 py-2"
+            style={{ background: "var(--rd-search)", border: "1px solid var(--rd-line)" }}
+          >
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search via Piped or paste a video link"
+              aria-label="Piped search"
+              className="w-full bg-transparent font-mono text-sm outline-none"
+              style={{ color: "var(--rd-search-text)" }}
+            />
+            <button
+              type="submit"
+              disabled={busy}
+              className="shrink-0 rounded px-3 py-1 text-xs font-medium disabled:opacity-60"
+              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
+            >
+              Search
+            </button>
+          </div>
+        </form>
+        {options}
+        {video && (
+          <button onClick={() => setVideo(null)} className="rounded-md px-4 py-2 text-xs" style={btnStyle}>
+            ← Back
+          </button>
+        )}
+      </div>
+      <div
+        className="flex items-center justify-between gap-3 px-4 py-1.5 font-mono text-[11px] tracking-[0.12em]"
+        style={{ borderTop: "1px solid var(--rd-line)", borderBottom: "1px solid var(--rd-line)", color: "var(--rd-muted)" }}
+      >
+        <span className="truncate">{status}</span>
+        <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>
+          PIPED · {instance ? new URL(instance).hostname : "SEARCHING"}
+        </span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {video ? (
+          <div className="space-y-3">
+            <video
+              key={quality}
+              src={quality || undefined}
+              poster={video.thumbnail}
+              controls
+              autoPlay
+              playsInline
+              className="aspect-video w-full rounded-md"
+              style={{ background: "var(--rd-surface)" }}
+              onError={() => setStatus("This stream failed — pick another quality")}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>QUALITY</span>
+              <select
+                value={quality}
+                onChange={(e) => setQuality(e.target.value)}
+                className="rounded px-2 py-1 text-xs"
+                style={{ ...btnStyle }}
+              >
+                {video.streams.map((s) => (
+                  <option key={s.url} value={s.url}>
+                    {s.quality}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>{video.title}</h2>
+            <p className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>
+              {[video.author, formatViews(video.views), formatDuration(video.duration)].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {results.map((v) => (
+              <button
+                key={v.videoId}
+                onClick={() => void open(v.videoId)}
+                className="overflow-hidden rounded-lg text-left"
+                style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
+              >
+                <img
+                  src={v.thumbnail ?? `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`}
+                  onError={(e) => {
+                    const fb = `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+                    if (e.currentTarget.src !== fb) e.currentTarget.src = fb;
+                  }}
+                  alt=""
+                  className="aspect-video w-full object-cover"
+                  loading="lazy"
+                />
+                <div className="space-y-1 p-2">
+                  <p className="line-clamp-2 text-xs font-medium" style={{ color: "var(--rd-text)" }}>{v.title}</p>
+                  <p className="truncate font-mono text-[10px]" style={{ color: "var(--rd-muted)" }}>
+                    {[v.author, formatViews(v.views), formatDuration(v.duration)].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InvidiousView({ options }: { options: React.ReactNode }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("Loading trending…");
   const [results, setResults] = useState<InvidiousVideo[]>([]);
@@ -458,20 +665,7 @@ function YouTubeTab() {
             </button>
           </div>
         </form>
-        <button
-          onClick={() => {
-            setSelected(null);
-            void loadTrending();
-          }}
-          className="rounded-md px-4 py-2 text-xs"
-          style={{
-            background: "var(--rd-button)",
-            color: "var(--rd-button-text)",
-            border: "1px solid var(--rd-line)",
-          }}
-        >
-          Trending
-        </button>
+        {options}
         {selected && (
           <button
             onClick={() => {
