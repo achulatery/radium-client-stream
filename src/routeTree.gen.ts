@@ -14,6 +14,7 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as ApiPublicInvidiousRouteImport } from './routes/api/public/invidious'
 import { Route as ApiPublicPRouteImport } from './routes/api/public/p'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
+import { Route as ApiPublicPipedRouteImport } from './routes/api/public/piped'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const ApiPublicPingRoute = ApiPublicPingRouteImport.update({
   path: '/api/public/ping',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPipedRoute = ApiPublicPipedRouteImport.update({
+  id: '/api/public/piped',
+  path: '/api/public/piped',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/api/public/invidious': typeof ApiPublicInvidiousRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/piped': typeof ApiPublicPipedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/api/public/invidious': typeof ApiPublicInvidiousRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/piped': typeof ApiPublicPipedRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,14 +70,25 @@ export interface FileRoutesById {
   '/api/public/invidious': typeof ApiPublicInvidiousRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/piped': typeof ApiPublicPipedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/$' | '/api/public/invidious' | '/api/public/p' | '/api/public/ping'
+    | '/'
+    | '/$'
+    | '/api/public/invidious'
+    | '/api/public/p'
+    | '/api/public/ping'
+    | '/api/public/piped'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/$' | '/api/public/invidious' | '/api/public/p' | '/api/public/ping'
+    | '/'
+    | '/$'
+    | '/api/public/invidious'
+    | '/api/public/p'
+    | '/api/public/ping'
+    | '/api/public/piped'
   id:
     | '__root__'
     | '/'
@@ -77,6 +96,7 @@ export interface FileRouteTypes {
     | '/api/public/invidious'
     | '/api/public/p'
     | '/api/public/ping'
+    | '/api/public/piped'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -85,6 +105,7 @@ export interface RootRouteChildren {
   ApiPublicInvidiousRoute: typeof ApiPublicInvidiousRoute
   ApiPublicPRoute: typeof ApiPublicPRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
+  ApiPublicPipedRoute: typeof ApiPublicPipedRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -124,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/piped': {
+      id: '/api/public/piped'
+      path: '/api/public/piped'
+      fullPath: '/api/public/piped'
+      preLoaderRoute: typeof ApiPublicPipedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -133,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicInvidiousRoute: ApiPublicInvidiousRoute,
   ApiPublicPRoute: ApiPublicPRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
+  ApiPublicPipedRoute: ApiPublicPipedRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
