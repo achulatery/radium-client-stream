@@ -98,6 +98,18 @@ export const Route = createFileRoute("/api/public/piped")({
     handlers: {
       OPTIONS: () => new Response(null, { status: 204, headers: CORS }),
       GET: async ({ request }) => {
+        try {
+          return await handle(request);
+        } catch (e) {
+          console.error("Piped route error", e);
+          return json({ success: false, error: "Piped had a problem. Please try again." });
+        }
+      },
+    },
+  },
+});
+
+async function handle(request: Request): Promise<Response> {
         const parsed = schema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
         if (!parsed.success) return json({ success: false, error: "Invalid parameters" }, 400);
         const p = parsed.data;
@@ -158,7 +170,4 @@ export const Route = createFileRoute("/api/public/piped")({
           instance,
           results: list.filter((v) => (v.type ?? "stream") === "stream").map(shapeItem).filter((v) => v.videoId),
         });
-      },
-    },
-  },
-});
+}

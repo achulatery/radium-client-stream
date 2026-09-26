@@ -15,6 +15,7 @@ import { Route as ApiPublicInvidiousRouteImport } from './routes/api/public/invi
 import { Route as ApiPublicPRouteImport } from './routes/api/public/p'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
 import { Route as ApiPublicPipedRouteImport } from './routes/api/public/piped'
+import { Route as ApiPublicThumbRouteImport } from './routes/api/public/thumb'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const ApiPublicPipedRoute = ApiPublicPipedRouteImport.update({
   path: '/api/public/piped',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicThumbRoute = ApiPublicThumbRouteImport.update({
+  id: '/api/public/thumb',
+  path: '/api/public/thumb',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/piped': typeof ApiPublicPipedRoute
+  '/api/public/thumb': typeof ApiPublicThumbRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/piped': typeof ApiPublicPipedRoute
+  '/api/public/thumb': typeof ApiPublicThumbRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/piped': typeof ApiPublicPipedRoute
+  '/api/public/thumb': typeof ApiPublicThumbRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/api/public/p'
     | '/api/public/ping'
     | '/api/public/piped'
+    | '/api/public/thumb'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/api/public/p'
     | '/api/public/ping'
     | '/api/public/piped'
+    | '/api/public/thumb'
   id:
     | '__root__'
     | '/'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/api/public/p'
     | '/api/public/ping'
     | '/api/public/piped'
+    | '/api/public/thumb'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -106,6 +118,7 @@ export interface RootRouteChildren {
   ApiPublicPRoute: typeof ApiPublicPRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
   ApiPublicPipedRoute: typeof ApiPublicPipedRoute
+  ApiPublicThumbRoute: typeof ApiPublicThumbRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -152,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPipedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/thumb': {
+      id: '/api/public/thumb'
+      path: '/api/public/thumb'
+      fullPath: '/api/public/thumb'
+      preLoaderRoute: typeof ApiPublicThumbRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -162,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPRoute: ApiPublicPRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
   ApiPublicPipedRoute: ApiPublicPipedRoute,
+  ApiPublicThumbRoute: ApiPublicThumbRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
