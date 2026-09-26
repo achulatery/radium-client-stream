@@ -33,7 +33,7 @@ import {
   useRadium,
   videoPlayerUrl,
 } from "@/lib/radium";
-import { pipedSearch, pipedStreams, pipedTrending, type PipedItem, type PipedVideo } from "@/lib/piped";
+import { pipedSearch, pipedStreams, pipedTrending, thumbUrl, type PipedItem, type PipedVideo } from "@/lib/piped";
 import { PRESET_THEMES, THEME_FIELDS, type Theme } from "@/lib/themes";
 
 export const Route = createFileRoute("/")({
@@ -407,6 +407,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
   const [video, setVideo] = useState<PipedVideo | null>(null);
   const [quality, setQuality] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const [shorts, setShorts] = useState(false);
 
   useEffect(() => {
     void pipedTrending().then((r) => {
@@ -467,6 +468,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
     if (id) return void open(id);
     setBusy(true);
     setVideo(null);
+    setShorts(false);
     setStatus(`Searching “${raw}”…`);
     const r = await pipedSearch(raw);
     setBusy(false);
@@ -474,6 +476,20 @@ function PipedView({ options }: { options: React.ReactNode }) {
     setInstance(r.instance);
     setResults(r.results);
     setStatus(`${r.results.length} results for “${raw}”`);
+  };
+
+  const loadShorts = async () => {
+    setBusy(true);
+    setVideo(null);
+    setShorts(true);
+    setStatus("Loading Shorts…");
+    const r = await pipedSearch(query.trim() ? `${query.trim()} #shorts` : "#shorts");
+    setBusy(false);
+    if (!r.success) return setStatus(r.error);
+    setInstance(r.instance);
+    const list = r.results.filter((v) => !v.duration || v.duration <= 180);
+    setResults(list.length ? list : r.results);
+    setStatus(`Shorts · ${(list.length ? list : r.results).length} videos`);
   };
 
   return (
@@ -503,6 +519,9 @@ function PipedView({ options }: { options: React.ReactNode }) {
           </div>
         </form>
         {options}
+        <button onClick={() => void loadShorts()} disabled={busy} className="rounded-md px-4 py-2 text-xs" style={btnStyle}>
+          Shorts
+        </button>
         {video && (
           <button onClick={() => setVideo(null)} className="rounded-md px-4 py-2 text-xs" style={btnStyle}>
             ← Back
@@ -529,7 +548,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
                 allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                 allowFullScreen
                 referrerPolicy="strict-origin-when-cross-origin"
-                className="aspect-video w-full rounded-md border-0"
+                className={`w-full rounded-md border-0 ${shorts ? "mx-auto block aspect-[9/16] max-h-[75vh] max-w-[420px]" : "aspect-video"}`}
                 style={{ background: "var(--rd-surface)" }}
               />
             ) : (
@@ -540,7 +559,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
                 controls
                 autoPlay
                 playsInline
-                className="aspect-video w-full rounded-md"
+                className={`w-full rounded-md ${shorts ? "mx-auto aspect-[9/16] max-h-[75vh] max-w-[420px]" : "aspect-video"}`}
                 style={{ background: "var(--rd-surface)" }}
                 onError={onStreamError}
               />
@@ -576,9 +595,10 @@ function PipedView({ options }: { options: React.ReactNode }) {
                 style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
               >
                 <img
-                  src={v.thumbnail ?? `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`}
+                  src={thumbUrl(v.videoId)}
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
-                    const fb = `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+                    const fb = `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`;
                     if (e.currentTarget.src !== fb) e.currentTarget.src = fb;
                   }}
                   alt=""
@@ -608,6 +628,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
   const [comments, setComments] = useState<InvidiousComment[]>([]);
   const [busy, setBusy] = useState(false);
   const [playerState, setPlayerState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [shorts, setShorts] = useState(false);
 
   const loadTrending = useCallback(async () => {
     setBusy(true);
@@ -669,12 +690,26 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
     }
     setBusy(true);
     setSelected(null);
+    setShorts(false);
     setStatus(`Searching “${raw}”…`);
     const res = await searchVideos(raw, { region: "SG" });
     setBusy(false);
     if (!res.success) return setStatus(res.error);
     setResults(res.results);
     setStatus(`${res.results.length} results for “${raw}”`);
+  };
+
+  const loadShorts = async () => {
+    setBusy(true);
+    setSelected(null);
+    setShorts(true);
+    setStatus("Loading Shorts…");
+    const res = await searchVideos(query.trim() ? `${query.trim()} #shorts` : "#shorts", { region: "SG" });
+    setBusy(false);
+    if (!res.success) return setStatus(res.error);
+    const list = res.results.filter((v) => !v.lengthSeconds || v.lengthSeconds <= 180);
+    setResults(list.length ? list : res.results);
+    setStatus(`Shorts · ${(list.length ? list : res.results).length} videos`);
   };
 
   const embed = selected?.videoId
@@ -712,6 +747,9 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
           </div>
         </form>
         {options}
+        <button onClick={() => void loadShorts()} disabled={busy} className="rounded-md px-4 py-2 text-xs" style={btnStyle}>
+          Shorts
+        </button>
         {selected && (
           <button
             onClick={() => {
@@ -748,7 +786,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
         {selected ? (
           <div className="space-y-4">
             {embed && (
-              <div className="relative aspect-video w-full overflow-hidden rounded-md" style={{ background: "var(--rd-surface)" }}>
+              <div className={`relative w-full overflow-hidden rounded-md ${shorts ? "mx-auto aspect-[9/16] max-h-[75vh] max-w-[420px]" : "aspect-video"}`} style={{ background: "var(--rd-surface)" }}>
                 <iframe
                   key={embed}
                   src={embed}
@@ -829,9 +867,10 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
               >
                  {v.videoId && (
                    <img
-                     src={v.thumbnail ?? `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`}
+                     src={thumbUrl(v.videoId)}
+                     referrerPolicy="no-referrer"
                      onError={(e) => {
-                       const fallback = `https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`;
+                       const fallback = `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`;
                        if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
                      }}
                      alt=""
