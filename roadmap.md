@@ -2,3 +2,6 @@
 - [x] Fail Invidious lookups quickly without an endless loading state
 - [x] Restyle Settings to match the attached lightweight row layout
 - [x] Verify video failure handling and Settings in the browser
+- [x] Handle Piped API responses safely when launched from the Home Screen
+- [x] Add a stable Home Screen launch URL and prevent stale Piped API responses
+- [x] Restore Invidious result thumbnails when public image links fail
