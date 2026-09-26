@@ -24,31 +24,41 @@ export type PipedVideo = {
 
 type Fail = { success: false; error: string };
 
-async function call<T>(params: Record<string, string>): Promise<T | Fail> {
+async function once<T>(params: Record<string, string>): Promise<T | Fail | null> {
+  const qs = new URLSearchParams({ ...params, _t: String(Date.now()) });
+  const res = await fetch(`/api/public/piped?${qs}`, {
+    cache: "no-store",
+    credentials: "omit",
+    headers: { accept: "application/json" },
+  });
+  const text = await res.text();
+  let data: unknown = null;
   try {
-    const res = await fetch(`/api/public/piped?${new URLSearchParams(params)}`, {
-      cache: "no-store",
-      headers: { accept: "application/json" },
-    });
-    const type = res.headers.get("content-type") ?? "";
-    if (!type.toLowerCase().includes("application/json")) {
-      return { success: false, error: "Piped returned a page instead of video data. Open Radium in your browser and try again." };
-    }
-    const data: unknown = await res.json().catch(() => null);
-    if (!data || typeof data !== "object" || !("success" in data) || typeof data.success !== "boolean") {
-      return { success: false, error: "Piped returned an invalid response. Please try again." };
-    }
-    if (!res.ok) {
-      return { success: false, error: "error" in data && typeof data.error === "string" ? data.error : `Piped request failed (${res.status}).` };
-    }
-    return data as T | Fail;
-  } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : "Piped is unavailable. Check your connection and try again." };
+    data = JSON.parse(text);
+  } catch {
+    return null; // HTML or empty body (e.g. Home Screen cache) — caller retries
   }
+  if (!data || typeof data !== "object") return null;
+  const d = data as { success?: unknown; error?: unknown };
+  if (d.success === true) return data as T;
+  return { success: false, error: typeof d.error === "string" ? d.error : `Piped request failed (${res.status}).` };
+}
+
+async function call<T>(params: Record<string, string>): Promise<T | Fail> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await once<T>(params);
+      if (r) return r;
+    } catch {
+      /* retry */
+    }
+  }
+  return { success: false, error: "Piped is not responding right now. Please try again in a moment." };
 }
 
 type List = { success: true; instance: string; results: PipedItem[] };
 
+export const thumbUrl = (id: string) => `/api/public/thumb?id=${encodeURIComponent(id)}`;
 export const pipedSearch = (q: string) => call<List>({ action: "search", q });
 export const pipedTrending = () => call<List>({ action: "trending", region: "SG" });
 export const pipedStreams = (id: string) =>
