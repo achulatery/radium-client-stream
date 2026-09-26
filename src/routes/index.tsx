@@ -442,7 +442,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
     }
     setInstance(r.instance);
     setVideo(r.video);
-    setQuality(r.video.streams[0].url);
+    setQuality(r.video.streams[0]?.url ?? EMBED);
     setStatus(r.video.title);
   };
 
