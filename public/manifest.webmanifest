@@ -1,0 +1,8 @@
+{
+  "name": "Radium Client",
+  "short_name": "Radium",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "icons": [{ "src": "/favicon.ico", "sizes": "any", "type": "image/x-icon" }]
+}

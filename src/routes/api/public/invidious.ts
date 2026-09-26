@@ -111,9 +111,9 @@ type RawVideo = {
 };
 
 function bestThumb(v: RawVideo): string | null {
-  const thumbs = v.videoThumbnails ?? [];
-  const pick = thumbs.find((t) => t.width && t.width >= 320) ?? thumbs[0];
-  return pick?.url ?? (v.videoId ? `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg` : null);
+  // Public mirrors often return their own image-proxy URLs, which may be unavailable
+  // even while the JSON API works. The video ID is enough to address the image CDN.
+  return v.videoId ? `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg` : null;
 }
 
 function shapeVideo(v: RawVideo) {

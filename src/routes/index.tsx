@@ -827,9 +827,18 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
                 className="overflow-hidden rounded-lg text-left"
                 style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
               >
-                {v.thumbnail && (
-                  <img src={v.thumbnail} alt="" className="aspect-video w-full object-cover" loading="lazy" />
-                )}
+                 {v.videoId && (
+                   <img
+                     src={v.thumbnail ?? `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`}
+                     onError={(e) => {
+                       const fallback = `https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`;
+                       if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+                     }}
+                     alt=""
+                     className="aspect-video w-full object-cover"
+                     loading="lazy"
+                   />
+                 )}
                 <div className="space-y-1 p-2">
                   <p className="line-clamp-2 text-xs font-medium" style={{ color: "var(--rd-text)" }}>
                     {v.title}
