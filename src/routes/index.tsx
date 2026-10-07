@@ -19,7 +19,7 @@ import {
   formatDuration,
   formatViews,
   getComments,
-  getTrending,
+
   getVideo,
   searchVideos,
   type InvidiousComment,
