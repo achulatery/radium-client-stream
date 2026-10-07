@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
+import { VideoThumbnail } from "@/components/video-thumbnail";
 import {
   formatDuration,
   formatViews,
@@ -33,7 +34,7 @@ import {
   useRadium,
   videoPlayerUrl,
 } from "@/lib/radium";
-import { pipedMore, pipedSearch, pipedStreams, thumbUrl, type PipedItem, type PipedVideo } from "@/lib/piped";
+import { pipedMore, pipedSearch, pipedStreams, type PipedItem, type PipedVideo } from "@/lib/piped";
 import { PRESET_THEMES, THEME_FIELDS, type Theme } from "@/lib/themes";
 
 export const Route = createFileRoute("/")({
@@ -630,17 +631,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
                 className="overflow-hidden rounded-lg text-left"
                 style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
               >
-                <img
-                  src={thumbUrl(v.videoId)}
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    const fb = `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`;
-                    if (e.currentTarget.src !== fb) e.currentTarget.src = fb;
-                  }}
-                  alt=""
-                  className="aspect-video w-full object-cover"
-                  loading="lazy"
-                />
+                <VideoThumbnail videoId={v.videoId} />
                 <div className="space-y-1 p-2">
                   <p className="line-clamp-2 text-xs font-medium" style={{ color: "var(--rd-text)" }}>{v.title}</p>
                   <p className="truncate font-mono text-[10px]" style={{ color: "var(--rd-muted)" }}>
@@ -914,17 +905,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
                 style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
               >
                  {v.videoId && (
-                   <img
-                     src={thumbUrl(v.videoId)}
-                     referrerPolicy="no-referrer"
-                     onError={(e) => {
-                       const fallback = `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`;
-                       if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
-                     }}
-                     alt=""
-                     className="aspect-video w-full object-cover"
-                     loading="lazy"
-                   />
+                   <VideoThumbnail videoId={v.videoId} />
                  )}
                 <div className="space-y-1 p-2">
                   <p className="line-clamp-2 text-xs font-medium" style={{ color: "var(--rd-text)" }}>
