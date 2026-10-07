@@ -1,7 +1,8 @@
 # Radium Client
 
-https://github.com/MercuryWorkshop/scramjet.git Build a web proxy application called "Radium Client" with a Google Search-inspired interface, optimized for video streaming and network compatibility testing.
-
+Credits:github.com/MercuryWorkshop/scramjet
+        github.com/iv-org/invidious
+        github.com/teampiped/piped
 Visual Design & Theme System
 
 Customizable Themes:
@@ -80,25 +81,6 @@ Service worker for request handling
 
 Focus on smooth video playback, Singapore-based routing, and clean, customizable UI. and add a below the branding by James Xie
 
-This project was built with [Lovable](https://lovable.dev).
-
-**Live app**: https://singapore-stream-proxy.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/0ac4232a-87a7-48a5-97f8-52e514de78bd).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
 cd <repository-name>
 npm i
 npm run dev
-```
