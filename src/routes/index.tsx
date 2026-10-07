@@ -534,7 +534,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
       >
         <span className="truncate">{status}</span>
         <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>
-          PIPED
+          CONNECTED TO PIPED
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -778,7 +778,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
       >
         <span className="truncate">{status}</span>
         <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>
-          DIRECT PLAYER · OPTIONAL DETAILS
+          CONNECTED TO INVIDIOUS
         </span>
       </div>
 
