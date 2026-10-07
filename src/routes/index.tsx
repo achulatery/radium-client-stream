@@ -944,8 +944,8 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
               </p>
             )}
           </div>
-          <div ref={sentinel} className="h-8" />
         )}
+        {!selected && <div ref={sentinel} className="h-8" />}
       </div>
     </div>
   );
