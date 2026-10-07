@@ -650,8 +650,8 @@ function PipedView({ options }: { options: React.ReactNode }) {
               </button>
             ))}
           </div>
-        {!video && <div ref={sentinel} className="h-8" />}
         )}
+        {!video && <div ref={sentinel} className="h-8" />}
       </div>
     </div>
   );
