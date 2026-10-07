@@ -3,6 +3,9 @@ import { z } from "zod";
 
 /** Public Piped API instances; the first is preferred, the rest are automatic fallbacks. */
 const INSTANCES = [
+  "https://pipedapi.ducks.party",
+  "https://pipedapi.r4fo.com",
+  "https://pipedapi.darkness.services",
   "https://api.piped.private.coffee",
   "https://pipedapi.ducks.party",
   "https://pipedapi.moomoo.me",
@@ -16,7 +19,8 @@ const TIMEOUT_MS = 3_500;
 let lastGood: string | null = null;
 
 const schema = z.object({
-  action: z.enum(["search", "streams", "trending"]),
+  action: z.enum(["search", "streams", "trending", "more"]),
+  nextpage: z.string().max(4000).optional(),
   q: z.string().trim().min(1).max(200).optional(),
   id: z.string().trim().regex(/^[\w-]{6,20}$/).optional(),
   region: z.string().trim().regex(/^[A-Za-z]{2}$/).optional(),
@@ -113,12 +117,14 @@ async function handle(request: Request): Promise<Response> {
         const parsed = schema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
         if (!parsed.success) return json({ success: false, error: "Invalid parameters" }, 400);
         const p = parsed.data;
-        if ((p.action === "search" && !p.q) || (p.action === "streams" && !p.id)) {
+        if (((p.action === "search" || p.action === "more") && !p.q) || (p.action === "more" && !p.nextpage) || (p.action === "streams" && !p.id)) {
           return json({ success: false, error: "Missing parameter" }, 400);
         }
         const region = (p.region ?? "SG").toUpperCase();
         const path =
-          p.action === "search"
+          p.action === "more"
+            ? `/nextpage/search?nextpage=${encodeURIComponent(p.nextpage!)}&q=${encodeURIComponent(p.q!)}&filter=videos`
+            : p.action === "search"
             ? `/search?q=${encodeURIComponent(p.q!)}&filter=videos`
             : p.action === "trending"
               ? `/trending?region=${region}`
@@ -168,6 +174,7 @@ async function handle(request: Request): Promise<Response> {
         return json({
           success: true,
           instance,
+          nextpage: Array.isArray(data) ? null : ((data as { nextpage?: string | null }).nextpage ?? null),
           results: list.filter((v) => (v.type ?? "stream") === "stream").map(shapeItem).filter((v) => v.videoId),
         });
 }
