@@ -13,7 +13,7 @@ import {
   Sun,
   Youtube,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
 import {
   formatDuration,
@@ -33,7 +33,7 @@ import {
   useRadium,
   videoPlayerUrl,
 } from "@/lib/radium";
-import { pipedSearch, pipedStreams, pipedTrending, thumbUrl, type PipedItem, type PipedVideo } from "@/lib/piped";
+import { pipedMore, pipedSearch, pipedStreams, thumbUrl, type PipedItem, type PipedVideo } from "@/lib/piped";
 import { PRESET_THEMES, THEME_FIELDS, type Theme } from "@/lib/themes";
 
 export const Route = createFileRoute("/")({
@@ -399,6 +399,28 @@ function OptionsMenu({ provider, onPick }: { provider: Provider; onPick: (p: Pro
 
 const EMBED = "__embed__";
 
+function useBottom(cb: () => void) {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const ref = useRef(cb);
+  ref.current = cb;
+  useEffect(() => {
+    if (!el) return;
+    const io = new IntersectionObserver((es) => { if (es[0]?.isIntersecting) ref.current(); }, { rootMargin: "400px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [el]);
+  return setEl;
+}
+
+const pipedToInv = (v: PipedItem): InvidiousVideo => ({
+  videoId: v.videoId, title: v.title, author: v.author, authorId: null, viewCount: v.views, published: null,
+  publishedText: v.uploaded, lengthSeconds: v.duration, liveNow: false, thumbnail: v.thumbnail, description: null,
+});
+const invToPiped = (v: InvidiousVideo): PipedItem => ({
+  videoId: v.videoId!, title: v.title, author: v.author, views: v.viewCount, uploaded: v.publishedText,
+  duration: v.lengthSeconds, thumbnail: v.thumbnail,
+});
+
 function PipedView({ options }: { options: React.ReactNode }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("Finding a working Piped server…");
@@ -407,16 +429,56 @@ function PipedView({ options }: { options: React.ReactNode }) {
   const [video, setVideo] = useState<PipedVideo | null>(null);
   const [quality, setQuality] = useState<string>("");
   const [busy, setBusy] = useState(false);
-  const [shorts, setShorts] = useState(false);
+  const [term, setTerm] = useState("gaming");
+  const [page, setPage] = useState(1);
+  const [next, setNext] = useState<string | null>(null);
+  const [src, setSrc] = useState<"piped" | "invidious">("piped");
+  const moreRef = useRef(false);
+
+  const runSearch = useCallback(async (q: string, label: string) => {
+    setBusy(true);
+    setVideo(null);
+    setStatus(`Loading ${label}…`);
+    setTerm(q);
+    setPage(1);
+    setNext(null);
+    const r = await pipedSearch(q);
+    if (r.success && r.results.length) {
+      setSrc("piped");
+      setInstance(r.instance);
+      setNext(r.nextpage ?? null);
+      setResults(r.results);
+      setStatus(`${label} · ${r.results.length} videos`);
+    } else {
+      const alt = await searchVideos(q, { region: "SG" });
+      if (alt.success) {
+        setSrc("invidious");
+        setResults(alt.results.filter((v) => v.videoId).map(invToPiped));
+        setStatus(`${label} · ${alt.results.length} videos (switched to Invidious)`);
+      } else setStatus(r.success ? "No results" : r.error);
+    }
+    setBusy(false);
+  }, []);
+
+  const loadMore = async () => {
+    if (busy || video || moreRef.current || !results.length) return;
+    moreRef.current = true;
+    let more: PipedItem[] = [];
+    if (src === "piped" && next) {
+      const r = await pipedMore(term, next);
+      if (r.success) { more = r.results; setNext(r.nextpage ?? null); }
+    } else if (src === "invidious") {
+      const r = await searchVideos(term, { region: "SG", page: page + 1 });
+      if (r.success) { more = r.results.filter((v) => v.videoId).map(invToPiped); setPage(page + 1); }
+    }
+    setResults((cur) => { const seen = new Set(cur.map((v) => v.videoId)); return [...cur, ...more.filter((v) => !seen.has(v.videoId))]; });
+    moreRef.current = false;
+  };
+  const sentinel = useBottom(() => void loadMore());
 
   useEffect(() => {
-    void pipedTrending().then((r) => {
-      if (!r.success) return setStatus(`${r.error} — try searching`);
-      setInstance(r.instance);
-      setResults(r.results);
-      setStatus(`Trending · ${r.results.length} videos`);
-    });
-  }, []);
+    void runSearch("gaming", "Trending gaming");
+  }, [runSearch]);
 
   const open = async (id: string) => {
     const card = results.find((x) => x.videoId === id);
@@ -466,30 +528,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
     if (!raw) return;
     const id = getYouTubeVideoId(raw) ?? (/^[\w-]{11}$/.test(raw) ? raw : null);
     if (id) return void open(id);
-    setBusy(true);
-    setVideo(null);
-    setShorts(false);
-    setStatus(`Searching “${raw}”…`);
-    const r = await pipedSearch(raw);
-    setBusy(false);
-    if (!r.success) return setStatus(r.error);
-    setInstance(r.instance);
-    setResults(r.results);
-    setStatus(`${r.results.length} results for “${raw}”`);
-  };
-
-  const loadShorts = async () => {
-    setBusy(true);
-    setVideo(null);
-    setShorts(true);
-    setStatus("Loading Shorts…");
-    const r = await pipedSearch(query.trim() ? `${query.trim()} #shorts` : "#shorts");
-    setBusy(false);
-    if (!r.success) return setStatus(r.error);
-    setInstance(r.instance);
-    const list = r.results.filter((v) => !v.duration || v.duration <= 180);
-    setResults(list.length ? list : r.results);
-    setStatus(`Shorts · ${(list.length ? list : r.results).length} videos`);
+    await runSearch(raw, `Results for “${raw}”`);
   };
 
   return (
@@ -519,9 +558,6 @@ function PipedView({ options }: { options: React.ReactNode }) {
           </div>
         </form>
         {options}
-        <button onClick={() => void loadShorts()} disabled={busy} className="rounded-md px-4 py-2 text-xs" style={btnStyle}>
-          Shorts
-        </button>
         {video && (
           <button onClick={() => setVideo(null)} className="rounded-md px-4 py-2 text-xs" style={btnStyle}>
             ← Back
@@ -548,7 +584,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
                 allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                 allowFullScreen
                 referrerPolicy="strict-origin-when-cross-origin"
-                className={`w-full rounded-md border-0 ${shorts ? "mx-auto block aspect-[9/16] max-h-[75vh] max-w-[420px]" : "aspect-video"}`}
+                className={`w-full rounded-md border-0 aspect-video`}
                 style={{ background: "var(--rd-surface)" }}
               />
             ) : (
@@ -559,7 +595,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
                 controls
                 autoPlay
                 playsInline
-                className={`w-full rounded-md ${shorts ? "mx-auto aspect-[9/16] max-h-[75vh] max-w-[420px]" : "aspect-video"}`}
+                className={`w-full rounded-md aspect-video`}
                 style={{ background: "var(--rd-surface)" }}
                 onError={onStreamError}
               />
@@ -614,6 +650,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
               </button>
             ))}
           </div>
+        {!video && <div ref={sentinel} className="h-8" />}
         )}
       </div>
     </div>
@@ -628,21 +665,56 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
   const [comments, setComments] = useState<InvidiousComment[]>([]);
   const [busy, setBusy] = useState(false);
   const [playerState, setPlayerState] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [shorts, setShorts] = useState(false);
+  const [term, setTerm] = useState("gaming");
+  const [page, setPage] = useState(1);
+  const [next, setNext] = useState<string | null>(null);
+  const [src, setSrc] = useState<"invidious" | "piped">("invidious");
+  const moreRef = useRef(false);
 
-  const loadTrending = useCallback(async () => {
+  const runSearch = useCallback(async (q: string, label: string) => {
     setBusy(true);
-    setStatus("Loading trending…");
-    const res = await getTrending({ region: "SG" });
+    setSelected(null);
+    setStatus(`Loading ${label}…`);
+    setTerm(q);
+    setPage(1);
+    setNext(null);
+    const res = await searchVideos(q, { region: "SG" });
+    if (res.success && res.results.length) {
+      setSrc("invidious");
+      setResults(res.results);
+      setStatus(`${label} · ${res.results.length} videos`);
+    } else {
+      const alt = await pipedSearch(q);
+      if (alt.success) {
+        setSrc("piped");
+        setNext(alt.nextpage ?? null);
+        setResults(alt.results.map(pipedToInv));
+        setStatus(`${label} · ${alt.results.length} videos (switched to Piped)`);
+      } else setStatus(res.success ? "No results" : res.error);
+    }
     setBusy(false);
-    if (!res.success) return setStatus(res.error);
-    setResults(res.results);
-    setStatus(`Trending · ${res.results.length} videos`);
   }, []);
 
+  const loadMore = async () => {
+    if (busy || selected || moreRef.current || !results.length) return;
+    moreRef.current = true;
+    let more: InvidiousVideo[] = [];
+    if (src === "invidious") {
+      const res = await searchVideos(term, { region: "SG", page: page + 1 });
+      if (res.success) { more = res.results; setPage(page + 1); }
+    } else if (next) {
+      const res = await pipedMore(term, next);
+      if (res.success) { more = res.results.map(pipedToInv); setNext(res.nextpage ?? null); }
+    }
+    setResults((cur) => { const seen = new Set(cur.map((v) => v.videoId)); return [...cur, ...more.filter((v) => !seen.has(v.videoId))]; });
+    moreRef.current = false;
+  };
+  const sentinel = useBottom(() => void loadMore());
+
   useEffect(() => {
-    void loadTrending();
-  }, [loadTrending]);
+    void runSearch("gaming", "Trending gaming");
+  }, [runSearch]);
+
 
   const openVideo = (v: InvidiousVideo) => {
     if (!v.videoId) return;
@@ -688,28 +760,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
       });
       return;
     }
-    setBusy(true);
-    setSelected(null);
-    setShorts(false);
-    setStatus(`Searching “${raw}”…`);
-    const res = await searchVideos(raw, { region: "SG" });
-    setBusy(false);
-    if (!res.success) return setStatus(res.error);
-    setResults(res.results);
-    setStatus(`${res.results.length} results for “${raw}”`);
-  };
-
-  const loadShorts = async () => {
-    setBusy(true);
-    setSelected(null);
-    setShorts(true);
-    setStatus("Loading Shorts…");
-    const res = await searchVideos(query.trim() ? `${query.trim()} #shorts` : "#shorts", { region: "SG" });
-    setBusy(false);
-    if (!res.success) return setStatus(res.error);
-    const list = res.results.filter((v) => !v.lengthSeconds || v.lengthSeconds <= 180);
-    setResults(list.length ? list : res.results);
-    setStatus(`Shorts · ${(list.length ? list : res.results).length} videos`);
+    await runSearch(raw, `Results for “${raw}”`);
   };
 
   const embed = selected?.videoId
@@ -747,9 +798,6 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
           </div>
         </form>
         {options}
-        <button onClick={() => void loadShorts()} disabled={busy} className="rounded-md px-4 py-2 text-xs" style={btnStyle}>
-          Shorts
-        </button>
         {selected && (
           <button
             onClick={() => {
@@ -786,7 +834,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
         {selected ? (
           <div className="space-y-4">
             {embed && (
-              <div className={`relative w-full overflow-hidden rounded-md ${shorts ? "mx-auto aspect-[9/16] max-h-[75vh] max-w-[420px]" : "aspect-video"}`} style={{ background: "var(--rd-surface)" }}>
+              <div className={`relative w-full overflow-hidden rounded-md aspect-video`} style={{ background: "var(--rd-surface)" }}>
                 <iframe
                   key={embed}
                   src={embed}
@@ -896,6 +944,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
               </p>
             )}
           </div>
+          <div ref={sentinel} className="h-8" />
         )}
       </div>
     </div>
