@@ -56,10 +56,11 @@ async function call<T>(params: Record<string, string>): Promise<T | Fail> {
   return { success: false, error: "Piped is not responding right now. Please try again in a moment." };
 }
 
-type List = { success: true; instance: string; results: PipedItem[] };
+type List = { success: true; instance: string; nextpage?: string | null; results: PipedItem[] };
 
 export const thumbUrl = (id: string) => `/api/public/thumb?id=${encodeURIComponent(id)}`;
 export const pipedSearch = (q: string) => call<List>({ action: "search", q });
 export const pipedTrending = () => call<List>({ action: "trending", region: "SG" });
 export const pipedStreams = (id: string) =>
   call<{ success: true; instance: string; video: PipedVideo }>({ action: "streams", id });
+export const pipedMore = (q: string, nextpage: string) => call<List>({ action: "more", q, nextpage });
