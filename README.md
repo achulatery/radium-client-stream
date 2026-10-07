@@ -1,4 +1,4 @@
-# Radium Stream
+# Radium Client
 
 https://github.com/MercuryWorkshop/scramjet.git Build a web proxy application called "Radium Client" with a Google Search-inspired interface, optimized for video streaming and network compatibility testing.
 
