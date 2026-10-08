@@ -108,6 +108,7 @@ type RawVideo = {
   descriptionHtml?: string;
   videoThumbnails?: { url?: string; width?: number; height?: number }[];
   liveNow?: boolean;
+  formatStreams?: { url?: string; qualityLabel?: string; resolution?: string; type?: string }[];
 };
 
 function bestThumb(v: RawVideo): string | null {
@@ -117,6 +118,10 @@ function bestThumb(v: RawVideo): string | null {
 }
 
 function shapeVideo(v: RawVideo) {
+  const streams = (v.formatStreams ?? [])
+    .filter((s) => s.url && /^https:\/\//.test(s.url))
+    .map((s) => ({ url: s.url!, quality: s.qualityLabel ?? s.resolution ?? "video", type: s.type ?? null }))
+    .sort((a, b) => (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0));
   return {
     videoId: v.videoId ?? null,
     title: v.title ?? "",
@@ -129,6 +134,7 @@ function shapeVideo(v: RawVideo) {
     liveNow: Boolean(v.liveNow),
     thumbnail: bestThumb(v),
     description: v.description ?? null,
+    streams,
   };
 }
 

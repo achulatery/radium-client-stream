@@ -16,6 +16,7 @@ export type InvidiousVideo = {
   likeCount?: number | null;
   genre?: string | null;
   embedUrl?: string | null;
+  streams?: { url: string; quality: string; type: string | null }[];
 };
 
 export type InvidiousComment = {
