@@ -683,6 +683,8 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
   const [src, setSrc] = useState<"invidious" | "piped">("invidious");
   const moreRef = useRef(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [playMode, setPlayMode] = useState<"resolving" | "stream" | "embed">("resolving");
 
   const runSearch = useCallback(async (q: string, label: string) => {
     setBusy(true);
@@ -736,15 +738,32 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
     setSelected(v);
     setComments([]);
     setPlayerState("loading");
+    setStreamUrl(null);
+    setPlayMode("resolving");
     setStatus(v.title || "Opening player…");
 
     const videoId = v.videoId;
-    void getVideo(videoId).then((meta) => {
-      if (!meta.success) return;
-      setSelected((current) =>
-        current?.videoId === videoId ? { ...current, ...meta.video } : current,
-      );
-    });
+    const useStream = (url: string | undefined, label: string) => {
+      if (!url) return false;
+      setSelected((cur) => {
+        if (cur?.videoId === videoId) { setStreamUrl(url); setPlayMode("stream"); setStatus(label); }
+        return cur;
+      });
+      return true;
+    };
+    void (async () => {
+      const meta = await getVideo(videoId);
+      if (meta.success) {
+        setSelected((current) => current?.videoId === videoId ? { ...current, ...meta.video } : current);
+        if (useStream(meta.video.streams?.[0]?.url, "Streaming through Radium (Invidious)")) return;
+      }
+      const alt = await pipedStreams(videoId);
+      if (alt.success && useStream(alt.video.streams[0]?.url, "Streaming through Radium (Piped)")) return;
+      setSelected((cur) => {
+        if (cur?.videoId === videoId) { setPlayMode("embed"); setStatus("No proxied stream available — using backup player"); }
+        return cur;
+      });
+    })();
     void getComments(videoId).then((response) => {
       if (!response.success) return;
       setSelected((current) => {
@@ -848,7 +867,25 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {selected ? (
           <div className="space-y-4">
-            {embed && (
+            {playMode === "stream" && streamUrl ? (
+              <video
+                key={streamUrl}
+                src={`/api/stream?url=${encodeURIComponent(streamUrl)}`}
+                poster={selected.thumbnail ?? undefined}
+                preload="metadata"
+                controls
+                autoPlay
+                playsInline
+                className="w-full rounded-md aspect-video"
+                style={{ background: "var(--rd-surface)" }}
+                onLoadedData={() => { setPlayerState("ready"); setStatus(selected.title || "Playing through Radium"); }}
+                onError={() => { setStreamUrl(null); setPlayMode("embed"); setStatus("Radium stream blocked — using backup player"); }}
+              />
+            ) : playMode === "resolving" ? (
+              <div className="flex w-full items-center justify-center rounded-md aspect-video animate-pulse font-mono text-[11px]" style={{ background: "var(--rd-surface)", color: "var(--rd-muted)" }}>
+                Finding a stream through Radium…
+              </div>
+            ) : embed && (
               <div className={`relative w-full overflow-hidden rounded-md aspect-video`} style={{ background: "var(--rd-surface)" }}>
                 <iframe
                   key={embed}
@@ -861,18 +898,12 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
                   referrerPolicy="strict-origin-when-cross-origin"
                   onLoad={() => {
                     setPlayerState("ready");
-                    setStatus(selected.title || "Player ready");
                   }}
                   onError={() => {
                     setPlayerState("error");
                     setStatus("The video player could not load. Try another video.");
                   }}
                 />
-                {playerState === "loading" && (
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 px-3 py-2 font-mono text-[10px]" style={{ background: "var(--rd-surface)", color: "var(--rd-muted)" }}>
-                    Connecting to player…
-                  </div>
-                )}
               </div>
             )}
             <div className="space-y-1">
