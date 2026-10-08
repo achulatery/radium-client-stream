@@ -400,13 +400,29 @@ function OptionsMenu({ provider, onPick }: { provider: Provider; onPick: (p: Pro
 
 const EMBED = "__embed__";
 
+function SkeletonCards({ count = 6 }: { count?: number }) {
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={`sk-${i}`} className="overflow-hidden rounded-lg animate-pulse" style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }} aria-hidden>
+          <div className="aspect-video w-full" style={{ background: "var(--rd-surface)" }} />
+          <div className="space-y-2 p-2">
+            <div className="h-3 w-4/5 rounded" style={{ background: "var(--rd-surface)" }} />
+            <div className="h-2 w-1/2 rounded" style={{ background: "var(--rd-surface)" }} />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function useBottom(cb: () => void) {
   const [el, setEl] = useState<HTMLDivElement | null>(null);
   const ref = useRef(cb);
   ref.current = cb;
   useEffect(() => {
     if (!el) return;
-    const io = new IntersectionObserver((es) => { if (es[0]?.isIntersecting) ref.current(); }, { rootMargin: "400px" });
+    const io = new IntersectionObserver((es) => { if (es[0]?.isIntersecting) ref.current(); }, { rootMargin: "500px 0px" });
     io.observe(el);
     return () => io.disconnect();
   }, [el]);
@@ -435,6 +451,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
   const [next, setNext] = useState<string | null>(null);
   const [src, setSrc] = useState<"piped" | "invidious">("piped");
   const moreRef = useRef(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const runSearch = useCallback(async (q: string, label: string) => {
     setBusy(true);
@@ -449,13 +466,13 @@ function PipedView({ options }: { options: React.ReactNode }) {
       setInstance(r.instance);
       setNext(r.nextpage ?? null);
       setResults(r.results);
-      setStatus(`${label} · ${r.results.length} videos`);
+      setStatus(label);
     } else {
       const alt = await searchVideos(q, { region: "SG" });
       if (alt.success) {
         setSrc("invidious");
         setResults(alt.results.filter((v) => v.videoId).map(invToPiped));
-        setStatus(`${label} · ${alt.results.length} videos (switched to Invidious)`);
+        setStatus(`${label} (switched to Invidious)`);
       } else setStatus(r.success ? "No results" : r.error);
     }
     setBusy(false);
@@ -464,6 +481,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
   const loadMore = async () => {
     if (busy || video || moreRef.current || !results.length) return;
     moreRef.current = true;
+    setLoadingMore(true);
     let more: PipedItem[] = [];
     if (src === "piped" && next) {
       const r = await pipedMore(term, next);
@@ -474,6 +492,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
     }
     setResults((cur) => { const seen = new Set(cur.map((v) => v.videoId)); return [...cur, ...more.filter((v) => !seen.has(v.videoId))]; });
     moreRef.current = false;
+    setLoadingMore(false);
   };
   const sentinel = useBottom(() => void loadMore());
 
@@ -591,7 +610,8 @@ function PipedView({ options }: { options: React.ReactNode }) {
             ) : (
               <video
                 key={quality}
-                src={quality || undefined}
+                src={quality ? `/api/stream?url=${encodeURIComponent(quality)}` : undefined}
+                preload="metadata"
                 poster={video.thumbnail}
                 controls
                 autoPlay
@@ -640,6 +660,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
                 </div>
               </button>
             ))}
+            {(busy && !results.length) || loadingMore ? <SkeletonCards /> : null}
           </div>
         )}
         {!video && <div ref={sentinel} className="h-8" />}
@@ -661,6 +682,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
   const [next, setNext] = useState<string | null>(null);
   const [src, setSrc] = useState<"invidious" | "piped">("invidious");
   const moreRef = useRef(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const runSearch = useCallback(async (q: string, label: string) => {
     setBusy(true);
@@ -673,14 +695,14 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
     if (res.success && res.results.length) {
       setSrc("invidious");
       setResults(res.results);
-      setStatus(`${label} · ${res.results.length} videos`);
+      setStatus(label);
     } else {
       const alt = await pipedSearch(q);
       if (alt.success) {
         setSrc("piped");
         setNext(alt.nextpage ?? null);
         setResults(alt.results.map(pipedToInv));
-        setStatus(`${label} · ${alt.results.length} videos (switched to Piped)`);
+        setStatus(`${label} (switched to Piped)`);
       } else setStatus(res.success ? "No results" : res.error);
     }
     setBusy(false);
@@ -689,6 +711,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
   const loadMore = async () => {
     if (busy || selected || moreRef.current || !results.length) return;
     moreRef.current = true;
+    setLoadingMore(true);
     let more: InvidiousVideo[] = [];
     if (src === "invidious") {
       const res = await searchVideos(term, { region: "SG", page: page + 1 });
@@ -699,6 +722,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
     }
     setResults((cur) => { const seen = new Set(cur.map((v) => v.videoId)); return [...cur, ...more.filter((v) => !seen.has(v.videoId))]; });
     moreRef.current = false;
+    setLoadingMore(false);
   };
   const sentinel = useBottom(() => void loadMore());
 
@@ -919,6 +943,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
                 </div>
               </button>
             ))}
+            {(busy && !results.length) || loadingMore ? <SkeletonCards /> : null}
             {results.length === 0 && !busy && (
               <p className="text-xs" style={{ color: "var(--rd-muted)" }}>
                 Nothing to show yet.
