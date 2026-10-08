@@ -20,7 +20,7 @@ async function relay(request: Request, method: "GET" | "HEAD") {
     accept: "*/*",
   };
   const range = request.headers.get("range");
-  if (range) headers.range = range;
+  if (range) headers["range"] = range;
   let upstream: Response;
   try {
     upstream = await fetch(target.toString(), { method, headers, redirect: "follow" });
