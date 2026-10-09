@@ -10,8 +10,8 @@ async function findSongs(q: string): Promise<PipedItem[]> {
   if (r.success && r.results.length) return r.results;
   const alt = await searchVideos(q, { region: "SG" });
   if (alt.success) {
-    return alt.results.map((v) => ({
-      videoId: v.videoId,
+    return alt.results.filter((v) => v.videoId).map((v) => ({
+      videoId: v.videoId as string,
       title: v.title,
       author: v.author,
       views: v.viewCount ?? null,
