@@ -62,7 +62,7 @@ export function RadiumMark({ size = 40 }: { size?: number }) {
       style={{
         width: size,
         height: size,
-        background: "var(--rd-accent-alt)",
+        background: "var(--rd-accent)",
         color: "var(--rd-bg)",
         fontSize: size * 0.5,
       }}

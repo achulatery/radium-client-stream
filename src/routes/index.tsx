@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
 import { VideoThumbnail } from "@/components/video-thumbnail";
+import { Button } from "@/components/ui/button";
 import {
   formatDuration,
   formatViews,
@@ -94,7 +95,7 @@ function RadiumApp() {
             onClick={toggleMode}
             aria-label="Toggle dark and light mode"
             className="flex h-8 w-8 items-center justify-center rounded-sm"
-            style={{ background: "var(--rd-button)", color: "var(--rd-button-text)" }}
+            style={{ background: "var(--rd-button)", color: "var(--rd-accent)" }}
           >
             <Sun size={14} />
           </button>
@@ -127,7 +128,7 @@ function RadiumApp() {
               borderRightColor: tab === id ? "var(--rd-line)" : "transparent",
             }}
           >
-            {id === "browser" ? <ShieldCheck size={13} /> : id === "youtube" ? <Youtube size={14} /> : <Settings size={13} />}
+            {id === "browser" ? <ShieldCheck size={13} className="text-client-signal" /> : id === "youtube" ? <Youtube size={14} className="text-client-signal" /> : <Settings size={13} className="text-client-signal" />}
             {label}
           </button>
         ))}
@@ -210,14 +211,15 @@ function BrowserTab() {
               className="w-full bg-transparent font-mono text-sm outline-none"
               style={{ color: "var(--rd-search-text)" }}
             />
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               type="submit"
-              className="shrink-0 p-1"
-              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
+              className="h-6 w-6 shrink-0 text-client-signal hover:bg-client-button hover:text-client-signal"
               aria-label="Open address"
             >
               <Search size={14} />
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -326,7 +328,7 @@ function StartScreen({
               className="flex items-center justify-center gap-2 rounded-sm px-8 py-3 text-sm"
               style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
             >
-              <Code2 size={15} /> GitHub
+              <Code2 size={15} className="text-client-signal" /> GitHub
             </button>
           </div>
           {history.length > 0 && (
@@ -992,6 +994,7 @@ function SettingsTab() {
   const {
     theme,
     setTheme,
+    toggleMode,
     customThemes,
     saveTheme,
     deleteTheme,
@@ -1054,19 +1057,19 @@ function SettingsTab() {
 
         <section className={rowClass} style={rowStyle}>
           {rowCopy("Interface mode", "Switch between dark and white workspaces")}
-          <button onClick={() => setTheme(PRESET_THEMES.find((p) => p.mode !== theme.mode) ?? theme)} className="flex h-10 items-center gap-2 justify-self-start rounded-sm px-4 text-xs sm:justify-self-end" style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}>
+          <Button variant="ghost" onClick={toggleMode} className="flex h-10 items-center gap-2 justify-self-start rounded-sm px-4 text-xs sm:justify-self-end" style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}>
             {theme.mode === "dark" ? <Moon size={15} style={{ color: "var(--rd-accent)" }} /> : <Sun size={15} style={{ color: "var(--rd-accent)" }} />}
             {theme.mode === "dark" ? "Dark" : "White"}
-          </button>
+          </Button>
         </section>
 
         <section className={rowClass} style={rowStyle}>
           {rowCopy("Client colour", "Choose Radium's active signal colour")}
           <div className="flex gap-3 justify-self-start sm:justify-self-end">
             {accentChoices.map((color) => (
-              <button key={color} aria-label={`Use ${color} accent`} onClick={() => update("accent", color)} className="flex h-9 w-9 items-center justify-center rounded-sm" style={{ background: color, outline: theme.accent.toLowerCase() === color.toLowerCase() ? "2px solid var(--rd-text)" : "1px solid var(--rd-line)", outlineOffset: "3px" }}>
+              <Button variant="ghost" size="icon" key={color} aria-label={`Use ${color} accent`} aria-pressed={theme.accent.toLowerCase() === color.toLowerCase()} onClick={() => setTheme({ ...theme, accent: color, accentAlt: color, preset: false, name: theme.preset ? "Custom" : theme.name })} className="flex h-9 w-9 items-center justify-center rounded-sm" style={{ background: color, outline: theme.accent.toLowerCase() === color.toLowerCase() ? "2px solid var(--rd-text)" : "1px solid var(--rd-line)", outlineOffset: "3px" }}>
                 {theme.accent.toLowerCase() === color.toLowerCase() && <span style={{ color: "var(--rd-bg)" }}>✓</span>}
-              </button>
+              </Button>
             ))}
           </div>
         </section>
