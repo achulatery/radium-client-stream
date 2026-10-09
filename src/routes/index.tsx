@@ -6,6 +6,7 @@ import {
   Home,
   LockKeyhole,
   Moon,
+  Music,
   RefreshCw,
   Search,
   Settings,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
+import { MusicTab } from "@/components/music-tab";
 import { VideoThumbnail } from "@/components/video-thumbnail";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,7 +61,7 @@ export const Route = createFileRoute("/")({
   component: RadiumApp,
 });
 
-type Tab = "browser" | "youtube" | "settings";
+type Tab = "browser" | "youtube" | "music" | "settings";
 
 function RadiumApp() {
   const [tab, setTab] = useState<Tab>("browser");
@@ -113,6 +115,7 @@ function RadiumApp() {
           [
             ["browser", "Browser"],
             ["youtube", "YouTube"],
+            ["music", "Music"],
             ["settings", "Settings"],
           ] as [Tab, string][]
         ).map(([id, label]) => (
@@ -128,7 +131,7 @@ function RadiumApp() {
               borderRightColor: tab === id ? "var(--rd-line)" : "transparent",
             }}
           >
-            {id === "browser" ? <ShieldCheck size={13} className="text-client-signal" /> : id === "youtube" ? <Youtube size={14} className="text-client-signal" /> : <Settings size={13} className="text-client-signal" />}
+            {id === "browser" ? <ShieldCheck size={13} className="text-client-signal" /> : id === "youtube" ? <Youtube size={14} className="text-client-signal" /> : id === "music" ? <Music size={13} className="text-client-signal" /> : <Settings size={13} className="text-client-signal" />}
             {label}
           </button>
         ))}
@@ -137,6 +140,7 @@ function RadiumApp() {
       <div className="min-h-0 flex-1">
         {tab === "browser" && <BrowserTab />}
         {tab === "youtube" && <YouTubeTab />}
+        {tab === "music" && <MusicTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
 
