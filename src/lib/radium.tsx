@@ -87,7 +87,8 @@ export function RadiumProvider({ children }: { children: ReactNode }) {
 
   const toggleMode = useCallback(() => {
     setThemeState((prev) => {
-      const next = prev.mode === "dark" ? RADIUM_LIGHT : RADIUM_DARK;
+      const base = prev.mode === "dark" ? RADIUM_LIGHT : RADIUM_DARK;
+      const next = { ...base, accent: prev.accent, accentAlt: prev.accentAlt };
       localStorage.setItem(STORAGE_KEYS.active, JSON.stringify(next));
       return next;
     });
