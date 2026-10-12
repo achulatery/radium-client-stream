@@ -35,10 +35,8 @@ export function SoundCloudView() {
 
   useEffect(() => { void run("", "Trending on SoundCloud"); }, []);
 
-  const accent = "var(--rd-accent)".length ? "" : "";
-  const color = typeof window !== "undefined" ? getComputedStyle(document.documentElement).getPropertyValue("--rd-accent").trim().replace("#", "") : "19d3d1";
   const playerSrc = open
-    ? `https://w.soundcloud.com/player/?url=${encodeURIComponent(open.url)}&color=%23${color || "19d3d1"}&auto_play=true&hide_related=true&show_comments=true&show_user=true&show_reposts=false&visual=false${accent}`
+    ? `https://w.soundcloud.com/player/?url=${encodeURIComponent(open.url)}&color=%23ff5500&auto_play=true&hide_related=true&show_comments=true&show_user=true&show_reposts=false&visual=false`
     : "";
 
   return (
@@ -49,7 +47,7 @@ export function SoundCloudView() {
           className="flex items-center gap-2 rounded-full px-4 py-2"
           style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }}
         >
-          <Search size={16} style={{ color: "var(--rd-accent)" }} />
+          <Search size={16} style={{ color: "#ff5500" }} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search SoundCloud tracks or artists" className="flex-1 bg-transparent text-sm outline-none" />
         </form>
 
@@ -75,7 +73,7 @@ export function SoundCloudView() {
                     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-sm" style={{ background: "var(--rd-line)" }}>
                       {t.artwork && <img src={t.artwork} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />}
                       <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100" style={{ background: "rgba(0,0,0,.4)" }}>
-                        <Play size={18} style={{ color: "var(--rd-accent)" }} />
+                        <Play size={18} style={{ color: "#ff5500" }} />
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -83,7 +81,7 @@ export function SoundCloudView() {
                       <div className="truncate text-sm">{t.title}</div>
                     </div>
                     <span className="hidden items-center gap-1 text-xs sm:flex" style={{ color: "var(--rd-muted)" }}><Heart size={12} />{fmt(t.likes)}</span>
-                    <span className="flex items-center gap-1 text-xs" style={{ color: "var(--rd-muted)" }}><Headphones size={12} style={{ color: "var(--rd-accent)" }} />{fmt(t.plays)}</span>
+                    <span className="flex items-center gap-1 text-xs" style={{ color: "var(--rd-muted)" }}><Headphones size={12} style={{ color: "#ff5500" }} />{fmt(t.plays)}</span>
                     <span className="w-10 text-right font-mono text-xs" style={{ color: "var(--rd-muted)" }}>{time(t.duration)}</span>
                   </button>
                 </li>
@@ -111,7 +109,7 @@ export function MusicTab() {
           {menu && (
             <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-md text-sm" style={{ background: "var(--rd-surface)", border: "1px solid var(--rd-line)" }}>
               {(["soundcloud", "spotify"] as const).map((s) => (
-                <button key={s} onClick={() => { setService(s); setMenu(false); }} className="block w-full px-3 py-2 text-left" style={{ color: service === s ? "var(--rd-accent)" : "var(--rd-text)" }}>
+                <button key={s} onClick={() => { setService(s); setMenu(false); }} className="block w-full px-3 py-2 text-left" style={{ color: service === s ? "#ff5500" : "var(--rd-text)" }}>
                   {s === "spotify" ? "Spotify" : "SoundCloud"}
                 </button>
               ))}
