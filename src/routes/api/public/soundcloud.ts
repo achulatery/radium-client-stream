@@ -7,12 +7,12 @@ async function getClientId(force = false): Promise<string> {
   if (clientId && !force) return clientId;
   const html = await (await fetch("https://soundcloud.com/", { headers: { "user-agent": UA } })).text();
   const inline = html.match(/client_id["':=\s]+([a-zA-Z0-9]{32})/);
-  if (inline) return (clientId = inline[1]);
-  const scripts = [...html.matchAll(/<script[^>]+src="(https:\/\/a-v2\.sndcdn\.com\/assets\/[^"]+\.js)"/g)].map((m) => m[1]).reverse();
+  if (inline?.[1]) return (clientId = inline[1]);
+  const scripts = [...html.matchAll(/<script[^>]+src="(https:\/\/a-v2\.sndcdn\.com\/assets\/[^"]+\.js)"/g)].map((m) => m[1] as string).reverse();
   for (const src of scripts) {
     const js = await (await fetch(src, { headers: { "user-agent": UA } })).text();
     const m = js.match(/client_id\s*[:=]\s*"([a-zA-Z0-9]{32})"/);
-    if (m) return (clientId = m[1]);
+    if (m?.[1]) return (clientId = m[1]);
   }
   throw new Error("no client id");
 }

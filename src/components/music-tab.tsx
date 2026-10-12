@@ -10,7 +10,7 @@ async function load(q: string): Promise<{ tracks: Track[]; error?: string }> {
   try {
     const r = await fetch(`/api/public/soundcloud?q=${encodeURIComponent(q)}&_t=${Date.now()}`, { cache: "no-store" });
     const d = JSON.parse(await r.text()) as { success: boolean; tracks?: Track[]; error?: string };
-    return d.success ? { tracks: d.tracks ?? [] } : { tracks: [], error: d.error };
+    return d.success ? { tracks: d.tracks ?? [] } : { tracks: [], error: d.error ?? "SoundCloud isn't responding right now." };
   } catch {
     return { tracks: [], error: "SoundCloud isn't responding right now." };
   }
