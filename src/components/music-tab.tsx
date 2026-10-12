@@ -1,155 +1,90 @@
-import { useEffect, useRef, useState } from "react";
-import { Headphones, Pause, Play, Search } from "lucide-react";
-import { VideoThumbnail } from "@/components/video-thumbnail";
-import { pipedSearch, pipedStreams, type PipedItem, type PipedVideo } from "@/lib/piped";
-import { formatViews, searchVideos } from "@/lib/invidious";
+import { useEffect, useState } from "react";
+import { Headphones, Heart, Play, Search } from "lucide-react";
 
-/** SoundCloud-style music list. Only song info loads up front; the music video loads when a song is opened. */
-async function findSongs(q: string): Promise<PipedItem[]> {
-  const r = await pipedSearch(q);
-  if (r.success && r.results.length) return r.results;
-  const alt = await searchVideos(q, { region: "SG" });
-  if (alt.success) {
-    return alt.results.filter((v) => v.videoId).map((v) => ({
-      videoId: v.videoId as string,
-      title: v.title,
-      author: v.author,
-      views: v.viewCount ?? null,
-      uploaded: v.publishedText ?? null,
-      duration: v.lengthSeconds ?? null,
-      thumbnail: null,
-    }));
+type Track = { id: number; title: string; url: string; artist: string; artwork: string | null; duration: number; plays: number | null; likes: number | null };
+
+const fmt = (n: number | null) => (n == null ? "—" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n));
+const time = (ms: number) => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+
+async function load(q: string): Promise<{ tracks: Track[]; error?: string }> {
+  try {
+    const r = await fetch(`/api/public/soundcloud?q=${encodeURIComponent(q)}&_t=${Date.now()}`, { cache: "no-store" });
+    const d = JSON.parse(await r.text()) as { success: boolean; tracks?: Track[]; error?: string };
+    return d.success ? { tracks: d.tracks ?? [] } : { tracks: [], error: d.error };
+  } catch {
+    return { tracks: [], error: "SoundCloud isn't responding right now." };
   }
-  return [];
 }
 
+/** SoundCloud-style music tab. Songs play inside Radium via SoundCloud's official player. */
 export function MusicTab() {
   const [query, setQuery] = useState("");
-  const [heading, setHeading] = useState("Popular songs");
-  const [songs, setSongs] = useState<PipedItem[]>([]);
+  const [heading, setHeading] = useState("Trending on SoundCloud");
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState<PipedItem | null>(null);
-  const [video, setVideo] = useState<PipedVideo | null>(null);
-  const [loadingVideo, setLoadingVideo] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const player = useRef<HTMLVideoElement>(null);
+  const [open, setOpen] = useState<Track | null>(null);
 
   const run = async (q: string, label: string) => {
-    setBusy(true);
-    setError(null);
-    setHeading(label);
-    const list = await findSongs(q);
-    setSongs(list);
-    if (!list.length) setError("No songs found. Try again in a moment.");
+    setBusy(true); setError(null); setHeading(label);
+    const r = await load(q);
+    setTracks(r.tracks);
+    if (!r.tracks.length) setError(r.error ?? "No songs found.");
     setBusy(false);
   };
 
-  useEffect(() => {
-    void run("top hits music 2026", "Popular songs");
-  }, []);
+  useEffect(() => { void run("", "Trending on SoundCloud"); }, []);
 
-  const openSong = async (s: PipedItem) => {
-    setOpen(s);
-    setVideo(null);
-    setPlaying(false);
-    setLoadingVideo(true);
-    const r = await pipedStreams(s.videoId);
-    setVideo(r.success && r.video.streams.length ? r.video : null);
-    setLoadingVideo(false);
-  };
-
-  const stream = video?.streams[0]?.url;
+  const accent = "var(--rd-accent)".length ? "" : "";
+  const color = typeof window !== "undefined" ? getComputedStyle(document.documentElement).getPropertyValue("--rd-accent").trim().replace("#", "") : "19d3d1";
+  const playerSrc = open
+    ? `https://w.soundcloud.com/player/?url=${encodeURIComponent(open.url)}&color=%23${color || "19d3d1"}&auto_play=true&hide_related=true&show_comments=true&show_user=true&show_reposts=false&visual=false${accent}`
+    : "";
 
   return (
     <div className="h-full overflow-y-auto" style={{ background: "var(--rd-bg)", color: "var(--rd-text)" }}>
       <div className="mx-auto max-w-4xl px-4 py-6">
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (query.trim()) void run(`${query.trim()} song`, `Results for “${query.trim()}”`);
-          }}
+          onSubmit={(e) => { e.preventDefault(); if (query.trim()) void run(query.trim(), `Results for “${query.trim()}”`); }}
           className="flex items-center gap-2 rounded-full px-4 py-2"
           style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }}
         >
           <Search size={16} style={{ color: "var(--rd-accent)" }} />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search songs or artists"
-            className="flex-1 bg-transparent text-sm outline-none"
-          />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search SoundCloud tracks or artists" className="flex-1 bg-transparent text-sm outline-none" />
         </form>
 
         {open && (
           <section className="mt-6 overflow-hidden rounded-md" style={{ background: "var(--rd-surface)", border: "1px solid var(--rd-line)" }}>
-            <div className="flex items-center gap-4 p-4">
-              <div className="w-28 shrink-0 overflow-hidden rounded-sm"><VideoThumbnail videoId={open.videoId} /></div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs" style={{ color: "var(--rd-muted)" }}>{open.author}</div>
-                <div className="truncate font-semibold">{open.title}</div>
-                <div className="mt-1 text-xs" style={{ color: "var(--rd-muted)" }}>
-                  {open.views != null ? `${formatViews(open.views)} listens` : ""}
-                </div>
-              </div>
-              <button
-                disabled={!stream}
-                onClick={() => {
-                  const v = player.current;
-                  if (!v) return;
-                  if (v.paused) void v.play(); else v.pause();
-                }}
-                className="flex h-12 w-12 items-center justify-center rounded-full disabled:opacity-40"
-                style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
-                aria-label={playing ? "Pause" : "Play music video"}
-              >
-                {playing ? <Pause size={20} /> : <Play size={20} />}
-              </button>
-            </div>
-            {loadingVideo && <div className="animate-pulse px-4 pb-4 text-xs" style={{ color: "var(--rd-muted)" }}>Preparing the music video…</div>}
-            {!loadingVideo && !stream && <div className="px-4 pb-4 text-xs" style={{ color: "var(--rd-muted)" }}>This music video isn't available right now.</div>}
-            {stream && (
-              <video
-                ref={player}
-                src={`/api/stream?url=${encodeURIComponent(stream)}`}
-                preload="auto"
-                controls
-                playsInline
-                onPlay={() => setPlaying(true)}
-                onPause={() => setPlaying(false)}
-                className="aspect-video w-full bg-black"
-              />
-            )}
+            <iframe key={open.id} title={open.title} src={playerSrc} allow="autoplay" className="h-[166px] w-full border-0" />
           </section>
         )}
 
         <h2 className="mt-6 mb-2 text-sm font-semibold" style={{ color: "var(--rd-muted)" }}>{heading}</h2>
         {error && <p className="text-xs" style={{ color: "var(--destructive)" }}>{error}</p>}
         <ul>
-          {busy && !songs.length
-            ? Array.from({ length: 8 }).map((_, i) => (
-                <li key={i} className="mb-2 h-16 animate-pulse rounded-sm" style={{ background: "var(--rd-surface)" }} />
-              ))
-            : songs.map((s, i) => (
-                <li key={s.videoId}>
+          {busy
+            ? Array.from({ length: 8 }).map((_, i) => <li key={i} className="mb-2 h-16 animate-pulse rounded-sm" style={{ background: "var(--rd-surface)" }} />)
+            : tracks.map((t, i) => (
+                <li key={t.id}>
                   <button
-                    onClick={() => void openSong(s)}
-                    className="flex w-full items-center gap-3 rounded-sm px-2 py-2 text-left transition-colors"
-                    style={{
-                      background: open?.videoId === s.videoId ? "var(--rd-surface)" : "transparent",
-                      borderBottom: "1px solid var(--rd-line)",
-                    }}
+                    onClick={() => setOpen(t)}
+                    className="group flex w-full items-center gap-3 px-2 py-2 text-left"
+                    style={{ background: open?.id === t.id ? "var(--rd-surface)" : "transparent", borderBottom: "1px solid var(--rd-line)" }}
                   >
                     <span className="w-6 text-right font-mono text-xs" style={{ color: "var(--rd-muted)" }}>{i + 1}</span>
-                    <div className="w-20 shrink-0 overflow-hidden rounded-sm"><VideoThumbnail videoId={s.videoId} /></div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs" style={{ color: "var(--rd-muted)" }}>{s.author}</div>
-                      <div className="truncate text-sm">{s.title}</div>
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-sm" style={{ background: "var(--rd-line)" }}>
+                      {t.artwork && <img src={t.artwork} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />}
+                      <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100" style={{ background: "rgba(0,0,0,.4)" }}>
+                        <Play size={18} style={{ color: "var(--rd-accent)" }} />
+                      </span>
                     </div>
-                    <span className="flex items-center gap-1 text-xs" style={{ color: "var(--rd-muted)" }}>
-                      <Headphones size={12} style={{ color: "var(--rd-accent)" }} />
-                      {s.views != null ? formatViews(s.views) : "—"}
-                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-xs" style={{ color: "var(--rd-muted)" }}>{t.artist}</div>
+                      <div className="truncate text-sm">{t.title}</div>
+                    </div>
+                    <span className="hidden items-center gap-1 text-xs sm:flex" style={{ color: "var(--rd-muted)" }}><Heart size={12} />{fmt(t.likes)}</span>
+                    <span className="flex items-center gap-1 text-xs" style={{ color: "var(--rd-muted)" }}><Headphones size={12} style={{ color: "var(--rd-accent)" }} />{fmt(t.plays)}</span>
+                    <span className="w-10 text-right font-mono text-xs" style={{ color: "var(--rd-muted)" }}>{time(t.duration)}</span>
                   </button>
                 </li>
               ))}
