@@ -17,7 +17,7 @@ async function load(q: string): Promise<{ tracks: Track[]; error?: string }> {
 }
 
 /** SoundCloud-style music tab. Songs play inside Radium via SoundCloud's official player. */
-export function MusicTab() {
+export function SoundCloudView() {
   const [query, setQuery] = useState("");
   const [heading, setHeading] = useState("Trending on SoundCloud");
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -90,6 +90,36 @@ export function MusicTab() {
               ))}
         </ul>
       </div>
+    </div>
+  );
+}
+
+import { SpotifyView } from "@/components/spotify-view";
+
+/** Music tab with an Options button to switch between SoundCloud and Spotify. */
+export function MusicTab() {
+  const [service, setService] = useState<"soundcloud" | "spotify">("soundcloud");
+  const [menu, setMenu] = useState(false);
+  return (
+    <div className="relative flex h-full flex-col">
+      <div className="flex items-center justify-between px-4 py-2" style={{ background: "var(--rd-bg)", borderBottom: "1px solid var(--rd-line)", color: "var(--rd-text)" }}>
+        <span className="text-xs font-semibold tracking-wider" style={{ color: "var(--rd-accent)" }}>
+          {service === "spotify" ? "CONNECTED TO SPOTIFY" : "CONNECTED TO SOUNDCLOUD"}
+        </span>
+        <div className="relative">
+          <button onClick={() => setMenu((m) => !m)} className="rounded-full px-3 py-1 text-xs" style={{ border: "1px solid var(--rd-line)", background: "var(--rd-surface)" }}>Options</button>
+          {menu && (
+            <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-md text-sm" style={{ background: "var(--rd-surface)", border: "1px solid var(--rd-line)" }}>
+              {(["soundcloud", "spotify"] as const).map((s) => (
+                <button key={s} onClick={() => { setService(s); setMenu(false); }} className="block w-full px-3 py-2 text-left" style={{ color: service === s ? "var(--rd-accent)" : "var(--rd-text)" }}>
+                  {s === "spotify" ? "Spotify" : "SoundCloud"}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="min-h-0 flex-1">{service === "spotify" ? <SpotifyView /> : <SoundCloudView />}</div>
     </div>
   );
 }
