@@ -152,7 +152,6 @@ function RadiumApp() {
           <ShieldCheck size={12} style={{ color: "var(--rd-accent-alt)" }} />
           RADIUM SESSION
         </span>
-        <span>EDGE TRANSPORT · ENCRYPTED</span>
       </footer>
     </div>
   );
@@ -233,7 +232,6 @@ function BrowserTab() {
         style={{ borderTop: "1px solid var(--rd-line)", borderBottom: "1px solid var(--rd-line)", color: "var(--rd-muted)" }}
       >
         <span className="truncate">{status}</span>
-        <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>EDGE PROXY · ENCRYPTED</span>
       </div>
 
       <div className="relative min-h-0 flex-1">
@@ -595,9 +593,6 @@ function PipedView({ options }: { options: React.ReactNode }) {
         style={{ borderTop: "1px solid var(--rd-line)", borderBottom: "1px solid var(--rd-line)", color: "var(--rd-muted)" }}
       >
         <span className="truncate">{status}</span>
-        <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>
-          CONNECTED TO PIPED
-        </span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {video ? (
@@ -865,9 +860,6 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
         }}
       >
         <span className="truncate">{status}</span>
-        <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>
-          CONNECTED TO INVIDIOUS
-        </span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -1031,17 +1023,6 @@ function SettingsTab() {
   return (
     <div className="h-full overflow-auto px-5 sm:px-8">
       <div className="mx-auto max-w-5xl pb-8">
-        <section className={rowClass} style={rowStyle}>
-          {rowCopy("Transport", "Network engine used for proxied requests")}
-          <select aria-label="Transport" value={settings.transport} onChange={() => undefined} className="h-11 rounded-sm px-3 font-mono text-xs outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }}>
-            <option value="edge">Edge proxy</option>
-          </select>
-        </section>
-
-        <section className={rowClass} style={rowStyle}>
-          {rowCopy("Wisp server", "Encrypted relay endpoint")}
-          <input aria-label="Wisp server" value={settings.wispServer} onChange={(e) => updateSettings({ wispServer: e.target.value })} className="h-11 rounded-sm px-3 font-mono text-xs outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }} />
-        </section>
 
         <section className={rowClass} style={rowStyle}>
           {rowCopy("Home page", "Opens when you select Home")}
@@ -1127,11 +1108,6 @@ function SettingsTab() {
             SESSION
           </h2>
           {[
-            {
-              key: "stealth" as const,
-              label: "Stealth mode",
-              hint: "Rotate the browser identity sent to sites on every request.",
-            },
             {
               key: "singaporeClock" as const,
               label: "Singapore time",
