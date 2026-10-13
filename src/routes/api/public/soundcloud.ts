@@ -17,7 +17,7 @@ async function getClientId(force = false): Promise<string> {
   throw new Error("no client id");
 }
 
-type Raw = { id: number; title: string; permalink_url: string; artwork_url?: string | null; duration: number; playback_count?: number; likes_count?: number; user?: { username?: string; avatar_url?: string } };
+type Raw = { id: number; title: string; permalink_url: string; artwork_url?: string | null; duration: number; playback_count?: number; likes_count?: number; comment_count?: number; genre?: string | null; created_at?: string; user?: { username?: string; avatar_url?: string } };
 
 async function api(path: string, retry = true): Promise<unknown> {
   const id = await getClientId(!retry);
@@ -37,6 +37,9 @@ const shape = (t: Raw) => ({
   duration: t.duration,
   plays: t.playback_count ?? null,
   likes: t.likes_count ?? null,
+  comments: t.comment_count ?? null,
+  genre: t.genre || null,
+  created: t.created_at ?? null,
 });
 
 const json = (d: unknown) => new Response(JSON.stringify(d), { headers: { "content-type": "application/json", "cache-control": "no-store" } });
