@@ -161,12 +161,12 @@ function BrowserTab() {
   const { settings, pushHistory, history } = useRadium();
   const [input, setInput] = useState("");
   const [target, setTarget] = useState<string | null>(null);
-  const [status, setStatus] = useState("Transport ready");
+  const [status, setStatus] = useState("Ready");
   const [nonce, setNonce] = useState(0);
 
   const videoId = target ? getYouTubeVideoId(target) : null;
   const playerHref = videoId ? videoPlayerUrl(videoId) : null;
-  const frameSrc = target ? proxyUrl(playerHref ?? target, settings.stealth) : null;
+  const frameSrc = target ? proxyUrl(playerHref ?? target, false) : null;
 
   // Watch/Shorts URLs resolve to the embed player, then load through the edge
   // proxy inside Radium. Everything else proxies as-is.
@@ -245,14 +245,14 @@ function BrowserTab() {
               style={{ border: "none", background: "var(--rd-bg)" }}
               loading="eager"
               referrerPolicy="strict-origin-when-cross-origin"
-              onLoad={() => setStatus("Transport ready")}
+              onLoad={() => setStatus("Ready")}
               sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation"
             />
             <button
               onClick={() => {
                 setTarget(null);
                 setInput("");
-                setStatus("Transport ready");
+                setStatus("Ready");
               }}
               className="absolute right-3 bottom-3 rounded-md px-3 py-1.5 font-mono text-[11px]"
               style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
