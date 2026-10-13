@@ -229,12 +229,7 @@ function BrowserTab() {
         </form>
       </div>
 
-      <div
-        className="flex items-center justify-between gap-3 px-4 py-1.5 font-mono text-[11px] tracking-[0.12em]"
-        style={{ borderTop: "1px solid var(--rd-line)", borderBottom: "1px solid var(--rd-line)", color: "var(--rd-muted)" }}
-      >
-        <span className="truncate">{status}</span>
-      </div>
+      <span className="sr-only" aria-live="polite">{status}</span>
 
       <div className="relative min-h-0 flex-1">
         {frameSrc ? (
