@@ -152,7 +152,6 @@ function RadiumApp() {
           <ShieldCheck size={12} style={{ color: "var(--rd-accent-alt)" }} />
           RADIUM SESSION
         </span>
-        <span>EDGE TRANSPORT · ENCRYPTED</span>
       </footer>
     </div>
   );
@@ -162,12 +161,12 @@ function BrowserTab() {
   const { settings, pushHistory, history } = useRadium();
   const [input, setInput] = useState("");
   const [target, setTarget] = useState<string | null>(null);
-  const [status, setStatus] = useState("Transport ready");
+  const [status, setStatus] = useState("Ready");
   const [nonce, setNonce] = useState(0);
 
   const videoId = target ? getYouTubeVideoId(target) : null;
   const playerHref = videoId ? videoPlayerUrl(videoId) : null;
-  const frameSrc = target ? proxyUrl(playerHref ?? target, settings.stealth) : null;
+  const frameSrc = target ? proxyUrl(playerHref ?? target, false) : null;
 
   // Watch/Shorts URLs resolve to the embed player, then load through the edge
   // proxy inside Radium. Everything else proxies as-is.
@@ -233,7 +232,6 @@ function BrowserTab() {
         style={{ borderTop: "1px solid var(--rd-line)", borderBottom: "1px solid var(--rd-line)", color: "var(--rd-muted)" }}
       >
         <span className="truncate">{status}</span>
-        <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>EDGE PROXY · ENCRYPTED</span>
       </div>
 
       <div className="relative min-h-0 flex-1">
@@ -247,14 +245,14 @@ function BrowserTab() {
               style={{ border: "none", background: "var(--rd-bg)" }}
               loading="eager"
               referrerPolicy="strict-origin-when-cross-origin"
-              onLoad={() => setStatus("Transport ready")}
+              onLoad={() => setStatus("Ready")}
               sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation"
             />
             <button
               onClick={() => {
                 setTarget(null);
                 setInput("");
-                setStatus("Transport ready");
+                setStatus("Ready");
               }}
               className="absolute right-3 bottom-3 rounded-md px-3 py-1.5 font-mono text-[11px]"
               style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
@@ -595,9 +593,6 @@ function PipedView({ options }: { options: React.ReactNode }) {
         style={{ borderTop: "1px solid var(--rd-line)", borderBottom: "1px solid var(--rd-line)", color: "var(--rd-muted)" }}
       >
         <span className="truncate">{status}</span>
-        <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>
-          CONNECTED TO PIPED
-        </span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {video ? (
@@ -865,9 +860,6 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
         }}
       >
         <span className="truncate">{status}</span>
-        <span className="shrink-0" style={{ color: "var(--rd-accent-alt)" }}>
-          CONNECTED TO INVIDIOUS
-        </span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -1031,17 +1023,6 @@ function SettingsTab() {
   return (
     <div className="h-full overflow-auto px-5 sm:px-8">
       <div className="mx-auto max-w-5xl pb-8">
-        <section className={rowClass} style={rowStyle}>
-          {rowCopy("Transport", "Network engine used for proxied requests")}
-          <select aria-label="Transport" value={settings.transport} onChange={() => undefined} className="h-11 rounded-sm px-3 font-mono text-xs outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }}>
-            <option value="edge">Edge proxy</option>
-          </select>
-        </section>
-
-        <section className={rowClass} style={rowStyle}>
-          {rowCopy("Wisp server", "Encrypted relay endpoint")}
-          <input aria-label="Wisp server" value={settings.wispServer} onChange={(e) => updateSettings({ wispServer: e.target.value })} className="h-11 rounded-sm px-3 font-mono text-xs outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }} />
-        </section>
 
         <section className={rowClass} style={rowStyle}>
           {rowCopy("Home page", "Opens when you select Home")}
@@ -1127,11 +1108,6 @@ function SettingsTab() {
             SESSION
           </h2>
           {[
-            {
-              key: "stealth" as const,
-              label: "Stealth mode",
-              hint: "Rotate the browser identity sent to sites on every request.",
-            },
             {
               key: "singaporeClock" as const,
               label: "Singapore time",
