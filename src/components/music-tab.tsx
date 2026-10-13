@@ -14,7 +14,7 @@ type Widget = {
   bind: (e: string, cb: (d?: { currentPosition?: number; relativePosition?: number }) => void) => void;
   play: () => void; pause: () => void; seekTo: (ms: number) => void;
 };
-declare global { interface Window { SC?: { Widget: ((el: HTMLIFrameElement) => Widget) & { Events: Record<string, string> } } } }
+declare global { interface Window { SC?: { Widget: ((el: HTMLIFrameElement) => Widget) & { Events: { READY: string; PLAY: string; PAUSE: string; PLAY_PROGRESS: string; FINISH: string } } } } }
 
 const fmt = (n: number | null | undefined) => (n == null ? "—" : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n));
 const time = (ms: number) => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -30,7 +30,7 @@ async function load(q: string): Promise<{ tracks: Track[]; error?: string }> {
   try {
     const r = await fetch(`/api/public/soundcloud?q=${encodeURIComponent(q)}&_t=${Date.now()}`, { cache: "no-store" });
     const d = JSON.parse(await r.text()) as { success: boolean; tracks?: Track[]; error?: string };
-    return d.success ? { tracks: d.tracks ?? [] } : { tracks: [], error: d.error };
+    return d.success ? { tracks: d.tracks ?? [] } : { tracks: [], error: d.error ?? "SoundCloud isn't responding right now." };
   } catch { return { tracks: [] }; }
 }
 
