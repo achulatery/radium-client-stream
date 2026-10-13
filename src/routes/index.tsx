@@ -140,7 +140,9 @@ function RadiumApp() {
       <div className="min-h-0 flex-1">
         {tab === "browser" && <BrowserTab />}
         {tab === "youtube" && <YouTubeTab />}
-        {tab === "music" && <MusicTab />}
+        <div className={tab === "music" ? "h-full" : "hidden"}>
+          <MusicTab />
+        </div>
         {tab === "settings" && <SettingsTab />}
       </div>
 
