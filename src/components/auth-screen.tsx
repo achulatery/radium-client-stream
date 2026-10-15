@@ -11,6 +11,8 @@ export function AuthScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(banned ? "This account has been banned" : null);
   const [busy, setBusy] = useState(false);
+  const [pin, setPin] = useState("");
+  const [needPin, setNeedPin] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,9 +20,10 @@ export function AuthScreen() {
     setBusy(true);
     setError(null);
     try {
-      const fn = mode === "create" ? signUp : signIn;
-      const r = await fn({ data: { username: username.trim(), password } });
-      if (!r.ok) setError(r.error);
+      const r = mode === "create"
+        ? await signUp({ data: { username: username.trim(), password } })
+        : await signIn({ data: { username: username.trim(), password, pin: needPin ? pin : undefined } });
+      if (!r.ok) { setError(r.error); if ("needPin" in r && r.needPin) setNeedPin(true); }
       else await refresh();
     } catch {
       setError("Something went wrong, try again");
@@ -52,12 +55,16 @@ export function AuthScreen() {
           <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" className="h-11 rounded-sm px-3 text-sm outline-none" style={field} />
           <label className="mt-1 font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>PASSWORD</label>
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "create" ? "new-password" : "current-password"} className="h-11 rounded-sm px-3 text-sm outline-none" style={field} />
+          {needPin && mode === "signin" && <>
+            <label className="mt-1 font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>SECURITY PIN</label>
+            <input type="password" inputMode="numeric" autoFocus value={pin} onChange={(e) => setPin(e.target.value)} autoComplete="one-time-code" className="h-11 rounded-sm px-3 text-sm outline-none" style={field} />
+          </>}
           {error && <p className="text-xs" style={{ color: "var(--rd-accent)" }}>{error}</p>}
           <button disabled={busy} className="mt-2 h-11 rounded-sm text-sm font-semibold tracking-wide disabled:opacity-60" style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}>
             {busy ? "Please wait…" : mode === "create" ? "Create account" : "Sign in"}
           </button>
         </form>
-        <button onClick={() => { setMode(mode === "create" ? "signin" : "create"); setError(null); }} className="mt-4 w-full text-center text-xs" style={{ color: "var(--rd-accent-alt)" }}>
+        <button onClick={() => { setMode(mode === "create" ? "signin" : "create"); setError(null); setNeedPin(false); setPin(""); }} className="mt-4 w-full text-center text-xs" style={{ color: "var(--rd-accent-alt)" }}>
           {mode === "create" ? "Already have an account? Sign in" : "New here? Create an account"}
         </button>
         <div className="mt-6 flex items-center gap-2 font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>
