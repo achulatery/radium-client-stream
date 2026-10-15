@@ -11,7 +11,7 @@ type Filter = "search" | "video" | "music" | "settings";
 
 const fmt = (d: string) => new Date(d).toLocaleString("en-SG", { timeZone: "Asia/Singapore" });
 
-export function AdminTab() {
+export function ConsoleTab() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -42,11 +42,15 @@ export function AdminTab() {
     setBusy(true); setErr("");
     try { await fn(); after?.(); } catch (e) { setErr(e instanceof Error ? e.message : "Action failed"); } finally { setBusy(false); }
   };
-  const toggleAdmin = () => detail && run(async () => { await adminSetMod({ data: { id: detail.user.id, isMod: !detail.user.isAdmin } }); await Promise.all([loadUsers(), loadDetail(detail.user.id)]); });
+  const [rankOpen, setRankOpen] = useState(false);
+  const setRank = (role: "admin" | "mod" | "none") => detail && run(async () => { await adminSetMod({ data: { id: detail.user.id, role } }); setRankOpen(false); await Promise.all([loadUsers(), loadDetail(detail.user.id)]); });
   const removeUser = () => detail && window.confirm(`Delete ${detail.user.username} permanently?`) && run(async () => { await adminDeleteUser({ data: { id: detail.user.id } }); setSelected(null); setDetail(null); await loadUsers(); });
   const isSelf = detail?.user.id === me?.id;
   const isProtected = detail?.user.username.toLowerCase() === "achulate";
   const isOwner = me?.role === "owner";
+  const canDelete = me?.role === "owner" || me?.role === "admin";
+  const rank = (r: string | null | undefined) => (r === "owner" ? 3 : r === "admin" ? 2 : r === "mod" ? 1 : 0);
+  const outranks = rank(me?.role) > rank(detail?.user.role);
 
   const panel = { background: "var(--rd-surface)", border: "1px solid var(--rd-line)" };
   const items = detail?.activity.filter((a) => a.kind === filter) ?? [];
@@ -65,7 +69,7 @@ export function AdminTab() {
                 style={{ background: selected === u.id ? "var(--rd-bg)" : "transparent", borderLeft: `2px solid ${selected === u.id ? "var(--rd-accent-alt)" : "transparent"}` }}>
                 <span className="truncate">{u.username}</span>
                 <span className="font-mono text-[9px] tracking-[0.15em]" style={{ color: u.banned ? "var(--rd-accent)" : "var(--rd-muted)" }}>
-                  {u.role === "owner" ? "OWNER" : u.is_admin ? "MOD" : u.banned ? "BANNED" : ""}
+                  {u.role ? u.role.toUpperCase() : u.banned ? "BANNED" : ""}
                 </span>
               </Button>
             </li>
@@ -91,16 +95,28 @@ export function AdminTab() {
               </div>
               <div className="flex flex-wrap gap-2">
               {isOwner && !isSelf && !isProtected && (
-                <Button variant="ghost" disabled={busy} onClick={() => void toggleAdmin()} className="flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-semibold disabled:opacity-60" style={{ background: "var(--rd-button)", color: "var(--rd-accent-alt)" }}>
-                  <ShieldPlus size={13} />{detail.user.isAdmin ? "Remove mod" : "Promote to mod"}
-                </Button>
+                <div className="relative">
+                  <Button variant="ghost" disabled={busy} onClick={() => setRankOpen(!rankOpen)} className="flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-semibold disabled:opacity-60" style={{ background: "var(--rd-button)", color: "var(--rd-accent-alt)" }}>
+                    <ShieldPlus size={13} />Set rank · {(detail.user.role ?? "user").toUpperCase()}
+                  </Button>
+                  {rankOpen && (
+                    <div className="absolute right-0 z-10 mt-1 flex w-56 flex-col rounded-sm p-1" style={{ background: "var(--rd-bg)", border: "1px solid var(--rd-line)" }}>
+                      {([["admin", "Admin", "Ban & delete accounts, delete messages and rooms"], ["mod", "Mod", "Ban users, delete messages and rooms"], ["none", "User", "Remove rank"]] as const).map(([r, label, desc]) => (
+                        <button key={r} onClick={() => void setRank(r)} className="rounded-sm px-3 py-2 text-left hover:opacity-80" style={{ background: (detail.user.role ?? "none") === r ? "var(--rd-surface)" : "transparent", borderLeft: `2px solid ${(detail.user.role ?? "none") === r ? "var(--rd-accent-alt)" : "transparent"}` }}>
+                          <span className="block font-mono text-[11px] tracking-[0.15em]">{label.toUpperCase()}</span>
+                          <span className="block text-[11px]" style={{ color: "var(--rd-muted)" }}>{desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
-              {!isSelf && !isProtected && (
+              {!isSelf && !isProtected && canDelete && outranks && (
                 <Button variant="ghost" disabled={busy} onClick={() => void removeUser()} className="flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-semibold disabled:opacity-60" style={{ background: "var(--rd-button)", color: "var(--rd-accent)" }}>
                   <Trash2 size={13} />Delete user
                 </Button>
               )}
-              {!detail.user.isAdmin && (
+              {!isSelf && outranks && (
                 <Button variant="ghost" disabled={busy} onClick={() => void toggleBan()} className="flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-semibold disabled:opacity-60"
                   style={detail.user.banned ? { background: "var(--rd-button)", color: "var(--rd-accent-alt)" } : { background: "var(--rd-accent)", color: "var(--rd-bg)" }}>
                   {detail.user.banned ? <ShieldCheck size={13} /> : <Ban size={13} />}
