@@ -89,7 +89,8 @@ export function ChatTab() {
         <div className="dc-messages" role="log" aria-live="polite">
           {messages.length === 0 && <p className="chat-empty">No messages yet. Say hi!</p>}
           {messages.map((m, i) => {
-            const grouped = i > 0 && messages[i - 1].userId === m.userId && !messages[i - 1].deleted && !m.deleted && new Date(m.createdAt).getTime() - new Date(messages[i - 1].createdAt).getTime() < 300000;
+            const prev = i > 0 ? messages[i - 1] : undefined;
+            const grouped = !!prev && prev.userId === m.userId && !prev.deleted && !m.deleted && new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 300000;
             const own = m.userId === user?.id;
             return (
               <article key={m.id} className={grouped ? "dc-msg grouped" : "dc-msg"}>
