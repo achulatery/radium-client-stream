@@ -146,9 +146,7 @@ function ClientShell() {
             ["music", "Music"],
             ["settings", "Settings"],
             ...(user?.isAdmin ? ([["console", "Console"]] as [Tab, string][]) : []),
-          ] as [Tab, string][]).filter(([id]) => !user?.blockedTabs.includes(id)).concat([
-
-          ] as [Tab, string][]
+          ] as [Tab, string][]).filter(([id]) => !user?.blockedTabs.includes(id)
         ).map(([id, label]) => (
           <button
             key={id}

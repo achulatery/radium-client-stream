@@ -10,6 +10,7 @@ export type AccountUser = {
   avatar: string | null;
   bio: string;
   createdAt: string;
+  blockedTabs: string[];
 };
 
 type Ctx = {

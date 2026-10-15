@@ -35,6 +35,12 @@ export async function requireUser() {
   return user;
 }
 
+export async function requireChatAccess() {
+  const user = await requireUser();
+  if ((user.blocked_tabs ?? []).includes("chat")) throw new Error("Your chat access has been revoked");
+  return user;
+}
+
 export async function requireAdmin() {
   const user = await requireUser();
   if (!canModerate(user.role)) throw new Error("Forbidden");

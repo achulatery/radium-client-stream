@@ -5,5 +5,9 @@ export function canModerate(role: AccountRole) { return role === "owner" || role
 export function canDeleteAccounts(role: AccountRole) { return role === "owner" || role === "admin"; }
 export function canChangePassword(role: AccountRole, callerId: string, targetId: string) { return callerId === targetId || role === "owner"; }
 export function canPromote(role: AccountRole) { return role === "owner"; }
-export function canViewLogs(role: AccountRole) { return role === "owner"; }
+/** Owner and admins can view user history. */
+export function canViewLogs(role: AccountRole) { return role === "owner" || role === "admin"; }
+/** Admins and the owner can revoke tab access. */
+export function canRevokeTabs(role: AccountRole) { return role === "owner" || role === "admin"; }
+export const REVOCABLE_TABS = ["browser", "youtube", "chat"] as const;
 export const roleRank = (role: AccountRole) => (role === "owner" ? 3 : role === "admin" ? 2 : role === "mod" ? 1 : 0);
