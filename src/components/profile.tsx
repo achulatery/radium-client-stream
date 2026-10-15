@@ -7,7 +7,7 @@ import { getProfile, updateProfile } from "@/lib/account.functions";
 export const MAX_WORDS = 20;
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
-export function Avatar({ src, name, size = 32 }: { src?: string | null; name: string; size?: number }) {
+export function Avatar({ src, name, size = 32 }: { src?: string | null | undefined; name: string; size?: number }) {
   return src ? (
     <img src={src} alt="" width={size} height={size} className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
   ) : (
@@ -29,7 +29,7 @@ async function toAvatar(file: File): Promise<string> {
 
 type Profile = { id: string; username: string; avatar: string | null; bio: string; createdAt: string };
 
-export function ProfileDialog({ userId, editable, onClose }: { userId?: string; editable?: boolean; onClose: () => void }) {
+export function ProfileDialog({ userId, editable, onClose }: { userId?: string | undefined; editable?: boolean | undefined; onClose: () => void }) {
   const { user, refresh } = useAccount();
   const id = userId ?? user?.id;
   const [p, setP] = useState<Profile | null>(null);
