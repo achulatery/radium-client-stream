@@ -46,6 +46,7 @@ import { AuthScreen } from "@/components/auth-screen";
 import { ChatTab } from "@/components/chat-tab";
 import { PasswordSettings } from "@/components/password-settings";
 import { ConsoleTab } from "@/components/console-tab";
+import { Avatar, ProfileDialog } from "@/components/profile";
 import { PRESET_THEMES, type Theme } from "@/lib/themes";
 
 export const Route = createFileRoute("/")({
@@ -90,6 +91,7 @@ function ClientShell() {
   const [tab, setTab] = useState<Tab>("browser");
   const { theme, toggleMode, settings } = useRadium();
   const { user, signOut } = useAccount();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <div
@@ -125,15 +127,11 @@ function ClientShell() {
           >
             <Sun size={14} />
           </button>
-          <span
-            className="hidden font-mono text-[11px] tracking-[0.2em] md:inline"
-            style={{ color: "var(--rd-muted)" }}
-          >
-            BY JAMES XIE
-          </span>
-          <span className="max-w-24 truncate font-mono text-[11px] sm:max-w-48" style={{ color: "var(--rd-text)" }}>
-            {user?.username}
-          </span>
+          <button onClick={() => setProfileOpen(true)} title="Edit profile" className="flex max-w-28 items-center gap-1.5 truncate font-mono text-[11px] sm:max-w-52" style={{ color: "var(--rd-text)" }}>
+            <Avatar src={user?.avatar} name={user?.username ?? "?"} size={22} />
+            <span className="truncate">{user?.username}</span>
+          </button>
+          {profileOpen && <ProfileDialog editable onClose={() => setProfileOpen(false)} />}
           <button onClick={() => void signOut()} className="shrink-0 whitespace-nowrap rounded-sm px-2 py-1 font-mono text-[10px]" style={{ background: "var(--rd-button)", color: "var(--rd-accent)" }}>
             SIGN OUT
           </button>
@@ -1128,8 +1126,9 @@ function SettingsTab() {
               Clear
             </button>
           </div>
-          <div className="mt-3 space-y-1 font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>
-            {history.slice(0, 15).map((h) => (
+          <div className="history-scroll mt-3 max-h-64 space-y-1 overflow-y-auto rounded-sm p-2 font-mono text-[11px]" style={{ color: "var(--rd-muted)", border: "1px solid var(--rd-line)", background: "var(--rd-bg)" }}>
+            {history.length === 0 && <div>No history yet.</div>}
+            {history.map((h) => (
               <div key={h.url} className="truncate">
                 {h.url}
               </div>

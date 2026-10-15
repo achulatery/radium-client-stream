@@ -190,32 +190,41 @@ export type Database = {
       }
       app_users: {
         Row: {
+          avatar: string | null
           banned: boolean
+          bio: string
           created_at: string
           id: string
           is_admin: boolean
           last_seen: string
           password: string
+          pin_hash: string | null
           settings: Json
           username: string
         }
         Insert: {
+          avatar?: string | null
           banned?: boolean
+          bio?: string
           created_at?: string
           id?: string
           is_admin?: boolean
           last_seen?: string
           password: string
+          pin_hash?: string | null
           settings?: Json
           username: string
         }
         Update: {
+          avatar?: string | null
           banned?: boolean
+          bio?: string
           created_at?: string
           id?: string
           is_admin?: boolean
           last_seen?: string
           password?: string
+          pin_hash?: string | null
           settings?: Json
           username?: string
         }

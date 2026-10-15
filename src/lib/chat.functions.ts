@@ -80,7 +80,7 @@ export const listMessages = createServerFn({ method: "GET" })
     const sb = await db();
     const { data: rows, error } = await sb
       .from("app_chat_messages")
-      .select("id, user_id, body, created_at, edited_at, deleted_at, deleted_by_role, app_users(username)")
+      .select("id, user_id, body, created_at, edited_at, deleted_at, deleted_by_role, app_users(username, avatar)")
       .eq("room_id", data.roomId)
       .order("created_at", { ascending: false })
       .limit(150);
@@ -93,6 +93,7 @@ export const listMessages = createServerFn({ method: "GET" })
         id: r.id,
         userId: r.user_id,
         username: r.app_users?.username ?? "Deleted user",
+        avatar: (r.app_users?.avatar ?? null) as string | null,
         authorRole: (roles?.find((x) => x.user_id === r.user_id)?.role ?? null) as string | null,
         // Deleted text is only returned to staff, for moderation.
         body: deleted && !staff ? "" : r.body,

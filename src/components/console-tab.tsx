@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Ban, RefreshCw, ShieldCheck, ShieldPlus, Trash2 } from "lucide-react";
+import { Ban, Eye, EyeOff, RefreshCw, ShieldCheck, ShieldPlus, Trash2 } from "lucide-react";
 import { adminDeleteUser, adminGetUser, adminListUsers, adminSetMod, adminSetBan } from "@/lib/account.functions";
 import { useAccount } from "@/lib/account";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,8 @@ export function ConsoleTab() {
     try { await fn(); after?.(); } catch (e) { setErr(e instanceof Error ? e.message : "Action failed"); } finally { setBusy(false); }
   };
   const [rankOpen, setRankOpen] = useState(false);
+  const [peek, setPeek] = useState(false);
+  useEffect(() => setPeek(false), [selected]);
   const setRank = (role: "admin" | "mod" | "none") => detail && run(async () => { await adminSetMod({ data: { id: detail.user.id, role } }); setRankOpen(false); await Promise.all([loadUsers(), loadDetail(detail.user.id)]); });
   const removeUser = () => detail && window.confirm(`Delete ${detail.user.username} permanently?`) && run(async () => { await adminDeleteUser({ data: { id: detail.user.id } }); setSelected(null); setDetail(null); await loadUsers(); });
   const isSelf = detail?.user.id === me?.id;
@@ -90,6 +92,13 @@ export function ConsoleTab() {
                 <span className="text-xs">{fmt(detail.user.createdAt)}</span>
                 <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>LAST SEEN</span>
                 <span className="text-xs">{fmt(detail.user.lastSeen)}</span>
+                {isOwner && detail.user.password && <>
+                  <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>PASSWORD</span>
+                  <span className="flex min-w-0 items-start gap-2 text-xs">
+                    <button onClick={() => setPeek(!peek)} aria-label={peek ? "Hide password hash" : "Peek password hash"} style={{ color: "var(--rd-accent-alt)" }}>{peek ? <EyeOff size={13} /> : <Eye size={13} />}</button>
+                    <code className="max-w-[22rem] break-all font-mono text-[10px]">{peek ? detail.user.password : "••••••••••••"}</code>
+                  </span>
+                </>}
                 <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>STATUS</span>
                 <span className="text-xs" style={{ color: detail.user.banned ? "var(--rd-accent)" : "var(--rd-accent-alt)" }}>{detail.user.banned ? "Banned" : "Active"}</span>
               </div>
@@ -144,7 +153,7 @@ export function ConsoleTab() {
               </pre>
             )}
 
-            <ul className="flex flex-col">
+            <ul className="flex max-h-[50vh] flex-col overflow-y-auto pr-1">
               {items.length === 0 && <li className="text-xs" style={{ color: "var(--rd-muted)" }}>Nothing yet.</li>}
               {items.map((a) => (
                 <li key={a.id} className="flex items-start justify-between gap-4 py-2 text-sm" style={{ borderBottom: "1px solid var(--rd-line)" }}>

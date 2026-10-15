@@ -30,3 +30,5 @@ Account ranks are owner > admin > mod in app_account_roles; checks live in src/l
 Chat rooms are joined by code and membership persists in app_room_members; deleted messages are soft-deleted with the deleter's rank so staff can still review them.
 
 Server-only session helpers live in src/lib/account-session.server.ts and are imported dynamically from *.functions.ts, because importing server-only modules statically breaks the client bundle.
+
+- Profiles (avatar as small resized data URL, bio max 20 words) live on app_users and are edited only via updateProfile; public cards via getProfile expose only image, description and creation date. Accounts with pin_hash require a hashed secondary PIN at sign-in; the owner console shows stored hashes only, never plaintext.

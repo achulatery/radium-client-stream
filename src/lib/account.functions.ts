@@ -48,6 +48,7 @@ async function requireAdmin() {
 const creds = z.object({
   username: z.string().trim().min(1).max(100),
   password: z.string().min(1).max(200),
+  pin: z.string().max(50).optional(),
 });
 
 export const getMe = createServerFn({ method: "GET" }).handler(async () => {
@@ -64,9 +65,38 @@ export const getMe = createServerFn({ method: "GET" }).handler(async () => {
       isAdmin: canModerate(user.role),
       role: user.role,
       settings: (user.settings ?? {}) as Record<string, any>,
+      avatar: (user.avatar ?? null) as string | null,
+      bio: (user.bio ?? "") as string,
+      createdAt: user.created_at as string,
     },
   };
 });
+
+const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
+
+export const updateProfile = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({
+    bio: z.string().max(300).refine((s) => wordCount(s) <= 20, "Description can be at most 20 words"),
+    avatar: z.string().max(200000).regex(/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/).nullable(),
+  }).parse(d))
+  .handler(async ({ data }) => {
+    const user = await requireUser();
+    const sb = await db();
+    const { error } = await sb.from("app_users").update({ bio: data.bio.trim(), avatar: data.avatar }).eq("id", user.id);
+    if (error) throw new Error("Could not save profile");
+    return { ok: true };
+  });
+
+/** Public profile card: image, description and creation date only. */
+export const getProfile = createServerFn({ method: "GET" })
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    await requireUser();
+    const sb = await db();
+    const { data: u } = await sb.from("app_users").select("id, username, avatar, bio, created_at").eq("id", data.id).maybeSingle();
+    if (!u) throw new Error("User not found");
+    return { id: u.id, username: u.username, avatar: u.avatar as string | null, bio: u.bio as string, createdAt: u.created_at };
+  });
 
 export const signUp = createServerFn({ method: "POST" })
   .inputValidator((d) => creds.parse(d))
@@ -95,12 +125,17 @@ export const signIn = createServerFn({ method: "POST" })
     const sb = await db();
     const { data: row } = await sb
       .from("app_users")
-      .select("id, password, banned")
+      .select("id, password, banned, pin_hash")
       .ilike("username", data.username.replace(/[%_\\]/g, "\\$&"))
       .maybeSingle();
     if (!row || !await (await import("./password.server")).verifyPassword(data.password, row.password))
       return { ok: false as const, error: "Wrong username or password" };
     if (row.banned) return { ok: false as const, error: "This account has been banned" };
+    if (row.pin_hash) {
+      if (!data.pin) return { ok: false as const, error: "Enter your security PIN", needPin: true };
+      if (!await (await import("./password.server")).verifyPassword(data.pin, row.pin_hash))
+        return { ok: false as const, error: "Wrong security PIN", needPin: true };
+    }
     const session = await useSession<AccountSession>(sessionConfig());
     await session.update({ userId: row.id });
     return { ok: true as const };
@@ -188,7 +223,8 @@ export const adminGetUser = createServerFn({ method: "GET" })
       user: {
         id: user.id,
         username: user.username,
-        password: null,
+        // Owner-only: the stored one-way hash (never plaintext).
+        password: caller.role === "owner" ? (user.password as string) : null,
         isAdmin: Boolean(targetRole),
         role: (targetRole?.role ?? null) as AccountRole,
         banned: user.banned,
