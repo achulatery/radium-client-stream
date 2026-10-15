@@ -1,7 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { canModerate } from "./account-permissions";
-import { _db as db, _requireUser as requireUser } from "./account.functions";
+
+const db = async () => (await import("./account-session.server")).db();
+const requireUser = async () => (await import("./account-session.server")).requireUser();
 
 const roomId = z.object({ roomId: z.string().uuid() });
 
