@@ -87,7 +87,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "description",
         content: "Radium Client — a themeable web proxy with Singapore-first routing.",
       },
-      { name: "author", content: "James Xie" },
       { property: "og:title", content: "Radium Client" },
       {
         property: "og:description",
