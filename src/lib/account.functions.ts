@@ -2,7 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { useSession } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { canChangePassword, canModerate, canPromote, type AccountRole } from "./account-permissions";
+import { canChangePassword, canDeleteAccounts, canModerate, canPromote, canViewLogs, roleRank, type AccountRole } from "./account-permissions";
 
 type AccountSession = { userId?: string };
 
@@ -28,7 +28,7 @@ async function currentUser() {
   const { data } = await sb.from("app_users").select("*").eq("id", id).maybeSingle();
   if (!data) return null;
   const { data: roleRow } = await sb.from("app_account_roles").select("role").eq("user_id", id).maybeSingle();
-  const role: AccountRole = roleRow?.role === "owner" || roleRow?.role === "mod" ? roleRow.role : null;
+  const role: AccountRole = roleRow?.role === "owner" || roleRow?.role === "admin" || roleRow?.role === "mod" ? roleRow.role : null;
   return { ...data, role };
 }
 
@@ -172,7 +172,7 @@ export const adminListUsers = createServerFn({ method: "GET" }).handler(async ()
 export const adminGetUser = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const caller = await requireAdmin();
     const sb = await db();
     const { data: user } = await sb.from("app_users").select("*").eq("id", data.id).maybeSingle();
     if (!user) throw new Error("User not found");
@@ -182,18 +182,22 @@ export const adminGetUser = createServerFn({ method: "GET" })
       .eq("user_id", data.id)
       .order("created_at", { ascending: false })
       .limit(1000);
+    const { data: targetRole } = await sb.from("app_account_roles").select("role").eq("user_id", user.id).maybeSingle();
+    const showLogs = canViewLogs(caller.role);
     return {
       user: {
         id: user.id,
         username: user.username,
         password: null,
-        isAdmin: Boolean((await sb.from("app_account_roles").select("role").eq("user_id", user.id).maybeSingle()).data),
+        isAdmin: Boolean(targetRole),
+        role: (targetRole?.role ?? null) as AccountRole,
         banned: user.banned,
-        settings: user.settings as Record<string, any>,
+        settings: showLogs ? (user.settings as Record<string, any>) : {},
         createdAt: user.created_at,
         lastSeen: user.last_seen,
       },
-      activity: (activity ?? []).map((a) => ({ ...a, detail: a.detail as Record<string, any> })),
+      canViewLogs: showLogs,
+      activity: (showLogs ? activity ?? [] : []).map((a) => ({ ...a, detail: a.detail as Record<string, any> })),
     };
   });
 
@@ -204,7 +208,7 @@ export const adminSetBan = createServerFn({ method: "POST" })
     if (admin.id === data.id) throw new Error("You can't ban yourself");
     const sb = await db();
     const { data: target } = await sb.from("app_account_roles").select("role").eq("user_id", data.id).maybeSingle();
-    if (target?.role === "owner") throw new Error("This account is protected");
+    if (roleRank((target?.role ?? null) as AccountRole) >= roleRank(admin.role)) throw new Error("You can't ban someone with an equal or higher rank");
     await sb.from("app_users").update({ banned: data.banned }).eq("id", data.id);
     return { ok: true };
   });
@@ -218,7 +222,7 @@ function requireOwner(user: { role: AccountRole }) {
 }
 
 export const adminSetMod = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ id: z.string().uuid(), isMod: z.boolean() }).parse(d))
+  .inputValidator((d) => z.object({ id: z.string().uuid(), role: z.enum(["admin", "mod", "none"]) }).parse(d))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
     requireOwner(admin);
@@ -227,10 +231,10 @@ export const adminSetMod = createServerFn({ method: "POST" })
     const { data: target } = await sb.from("app_users").select("username").eq("id", data.id).maybeSingle();
     if (!target) throw new Error("User not found");
     if (target.username.toLowerCase() === PROTECTED_ADMIN) throw new Error("This account is protected");
-    const result = data.isMod
-      ? await sb.from("app_account_roles").upsert({ user_id: data.id, role: "mod" })
+    const result = data.role !== "none"
+      ? await sb.from("app_account_roles").upsert({ user_id: data.id, role: data.role })
       : await sb.from("app_account_roles").delete().eq("user_id", data.id);
-    if (result.error) throw new Error("Could not update mod permissions");
+    if (result.error) throw new Error("Could not update rank");
     return { ok: true };
   });
 
@@ -238,11 +242,14 @@ export const adminDeleteUser = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!canDeleteAccounts(admin.role)) throw new Error("Only admins and the owner can delete accounts");
     if (admin.id === data.id) throw new Error("You can't delete yourself");
     const sb = await db();
     const { data: target } = await sb.from("app_users").select("username").eq("id", data.id).maybeSingle();
     if (!target) throw new Error("User not found");
     if (target.username.toLowerCase() === PROTECTED_ADMIN) throw new Error("This account is protected");
+    const { data: targetRole } = await sb.from("app_account_roles").select("role").eq("user_id", data.id).maybeSingle();
+    if (roleRank((targetRole?.role ?? null) as AccountRole) >= roleRank(admin.role)) throw new Error("You can't delete someone with an equal or higher rank");
     await sb.from("app_activity").delete().eq("user_id", data.id);
     await sb.from("app_users").delete().eq("id", data.id);
     return { ok: true };
@@ -271,19 +278,4 @@ export const ownerChangePassword = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const listChatMessages = createServerFn({ method: "GET" }).handler(async () => {
-  await requireUser();
-  const sb = await db();
-  const { data, error } = await sb.from("app_chat_messages").select("id, user_id, body, created_at, app_users(username)").order("created_at", { ascending: false }).limit(100);
-  if (error) throw new Error("Could not load chat");
-  return (data ?? []).reverse().map((row) => ({ id: row.id, userId: row.user_id, body: row.body, createdAt: row.created_at, username: row.app_users?.username ?? "Deleted user" }));
-});
-export const sendChatMessage = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ body: z.string().trim().min(1).max(2000) }).parse(d))
-  .handler(async ({ data }) => {
-    const user = await requireUser();
-    const sb = await db();
-    const { error } = await sb.from("app_chat_messages").insert({ user_id: user.id, body: data.body });
-    if (error) throw new Error("Could not send message");
-    return { ok: true };
-  });
+export { requireUser as _requireUser, requireAdmin as _requireAdmin, db as _db };
