@@ -46,6 +46,7 @@ import { AuthScreen } from "@/components/auth-screen";
 import { ChatTab } from "@/components/chat-tab";
 import { PasswordSettings } from "@/components/password-settings";
 import { ConsoleTab } from "@/components/console-tab";
+import { Avatar, ProfileDialog } from "@/components/profile";
 import { PRESET_THEMES, type Theme } from "@/lib/themes";
 
 export const Route = createFileRoute("/")({
@@ -90,6 +91,7 @@ function ClientShell() {
   const [tab, setTab] = useState<Tab>("browser");
   const { theme, toggleMode, settings } = useRadium();
   const { user, signOut } = useAccount();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <div

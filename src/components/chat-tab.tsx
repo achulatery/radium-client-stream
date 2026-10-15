@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Hash, LogOut, Pencil, Plus, Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, ProfileDialog } from "@/components/profile";
 import { useAccount } from "@/lib/account";
 import { canModerate } from "@/lib/account-permissions";
 import { createRoom, deleteMessage, deleteRoom, editMessage, joinRoom, leaveRoom, listMessages, listRooms, sendMessage } from "@/lib/chat.functions";
@@ -24,6 +25,7 @@ export function ChatTab() {
   const [panel, setPanel] = useState<"none" | "create" | "join">("none");
   const [form, setForm] = useState({ name: "", code: "" });
   const end = useRef<HTMLDivElement>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
 
   const loadRooms = useCallback(async () => {
     const r = await listRooms();
@@ -49,6 +51,7 @@ export function ChatTab() {
 
   return (
     <div className="dc-shell">
+      {profileId && <ProfileDialog userId={profileId} editable={profileId === user?.id} onClose={() => { setProfileId(null); void loadMessages(); }} />}
       <aside className="dc-rooms">
         <div className="dc-rooms-head">ROOMS</div>
         <ul>
@@ -74,7 +77,7 @@ export function ChatTab() {
             <Button type="submit" size="sm">{panel === "create" ? "Create room" : "Join room"}</Button>
           </form>
         )}
-        <div className="dc-user"><span className="dc-avatar">{user?.username.slice(0, 1).toUpperCase()}</span><span>{user?.username}</span>{user?.role && <b>{roleLabel[user.role]}</b>}</div>
+        <button type="button" className="dc-user" onClick={() => user && setProfileId(user.id)} title="Your profile"><Avatar src={user?.avatar} name={user?.username ?? "?"} size={32} /><span>{user?.username}</span>{user?.role && <b>{roleLabel[user.role]}</b>}</button>
       </aside>
 
       <section className="dc-main">
@@ -94,9 +97,9 @@ export function ChatTab() {
             const own = m.userId === user?.id;
             return (
               <article key={m.id} className={grouped ? "dc-msg grouped" : "dc-msg"}>
-                {!grouped && <span className="dc-avatar">{m.username.slice(0, 1).toUpperCase()}</span>}
+                {!grouped && <button type="button" className="dc-avatar-btn" onClick={() => setProfileId(m.userId)} aria-label={`View ${m.username}'s profile`}><Avatar src={m.avatar} name={m.username} size={40} /></button>}
                 <div className="dc-msg-body">
-                  {!grouped && <div className="dc-msg-meta"><strong>{m.username}</strong>{m.authorRole && <b>{roleLabel[m.authorRole]}</b>}<time>{new Date(m.createdAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" })}</time></div>}
+                  {!grouped && <div className="dc-msg-meta"><strong role="button" tabIndex={0} className="cursor-pointer hover:underline" onClick={() => setProfileId(m.userId)}>{m.username}</strong>{m.authorRole && <b>{roleLabel[m.authorRole]}</b>}<time>{new Date(m.createdAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" })}</time></div>}
                   {editing?.id === m.id ? (
                     <form className="dc-edit" onSubmit={(e) => { e.preventDefault(); void run(async () => { await editMessage({ data: editing }); setEditing(null); await loadMessages(); }); }}>
                       <input autoFocus value={editing.body} maxLength={2000} onChange={(e) => setEditing({ ...editing, body: e.target.value })} onKeyDown={(e) => e.key === "Escape" && setEditing(null)} />

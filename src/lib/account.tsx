@@ -7,6 +7,9 @@ export type AccountUser = {
   isAdmin: boolean;
   role: "owner" | "admin" | "mod" | null;
   settings: Record<string, unknown>;
+  avatar: string | null;
+  bio: string;
+  createdAt: string;
 };
 
 type Ctx = {
