@@ -193,6 +193,7 @@ export type Database = {
           avatar: string | null
           banned: boolean
           bio: string
+          blocked_tabs: string[]
           created_at: string
           id: string
           is_admin: boolean
@@ -206,6 +207,7 @@ export type Database = {
           avatar?: string | null
           banned?: boolean
           bio?: string
+          blocked_tabs?: string[]
           created_at?: string
           id?: string
           is_admin?: boolean
@@ -219,6 +221,7 @@ export type Database = {
           avatar?: string | null
           banned?: boolean
           bio?: string
+          blocked_tabs?: string[]
           created_at?: string
           id?: string
           is_admin?: boolean
