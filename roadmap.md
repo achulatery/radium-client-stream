@@ -1,0 +1,20 @@
+- [x] Make YouTube playback immediate and independent of Invidious metadata/comments
+- [x] Fail Invidious lookups quickly without an endless loading state
+- [x] Restyle Settings to match the attached lightweight row layout
+- [x] Verify video failure handling and Settings in the browser
+- [x] Handle Piped API responses safely when launched from the Home Screen
+- [x] Add a stable Home Screen launch URL and prevent stale Piped API responses
+- [x] Restore Invidious result thumbnails when public image links fail
+- [x] Replace Music with real SoundCloud discovery, search and on-demand playback
+- [x] Verify Music controls, appearance and failure states
+- [x] Restore YouTube's Invidious/Piped search with a browser-style opening screen
+- [x] Remove provider connection messages and accelerate video/thumbnail preloading
+- [ ] Verify YouTube search and video opening with a responding external provider
+- [x] Replace SoundCloud with Spotify and match the supplied music layout
+- [x] Verify Spotify playlist selection, saved library and link embedding
+- [x] Retire Spotify playback verification — music reverted to SoundCloud
+- [x] Restore unbranded SoundCloud and remove Spotify logins (official widget retains its required branding)
+- [x] Add own-password settings and owner-only password resets
+- [x] Rename promoted accounts to mods with server-enforced permissions
+- [x] Add shared Chat between Browser and YouTube
+- [x] Verify new account, password and chat flows

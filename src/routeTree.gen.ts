@@ -10,33 +10,141 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SplatRouteImport } from './routes/$'
+import { Route as ApiStreamRouteImport } from './routes/api/stream'
+import { Route as ApiPublicInvidiousRouteImport } from './routes/api/public/invidious'
+import { Route as ApiPublicPRouteImport } from './routes/api/public/p'
+import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
+import { Route as ApiPublicPipedRouteImport } from './routes/api/public/piped'
+import { Route as ApiPublicSoundcloudRouteImport } from './routes/api/public/soundcloud'
+import { Route as ApiPublicThumbRouteImport } from './routes/api/public/thumb'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStreamRoute = ApiStreamRouteImport.update({
+  id: '/api/stream',
+  path: '/api/stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicInvidiousRoute = ApiPublicInvidiousRouteImport.update({
+  id: '/api/public/invidious',
+  path: '/api/public/invidious',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPRoute = ApiPublicPRouteImport.update({
+  id: '/api/public/p',
+  path: '/api/public/p',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPingRoute = ApiPublicPingRouteImport.update({
+  id: '/api/public/ping',
+  path: '/api/public/ping',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPipedRoute = ApiPublicPipedRouteImport.update({
+  id: '/api/public/piped',
+  path: '/api/public/piped',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSoundcloudRoute = ApiPublicSoundcloudRouteImport.update({
+  id: '/api/public/soundcloud',
+  path: '/api/public/soundcloud',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicThumbRoute = ApiPublicThumbRouteImport.update({
+  id: '/api/public/thumb',
+  path: '/api/public/thumb',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
+  '/api/stream': typeof ApiStreamRoute
+  '/api/public/invidious': typeof ApiPublicInvidiousRoute
+  '/api/public/p': typeof ApiPublicPRoute
+  '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/piped': typeof ApiPublicPipedRoute
+  '/api/public/soundcloud': typeof ApiPublicSoundcloudRoute
+  '/api/public/thumb': typeof ApiPublicThumbRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
+  '/api/stream': typeof ApiStreamRoute
+  '/api/public/invidious': typeof ApiPublicInvidiousRoute
+  '/api/public/p': typeof ApiPublicPRoute
+  '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/piped': typeof ApiPublicPipedRoute
+  '/api/public/soundcloud': typeof ApiPublicSoundcloudRoute
+  '/api/public/thumb': typeof ApiPublicThumbRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
+  '/api/stream': typeof ApiStreamRoute
+  '/api/public/invidious': typeof ApiPublicInvidiousRoute
+  '/api/public/p': typeof ApiPublicPRoute
+  '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/piped': typeof ApiPublicPipedRoute
+  '/api/public/soundcloud': typeof ApiPublicSoundcloudRoute
+  '/api/public/thumb': typeof ApiPublicThumbRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/$'
+    | '/api/stream'
+    | '/api/public/invidious'
+    | '/api/public/p'
+    | '/api/public/ping'
+    | '/api/public/piped'
+    | '/api/public/soundcloud'
+    | '/api/public/thumb'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/$'
+    | '/api/stream'
+    | '/api/public/invidious'
+    | '/api/public/p'
+    | '/api/public/ping'
+    | '/api/public/piped'
+    | '/api/public/soundcloud'
+    | '/api/public/thumb'
+  id:
+    | '__root__'
+    | '/'
+    | '/$'
+    | '/api/stream'
+    | '/api/public/invidious'
+    | '/api/public/p'
+    | '/api/public/ping'
+    | '/api/public/piped'
+    | '/api/public/soundcloud'
+    | '/api/public/thumb'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
+  ApiStreamRoute: typeof ApiStreamRoute
+  ApiPublicInvidiousRoute: typeof ApiPublicInvidiousRoute
+  ApiPublicPRoute: typeof ApiPublicPRoute
+  ApiPublicPingRoute: typeof ApiPublicPingRoute
+  ApiPublicPipedRoute: typeof ApiPublicPipedRoute
+  ApiPublicSoundcloudRoute: typeof ApiPublicSoundcloudRoute
+  ApiPublicThumbRoute: typeof ApiPublicThumbRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +156,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stream': {
+      id: '/api/stream'
+      path: '/api/stream'
+      fullPath: '/api/stream'
+      preLoaderRoute: typeof ApiStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/invidious': {
+      id: '/api/public/invidious'
+      path: '/api/public/invidious'
+      fullPath: '/api/public/invidious'
+      preLoaderRoute: typeof ApiPublicInvidiousRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/p': {
+      id: '/api/public/p'
+      path: '/api/public/p'
+      fullPath: '/api/public/p'
+      preLoaderRoute: typeof ApiPublicPRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/ping': {
+      id: '/api/public/ping'
+      path: '/api/public/ping'
+      fullPath: '/api/public/ping'
+      preLoaderRoute: typeof ApiPublicPingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/piped': {
+      id: '/api/public/piped'
+      path: '/api/public/piped'
+      fullPath: '/api/public/piped'
+      preLoaderRoute: typeof ApiPublicPipedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/soundcloud': {
+      id: '/api/public/soundcloud'
+      path: '/api/public/soundcloud'
+      fullPath: '/api/public/soundcloud'
+      preLoaderRoute: typeof ApiPublicSoundcloudRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/thumb': {
+      id: '/api/public/thumb'
+      path: '/api/public/thumb'
+      fullPath: '/api/public/thumb'
+      preLoaderRoute: typeof ApiPublicThumbRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
+  ApiStreamRoute: ApiStreamRoute,
+  ApiPublicInvidiousRoute: ApiPublicInvidiousRoute,
+  ApiPublicPRoute: ApiPublicPRoute,
+  ApiPublicPingRoute: ApiPublicPingRoute,
+  ApiPublicPipedRoute: ApiPublicPipedRoute,
+  ApiPublicSoundcloudRoute: ApiPublicSoundcloudRoute,
+  ApiPublicThumbRoute: ApiPublicThumbRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
