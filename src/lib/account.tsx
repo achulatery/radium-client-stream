@@ -5,7 +5,7 @@ export type AccountUser = {
   id: string;
   username: string;
   isAdmin: boolean;
-  role: "owner" | "mod" | null;
+  role: "owner" | "admin" | "mod" | null;
   settings: Record<string, unknown>;
 };
 

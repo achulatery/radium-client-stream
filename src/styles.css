@@ -319,3 +319,49 @@
 .spotify-main { background: var(--spotify-panel); }
 .spotify-main-content { padding-top: 24px; }
 .spotify-now-art.spotify-placeholder { display: grid; }
+
+/* Discord-style chat, Radium themed */
+.dc-shell { display: flex; height: 100%; min-height: 0; background: var(--rd-bg); }
+.dc-rooms { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--rd-surface); border-right: 1px solid var(--rd-line); }
+.dc-rooms-head { padding: 14px 16px 8px; font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: .2em; color: var(--rd-muted); }
+.dc-rooms ul { flex: 1; overflow-y: auto; padding: 0 8px; }
+.dc-room { display: flex; width: 100%; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; color: var(--rd-muted); font-size: 14px; text-align: left; }
+.dc-room:hover { background: var(--rd-bg); color: var(--rd-text); }
+.dc-room.active { background: var(--rd-bg); color: var(--rd-text); box-shadow: inset 2px 0 0 var(--rd-accent-alt); }
+.dc-room span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-room em { font-style: normal; font-size: 9px; letter-spacing: .15em; color: var(--rd-accent); }
+.dc-rooms-actions { display: flex; gap: 6px; padding: 8px; }
+.dc-rooms-actions > * { flex: 1; }
+.dc-room-form { display: flex; flex-direction: column; gap: 6px; padding: 0 8px 8px; }
+.dc-room-form input, .dc-edit input, .dc-compose input { background: var(--rd-bg); border: 1px solid var(--rd-line); border-radius: 4px; padding: 7px 10px; font-size: 13px; color: var(--rd-text); outline: none; }
+.dc-room-form input:focus, .dc-edit input:focus { border-color: var(--rd-accent-alt); }
+.dc-user { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--rd-line); font-size: 13px; background: var(--rd-bg); }
+.dc-user b, .dc-msg-meta b { font-size: 9px; letter-spacing: .15em; padding: 1px 5px; border-radius: 3px; background: var(--rd-accent); color: var(--rd-bg); }
+.dc-avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; background: var(--rd-accent-alt); color: var(--rd-bg); }
+.dc-user .dc-avatar { width: 28px; height: 28px; font-size: 12px; }
+.dc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dc-head { display: flex; align-items: center; justify-content: space-between; height: 48px; padding: 0 16px; border-bottom: 1px solid var(--rd-line); }
+.dc-head > div:first-child { display: flex; align-items: center; gap: 8px; color: var(--rd-muted); }
+.dc-head strong { color: var(--rd-text); }
+.dc-head span { font-family: ui-monospace, monospace; font-size: 11px; margin-left: 8px; }
+.dc-messages { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 0; }
+.dc-msg { position: relative; display: flex; gap: 14px; padding: 6px 16px; margin-top: 10px; }
+.dc-msg.grouped { margin-top: 0; padding-top: 2px; padding-left: 66px; }
+.dc-msg:hover { background: var(--rd-surface); }
+.dc-msg-body { min-width: 0; flex: 1; }
+.dc-msg-body p { font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.dc-msg-body small { font-size: 10px; color: var(--rd-muted); }
+.dc-msg-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.dc-msg-meta strong { font-size: 14px; color: var(--rd-accent-alt); }
+.dc-msg-meta time { font-size: 11px; color: var(--rd-muted); }
+.dc-deleted { font-style: italic; color: var(--rd-muted); }
+.dc-mod-view { color: var(--rd-accent); font-style: normal; }
+.dc-tools { position: absolute; right: 16px; top: -10px; display: none; gap: 2px; padding: 2px; border-radius: 4px; background: var(--rd-surface); border: 1px solid var(--rd-line); }
+.dc-msg:hover .dc-tools { display: flex; }
+.dc-tools button { padding: 5px; color: var(--rd-muted); border-radius: 3px; }
+.dc-tools button:hover { color: var(--rd-accent); background: var(--rd-bg); }
+.dc-edit { display: flex; gap: 6px; align-items: center; }
+.dc-edit input { flex: 1; }
+.dc-compose { display: flex; margin: 0 16px 16px; border-radius: 6px; background: var(--rd-surface); border: 1px solid var(--rd-line); }
+.dc-compose input { flex: 1; border: 0; background: transparent; padding: 12px 14px; font-size: 14px; }
+@media (max-width: 700px) { .dc-shell { flex-direction: column; } .dc-rooms { width: 100%; max-height: 40%; border-right: 0; border-bottom: 1px solid var(--rd-line); } }

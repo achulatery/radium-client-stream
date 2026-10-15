@@ -45,7 +45,7 @@ import { useAccount } from "@/lib/account";
 import { AuthScreen } from "@/components/auth-screen";
 import { ChatTab } from "@/components/chat-tab";
 import { PasswordSettings } from "@/components/password-settings";
-import { AdminTab } from "@/components/admin-tab";
+import { ConsoleTab } from "@/components/console-tab";
 import { PRESET_THEMES, type Theme } from "@/lib/themes";
 
 export const Route = createFileRoute("/")({
@@ -69,7 +69,7 @@ export const Route = createFileRoute("/")({
   component: RadiumApp,
 });
 
-type Tab = "chat" | "browser" | "youtube" | "music" | "settings" | "admin";
+type Tab = "chat" | "browser" | "youtube" | "music" | "settings" | "console";
 
 function RadiumApp() {
   const account = useAccount();
@@ -148,7 +148,7 @@ function ClientShell() {
             ["youtube", "YouTube"],
             ["music", "Music"],
             ["settings", "Settings"],
-            ...(user?.isAdmin ? ([["admin", user?.role === "owner" ? "Admin" : "Mod"]] as [Tab, string][]) : []),
+            ...(user?.isAdmin ? ([["console", "Console"]] as [Tab, string][]) : []),
           ] as [Tab, string][]
         ).map(([id, label]) => (
           <button
@@ -163,7 +163,7 @@ function ClientShell() {
               borderRightColor: tab === id ? "var(--rd-line)" : "transparent",
             }}
           >
-            {id === "browser" ? <ShieldCheck size={13} className="text-client-signal" /> : id === "chat" ? <MessageSquare size={13} className="text-client-signal" /> : id === "youtube" ? <Youtube size={14} className="text-client-signal" /> : id === "music" ? <Music size={13} className="text-client-signal" /> : id === "admin" ? <LockKeyhole size={13} className="text-client-signal" /> : <Settings size={13} className="text-client-signal" />}
+            {id === "browser" ? <ShieldCheck size={13} className="text-client-signal" /> : id === "chat" ? <MessageSquare size={13} className="text-client-signal" /> : id === "youtube" ? <Youtube size={14} className="text-client-signal" /> : id === "music" ? <Music size={13} className="text-client-signal" /> : id === "console" ? <LockKeyhole size={13} className="text-client-signal" /> : <Settings size={13} className="text-client-signal" />}
             {label}
           </button>
         ))}
@@ -177,7 +177,7 @@ function ClientShell() {
           <MusicTab />
         </div>
         {tab === "settings" && <SettingsTab />}
-        {tab === "admin" && user?.isAdmin && <AdminTab />}
+        {tab === "console" && user?.isAdmin && <ConsoleTab />}
       </div>
 
       <footer
