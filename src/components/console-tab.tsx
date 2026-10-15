@@ -128,6 +128,7 @@ export function ConsoleTab() {
             {isOwner && <div><h2 className="mb-3 text-sm font-semibold">Change password</h2><PasswordSettings key={detail.user.id} targetId={detail.user.id} /></div>}
             {err && <p role="alert" className="text-xs" style={{ color: "var(--rd-accent)" }}>{err}</p>}
 
+            {detail.canViewLogs && <>
             <div className="flex flex-wrap gap-1" style={{ borderBottom: "1px solid var(--rd-line)" }}>
               {([["search", "Search history"], ["video", "Video history"], ["music", "Music history"], ["settings", "Settings"]] as [Filter, string][]).map(([k, l]) => (
                 <Button variant="ghost" key={k} onClick={() => setFilter(k)} className="px-3 py-2 text-xs"
@@ -156,6 +157,7 @@ export function ConsoleTab() {
                 </li>
               ))}
             </ul>
+            </>}
           </div>
         )}
       </section>
