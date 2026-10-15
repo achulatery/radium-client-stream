@@ -24,3 +24,9 @@ Account authorization reads app_account_roles on the server, never the deprecate
 Password changes and new signups use Worker-compatible PBKDF2 hashes, while login accepts legacy passwords; never return stored passwords to any client.
 
 Shared chat uses cookie-authenticated server functions and app_chat_messages with server-only table access; this keeps messages restricted to active Radium accounts.
+
+Account ranks are owner > admin > mod in app_account_roles; checks live in src/lib/account-permissions.ts and staff can never act on equal or higher ranks, so rank rules stay in one place.
+
+Chat rooms are joined by code and membership persists in app_room_members; deleted messages are soft-deleted with the deleter's rank so staff can still review them.
+
+Server-only session helpers live in src/lib/account-session.server.ts and are imported dynamically from *.functions.ts, because importing server-only modules statically breaks the client bundle.
