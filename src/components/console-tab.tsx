@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Ban, Eye, EyeOff, RefreshCw, ShieldCheck, ShieldPlus, Trash2 } from "lucide-react";
-import { adminDeleteUser, adminGetUser, adminListUsers, adminSetMod, adminSetBan } from "@/lib/account.functions";
+import { Ban, RefreshCw, ShieldCheck, ShieldPlus, Trash2 } from "lucide-react";
+import { adminDeleteUser, adminGetUser, adminListUsers, adminSetMod, adminSetBan, adminSetBlockedTabs } from "@/lib/account.functions";
 import { useAccount } from "@/lib/account";
 import { Button } from "@/components/ui/button";
 import { PasswordSettings } from "./password-settings";
@@ -43,8 +43,6 @@ export function ConsoleTab() {
     try { await fn(); after?.(); } catch (e) { setErr(e instanceof Error ? e.message : "Action failed"); } finally { setBusy(false); }
   };
   const [rankOpen, setRankOpen] = useState(false);
-  const [peek, setPeek] = useState(false);
-  useEffect(() => setPeek(false), [selected]);
   const setRank = (role: "admin" | "mod" | "none") => detail && run(async () => { await adminSetMod({ data: { id: detail.user.id, role } }); setRankOpen(false); await Promise.all([loadUsers(), loadDetail(detail.user.id)]); });
   const removeUser = () => detail && window.confirm(`Delete ${detail.user.username} permanently?`) && run(async () => { await adminDeleteUser({ data: { id: detail.user.id } }); setSelected(null); setDetail(null); await loadUsers(); });
   const isSelf = detail?.user.id === me?.id;
@@ -92,13 +90,7 @@ export function ConsoleTab() {
                 <span className="text-xs">{fmt(detail.user.createdAt)}</span>
                 <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>LAST SEEN</span>
                 <span className="text-xs">{fmt(detail.user.lastSeen)}</span>
-                {isOwner && detail.user.password && <>
-                  <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>PASSWORD</span>
-                  <span className="flex min-w-0 items-start gap-2 text-xs">
-                    <button onClick={() => setPeek(!peek)} aria-label={peek ? "Hide password hash" : "Peek password hash"} style={{ color: "var(--rd-accent-alt)" }}>{peek ? <EyeOff size={13} /> : <Eye size={13} />}</button>
-                    <code className="max-w-[22rem] break-all font-mono text-[10px]">{peek ? detail.user.password : "••••••••••••"}</code>
-                  </span>
-                </>}
+
                 <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>STATUS</span>
                 <span className="text-xs" style={{ color: detail.user.banned ? "var(--rd-accent)" : "var(--rd-accent-alt)" }}>{detail.user.banned ? "Banned" : "Active"}</span>
               </div>
@@ -134,6 +126,26 @@ export function ConsoleTab() {
               )}
               </div>
             </div>
+            {canDelete && !isSelf && outranks && (
+              <div>
+                <h2 className="mb-2 text-sm font-semibold">Access</h2>
+                <div className="flex flex-wrap gap-2">
+                  {(["browser", "youtube", "chat"] as const).map((t) => {
+                    const blocked = detail.user.blockedTabs.includes(t);
+                    return (
+                      <Button key={t} variant="ghost" disabled={busy} onClick={() => void run(async () => {
+                        const next = (blocked ? detail.user.blockedTabs.filter((x) => x !== t) : [...detail.user.blockedTabs, t]) as ("browser" | "youtube" | "chat")[];
+                        await adminSetBlockedTabs({ data: { id: detail.user.id, tabs: next } });
+                        await loadDetail(detail.user.id);
+                      })} className="rounded-sm px-3 py-2 font-mono text-[11px] tracking-[0.15em]"
+                        style={{ background: blocked ? "var(--rd-accent)" : "var(--rd-button)", color: blocked ? "var(--rd-bg)" : "var(--rd-accent-alt)" }}>
+                        {t.toUpperCase()} · {blocked ? "REVOKED" : "ALLOWED"}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {isOwner && <div><h2 className="mb-3 text-sm font-semibold">Change password</h2><PasswordSettings key={detail.user.id} targetId={detail.user.id} /></div>}
             {err && <p role="alert" className="text-xs" style={{ color: "var(--rd-accent)" }}>{err}</p>}
 
