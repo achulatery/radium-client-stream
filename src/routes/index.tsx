@@ -44,7 +44,6 @@ import { firstUsable, preloadVideo } from "@/lib/video-loading";
 import { useAccount } from "@/lib/account";
 import { AuthScreen } from "@/components/auth-screen";
 import { ChatTab } from "@/components/chat-tab";
-import { PasswordSettings } from "@/components/password-settings";
 import { ConsoleTab } from "@/components/console-tab";
 import { Avatar, ProfileDialog } from "@/components/profile";
 import { PRESET_THEMES, type Theme } from "@/lib/themes";
@@ -147,7 +146,7 @@ function ClientShell() {
             ["music", "Music"],
             ["settings", "Settings"],
             ...(user?.isAdmin ? ([["console", "Console"]] as [Tab, string][]) : []),
-          ] as [Tab, string][]
+          ] as [Tab, string][]).filter(([id]) => !user?.blockedTabs.includes(id)
         ).map(([id, label]) => (
           <button
             key={id}
@@ -168,9 +167,9 @@ function ClientShell() {
       </nav>
 
       <div className="min-h-0 flex-1">
-        {tab === "browser" && <BrowserTab />}
-        {tab === "chat" && <ChatTab />}
-        {tab === "youtube" && <YouTubeTab />}
+        {tab === "browser" && !user?.blockedTabs.includes("browser") && <BrowserTab />}
+        {tab === "chat" && !user?.blockedTabs.includes("chat") && <ChatTab />}
+        {tab === "youtube" && !user?.blockedTabs.includes("youtube") && <YouTubeTab />}
         <div className={tab === "music" ? "h-full" : "hidden"}>
           <MusicTab />
         </div>
@@ -1023,8 +1022,6 @@ function SettingsTab() {
   return (
     <div className="h-full overflow-auto px-5 sm:px-8">
       <div className="mx-auto max-w-5xl pb-8">
-        <section className={rowClass} style={rowStyle}><h2 className="text-sm font-semibold">Password</h2><PasswordSettings /></section>
-
         <section className={rowClass} style={rowStyle}>
           {rowCopy("Home page", "Opens when you select Home")}
           <input aria-label="Home page" value={settings.homePage} onChange={(e) => updateSettings({ homePage: e.target.value })} className="h-11 rounded-sm px-3 font-mono text-xs outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }} />

@@ -2,9 +2,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { useSession } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { canChangePassword, canDeleteAccounts, canModerate, canPromote, canViewLogs, roleRank, type AccountRole } from "./account-permissions";
+import { canChangePassword, canDeleteAccounts, canModerate, canPromote, canViewLogs, canRevokeTabs, REVOCABLE_TABS, roleRank, type AccountRole } from "./account-permissions";
 
 type AccountSession = { userId?: string };
+const PROTECTED_ADMIN = "achulate";
 
 function sessionConfig() {
   return {
@@ -68,6 +69,7 @@ export const getMe = createServerFn({ method: "GET" }).handler(async () => {
       avatar: (user.avatar ?? null) as string | null,
       bio: (user.bio ?? "") as string,
       createdAt: user.created_at as string,
+      blockedTabs: (user.blocked_tabs ?? []) as string[],
     },
   };
 });
@@ -76,14 +78,20 @@ const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
 export const updateProfile = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({
+    username: z.string().trim().min(1).max(32).regex(/^[A-Za-z0-9_.-]+$/, "Usernames can use letters, numbers, _ . and -"),
     bio: z.string().max(300).refine((s) => wordCount(s) <= 20, "Description can be at most 20 words"),
     avatar: z.string().max(200000).regex(/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/).nullable(),
   }).parse(d))
   .handler(async ({ data }) => {
     const user = await requireUser();
     const sb = await db();
-    const { error } = await sb.from("app_users").update({ bio: data.bio.trim(), avatar: data.avatar }).eq("id", user.id);
-    if (error) throw new Error("Could not save profile");
+    if (data.username.toLowerCase() !== user.username.toLowerCase()) {
+      if (user.username.toLowerCase() === PROTECTED_ADMIN) throw new Error("The owner username can't be changed");
+      const { data: taken } = await sb.from("app_users").select("id").ilike("username", data.username.replace(/[%_\\]/g, "\\$&")).neq("id", user.id).maybeSingle();
+      if (taken) throw new Error("That username is taken");
+    }
+    const { error } = await sb.from("app_users").update({ username: data.username, bio: data.bio.trim(), avatar: data.avatar }).eq("id", user.id);
+    if (error) throw new Error(error.code === "23505" ? "That username is taken" : "Could not save profile");
     return { ok: true };
   });
 
@@ -218,19 +226,18 @@ export const adminGetUser = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(1000);
     const { data: targetRole } = await sb.from("app_account_roles").select("role").eq("user_id", user.id).maybeSingle();
-    const showLogs = canViewLogs(caller.role);
+    const showLogs = canViewLogs(caller.role) && (caller.role === "owner" || roleRank(caller.role) > roleRank((targetRole?.role ?? null) as AccountRole));
     return {
       user: {
         id: user.id,
         username: user.username,
-        // Owner-only: the stored one-way hash (never plaintext).
-        password: caller.role === "owner" ? (user.password as string) : null,
         isAdmin: Boolean(targetRole),
         role: (targetRole?.role ?? null) as AccountRole,
         banned: user.banned,
         settings: showLogs ? (user.settings as Record<string, any>) : {},
         createdAt: user.created_at,
         lastSeen: user.last_seen,
+        blockedTabs: (user.blocked_tabs ?? []) as string[],
       },
       canViewLogs: showLogs,
       activity: (showLogs ? activity ?? [] : []).map((a) => ({ ...a, detail: a.detail as Record<string, any> })),
@@ -249,7 +256,6 @@ export const adminSetBan = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const PROTECTED_ADMIN = "achulate";
 
 /** Only the protected owner role can promote moderators. */
 function requireOwner(user: { role: AccountRole }) {
@@ -314,3 +320,17 @@ export const ownerChangePassword = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+export const adminSetBlockedTabs = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ id: z.string().uuid(), tabs: z.array(z.enum(REVOCABLE_TABS)) }).parse(d))
+  .handler(async ({ data }) => {
+    const admin = await requireAdmin();
+    if (!canRevokeTabs(admin.role)) throw new Error("Only admins and the owner can revoke access");
+    if (admin.id === data.id) throw new Error("You can't change your own access");
+    const sb = await db();
+    const { data: targetRole } = await sb.from("app_account_roles").select("role").eq("user_id", data.id).maybeSingle();
+    if (roleRank((targetRole?.role ?? null) as AccountRole) >= roleRank(admin.role)) throw new Error("You can't change access for an equal or higher rank");
+    const { error } = await sb.from("app_users").update({ blocked_tabs: [...new Set(data.tabs)] }).eq("id", data.id);
+    if (error) throw new Error("Could not update access");
+    return { ok: true };
+  });

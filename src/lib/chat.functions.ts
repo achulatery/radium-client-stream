@@ -3,7 +3,7 @@ import { z } from "zod";
 import { canModerate } from "./account-permissions";
 
 const db = async () => (await import("./account-session.server")).db();
-const requireUser = async () => (await import("./account-session.server")).requireUser();
+const requireUser = async () => (await import("./account-session.server")).requireChatAccess();
 
 const roomId = z.object({ roomId: z.string().uuid() });
 

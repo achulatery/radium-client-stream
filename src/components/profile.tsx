@@ -3,6 +3,7 @@ import { Camera, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/lib/account";
 import { getProfile, updateProfile } from "@/lib/account.functions";
+import { PasswordSettings } from "./password-settings";
 
 export const MAX_WORDS = 20;
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
@@ -35,13 +36,14 @@ export function ProfileDialog({ userId, editable, onClose }: { userId?: string |
   const [p, setP] = useState<Profile | null>(null);
   const [edit, setEdit] = useState(false);
   const [bio, setBio] = useState("");
+  const [name, setName] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    getProfile({ data: { id } }).then((r) => { setP(r); setBio(r.bio); setAvatar(r.avatar); }).catch(() => setMsg("Could not load profile"));
+    getProfile({ data: { id } }).then((r) => { setP(r); setBio(r.bio); setName(r.username); setAvatar(r.avatar); }).catch(() => setMsg("Could not load profile"));
   }, [id]);
 
   const count = words(bio);
@@ -49,16 +51,16 @@ export function ProfileDialog({ userId, editable, onClose }: { userId?: string |
     if (count > MAX_WORDS) return setMsg(`Keep it to ${MAX_WORDS} words`);
     setBusy(true); setMsg("");
     try {
-      await updateProfile({ data: { bio, avatar } });
+      await updateProfile({ data: { username: name.trim(), bio, avatar } });
       await refresh();
-      setP((x) => (x ? { ...x, bio: bio.trim(), avatar } : x));
+      setP((x) => (x ? { ...x, username: name.trim(), bio: bio.trim(), avatar } : x));
       setEdit(false);
     } catch (e) { setMsg(e instanceof Error ? e.message : "Could not save"); } finally { setBusy(false); }
   };
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4" style={{ background: "color-mix(in oklab, var(--rd-bg) 70%, transparent)" }} onClick={onClose}>
-      <div role="dialog" aria-label="Profile" className="relative w-full max-w-xs overflow-hidden rounded-sm" style={{ background: "var(--rd-surface)", border: "1px solid var(--rd-line)", color: "var(--rd-text)" }} onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-label="Profile" className="relative w-full max-h-[90vh] max-w-xs overflow-y-auto rounded-sm" style={{ background: "var(--rd-surface)", border: "1px solid var(--rd-line)", color: "var(--rd-text)" }} onClick={(e) => e.stopPropagation()}>
         <div className="h-16" style={{ background: "var(--rd-accent)" }} />
         <button onClick={onClose} aria-label="Close" className="absolute right-2 top-2 rounded-full p-1" style={{ background: "var(--rd-bg)" }}><X size={14} /></button>
         {!p ? <p className="p-5 text-sm" style={{ color: "var(--rd-muted)" }}>{msg || "Loading…"}</p> : (
@@ -73,7 +75,11 @@ export function ProfileDialog({ userId, editable, onClose }: { userId?: string |
               </label>
               {editable && !edit && <Button size="sm" variant="secondary" onClick={() => setEdit(true)}>Edit profile</Button>}
             </div>
-            <h2 className="text-lg font-bold">{p.username}</h2>
+            {edit ? (
+              <label className="block font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>USERNAME
+                <input value={name} onChange={(e) => setName(e.target.value)} maxLength={32} className="mt-1 block w-full rounded-sm p-2 font-sans text-sm tracking-normal outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }} />
+              </label>
+            ) : <h2 className="text-lg font-bold">{p.username}</h2>}
             <div className="mt-3 rounded-sm p-3" style={{ background: "var(--rd-bg)" }}>
               <p className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>DESCRIPTION</p>
               {edit ? (
@@ -89,10 +95,16 @@ export function ProfileDialog({ userId, editable, onClose }: { userId?: string |
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button size="sm" disabled={busy || count > MAX_WORDS} onClick={() => void save()}>Save</Button>
                 {avatar && <Button size="sm" variant="ghost" onClick={() => setAvatar(null)}>Remove image</Button>}
-                <Button size="sm" variant="ghost" onClick={() => { setEdit(false); setBio(p.bio); setAvatar(p.avatar); }}>Cancel</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setEdit(false); setName(p.username); setBio(p.bio); setAvatar(p.avatar); }}>Cancel</Button>
               </div>
             )}
             {msg && <p className="mt-2 text-xs" style={{ color: "var(--rd-accent)" }}>{msg}</p>}
+            {p.id === user?.id && (
+              <div className="mt-4 rounded-sm p-3" style={{ background: "var(--rd-bg)" }}>
+                <p className="mb-2 font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>CHANGE PASSWORD</p>
+                <PasswordSettings />
+              </div>
+            )}
           </div>
         )}
       </div>
