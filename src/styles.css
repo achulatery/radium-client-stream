@@ -336,6 +336,8 @@
 .dc-room-form input, .dc-edit input, .dc-compose input { background: var(--rd-bg); border: 1px solid var(--rd-line); border-radius: 4px; padding: 7px 10px; font-size: 13px; color: var(--rd-text); outline: none; }
 .dc-room-form input:focus, .dc-edit input:focus { border-color: var(--rd-accent-alt); }
 .dc-user { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--rd-line); font-size: 13px; background: var(--rd-bg); }
+.dc-user { width: 100%; text-align: left; color: inherit; cursor: pointer; } .dc-user:hover { background: var(--rd-surface); }
+.dc-avatar-btn { align-self: flex-start; border-radius: 999px; cursor: pointer; padding: 0; background: none; border: 0; }
 .dc-user b, .dc-msg-meta b { font-size: 9px; letter-spacing: .15em; padding: 1px 5px; border-radius: 3px; background: var(--rd-accent); color: var(--rd-bg); }
 .dc-avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; background: var(--rd-accent-alt); color: var(--rd-bg); }
 .dc-user .dc-avatar { width: 28px; height: 28px; font-size: 12px; }
