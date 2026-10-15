@@ -18,3 +18,6 @@
 - [x] Rename promoted accounts to mods with server-enforced permissions
 - [x] Add shared Chat between Browser and YouTube
 - [x] Verify new account, password and chat flows
+- [ ] Show outgoing chat messages instantly without duplicate submissions
+- [ ] Consolidate staff access controls into one Radium-style menu
+- [ ] Verify instant chat delivery and the access menu
