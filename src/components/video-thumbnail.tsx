@@ -21,7 +21,7 @@ export function VideoThumbnail({ videoId, priority = false }: { videoId: string;
           observer.disconnect();
         }
       },
-      { rootMargin: "1200px 0px" },
+      { rootMargin: "400px 0px" },
     );
     observer.observe(image);
     return () => observer.disconnect();

@@ -31,4 +31,10 @@ Chat rooms are joined by code and membership persists in app_room_members; delet
 
 Server-only session helpers live in src/lib/account-session.server.ts and are imported dynamically from *.functions.ts, because importing server-only modules statically breaks the client bundle.
 
-- Profiles (avatar as small resized data URL, bio max 20 words) live on app_users and are edited only via updateProfile; public cards via getProfile expose only image, description and creation date. Accounts with pin_hash require a hashed secondary PIN at sign-in; the owner console shows stored hashes only, never plaintext.
+- Profiles (avatar as small resized data URL, bio max 20 words) live on app_users and are edited only via updateProfile; public cards via getProfile expose only image, description and creation date. Accounts with pin_hash require a hashed secondary PIN at sign-in; passwords and their hashes are never exposed in the Console.
+
+Lazy-load secondary tabs on first visit and retain Browser, Chat and Console within the signed-in shell; this avoids unused startup work and repeated loading during tab switches.
+
+Outgoing chat uses an immediate optimistic row reconciled by the saved message ID, a synchronous send lock and versioned reads; this prevents duplicate submissions and stale polling from replacing pending messages.
+
+Console controls reuse shared rank permissions and accessible themed dropdowns; this preserves server authority while containing access actions and history within the workspace.
