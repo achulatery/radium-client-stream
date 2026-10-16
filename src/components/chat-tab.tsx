@@ -7,13 +7,13 @@ import { canModerate } from "@/lib/account-permissions";
 import { createRoom, deleteMessage, deleteRoom, editMessage, joinRoom, leaveRoom, listMessages, listRooms, sendMessage } from "@/lib/chat.functions";
 
 type Room = Awaited<ReturnType<typeof listRooms>>[number];
-type Message = Awaited<ReturnType<typeof listMessages>>[number];
+type Message = Awaited<ReturnType<typeof listMessages>>[number] & { sending?: boolean };
 const LAST = "radium-chat-room";
 const roleLabel: Record<string, string> = { owner: "OWNER", admin: "ADMIN", mod: "MOD" };
 const deletedLabel = (by: string | null) =>
   by === "self" || !by ? "Message deleted" : `Message deleted by ${by === "mod" ? "moderator" : by}`;
 
-export function ChatTab() {
+export function ChatTab({ visible = true }: { visible?: boolean }) {
   const { user } = useAccount();
   const staff = canModerate(user?.role ?? null);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -26,6 +26,13 @@ export function ChatTab() {
   const [form, setForm] = useState({ name: "", code: "" });
   const end = useRef<HTMLDivElement>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  const requestVersion = useRef(0);
+  const currentRoom = useRef(active);
+  currentRoom.current = active;
+  const roomCache = useRef(new Map<string, Message[]>());
+  const nearBottom = useRef(true);
 
   const loadRooms = useCallback(async () => {
     const r = await listRooms();
@@ -37,14 +44,61 @@ export function ChatTab() {
     });
   }, []);
   const loadMessages = useCallback(async () => {
-    if (!active) return;
-    try { setMessages(await listMessages({ data: { roomId: active } })); setError(""); }
-    catch (e) { setError(e instanceof Error ? e.message : "Chat is unavailable"); }
+    if (!active || sendingRef.current) return;
+    const version = ++requestVersion.current;
+    try {
+      const rows = await listMessages({ data: { roomId: active } });
+      if (version !== requestVersion.current || currentRoom.current !== active) return;
+      roomCache.current.set(active, rows);
+      setMessages(rows); setError("");
+    }
+    catch (e) { if (version === requestVersion.current) setError(e instanceof Error ? e.message : "Chat is unavailable"); }
   }, [active]);
 
-  useEffect(() => { void loadRooms(); }, [loadRooms]);
-  useEffect(() => { if (active) localStorage.setItem(LAST, active); void loadMessages(); const t = setInterval(() => { if (!document.hidden) void loadMessages(); }, 4000); return () => clearInterval(t); }, [active, loadMessages]);
-  useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [messages.length]);
+  useEffect(() => { void loadRooms().catch((e) => setError(e instanceof Error ? e.message : "Could not load rooms")); }, [loadRooms]);
+  useEffect(() => {
+    ++requestVersion.current;
+    setMessages(active ? roomCache.current.get(active) ?? [] : []);
+    setEditing(null); nearBottom.current = true;
+    if (active) localStorage.setItem(LAST, active);
+  }, [active]);
+  useEffect(() => {
+    if (!visible) return;
+    void loadMessages();
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      if (!document.hidden) await loadMessages();
+      if (!cancelled) timer = setTimeout(poll, 4000);
+    };
+    timer = setTimeout(poll, 4000);
+    return () => { cancelled = true; clearTimeout(timer); ++requestVersion.current; };
+  }, [visible, loadMessages]);
+  useEffect(() => { if (visible && nearBottom.current) end.current?.scrollIntoView({ block: "nearest" }); }, [messages.length, visible]);
+
+  const submitMessage = async () => {
+    const text = body.trim();
+    if (!text || !active || !user || sendingRef.current) return;
+    const rid = active;
+    sendingRef.current = true; setSending(true); ++requestVersion.current;
+    setBody(""); setError(""); nearBottom.current = true;
+    const temporaryId = `pending-${crypto.randomUUID()}`;
+    const optimistic: Message = { id: temporaryId, userId: user.id, username: user.username, avatar: user.avatar, authorRole: user.role, body: text, createdAt: new Date().toISOString(), editedAt: null, deleted: false, deletedBy: null, sending: true };
+    const next = [...(roomCache.current.get(rid) ?? messages), optimistic];
+    roomCache.current.set(rid, next); setMessages(next);
+    try {
+      const saved = await sendMessage({ data: { roomId: rid, body: text } });
+      ++requestVersion.current;
+      const confirmed = (roomCache.current.get(rid) ?? []).map((m) => m.id === temporaryId ? { ...m, id: saved.id, createdAt: saved.createdAt, sending: false } : m);
+      roomCache.current.set(rid, confirmed);
+      if (currentRoom.current === rid) setMessages(confirmed);
+    } catch (e) {
+      const remaining = (roomCache.current.get(rid) ?? []).filter((m) => m.id !== temporaryId);
+      roomCache.current.set(rid, remaining);
+      if (currentRoom.current === rid) { setMessages(remaining); setBody((draft) => draft || text); }
+      setError(e instanceof Error ? e.message : "Could not send message");
+    } finally { sendingRef.current = false; setSending(false); }
+  };
 
   const run = async (fn: () => Promise<unknown>) => { setError(""); try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong"); } };
   const room = rooms.find((r) => r.id === active);
@@ -89,7 +143,7 @@ export function ChatTab() {
           </div>
         </header>
 
-        <div className="dc-messages" role="log" aria-live="polite">
+        <div className="dc-messages" role="log" aria-live="polite" onScroll={(e) => { const el = e.currentTarget; nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; }}>
           {messages.length === 0 && <p className="chat-empty">No messages yet. Say hi!</p>}
           {messages.map((m, i) => {
             const prev = i > 0 ? messages[i - 1] : undefined;
@@ -108,10 +162,10 @@ export function ChatTab() {
                   ) : m.deleted ? (
                     <p className="dc-deleted">{deletedLabel(m.deletedBy)}{staff && m.body && <span className="dc-mod-view"> — {m.body}</span>}</p>
                   ) : (
-                    <p>{m.body}{m.editedAt && <small> (edited)</small>}</p>
+                    <p className={m.sending ? "dc-pending" : undefined}>{m.body}{m.sending && <small> · Sending…</small>}{m.editedAt && <small> (edited)</small>}</p>
                   )}
                 </div>
-                {!m.deleted && editing?.id !== m.id && (own || staff) && (
+                {!m.deleted && !m.sending && editing?.id !== m.id && (own || staff) && (
                   <div className="dc-tools">
                     {own && <button title="Edit" aria-label="Edit message" onClick={() => setEditing({ id: m.id, body: m.body })}><Pencil size={14} /></button>}
                     <button title="Delete" aria-label="Delete message" onClick={() => void run(async () => { await deleteMessage({ data: { id: m.id } }); await loadMessages(); })}><Trash2 size={14} /></button>
@@ -123,9 +177,9 @@ export function ChatTab() {
           <div ref={end} />
         </div>
         {error && <p role="alert" className="chat-error">{error}</p>}
-        <form className="dc-compose" onSubmit={(e) => { e.preventDefault(); if (!body.trim() || !active) return; void run(async () => { await sendMessage({ data: { roomId: active, body } }); setBody(""); await loadMessages(); }); }}>
+        <form className="dc-compose" onSubmit={(e) => { e.preventDefault(); void submitMessage(); }}>
           <input aria-label="Message" placeholder={`Message #${room?.name ?? ""}`} value={body} maxLength={2000} onChange={(e) => setBody(e.target.value)} />
-          <Button variant="ghost" size="icon" type="submit" disabled={!body.trim()} aria-label="Send"><Send size={17} /></Button>
+          <Button variant="ghost" size="icon" type="submit" disabled={!body.trim() || sending || !active} aria-label="Send"><Send size={17} /></Button>
         </form>
       </section>
     </div>

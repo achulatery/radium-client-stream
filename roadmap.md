@@ -21,3 +21,6 @@
 - [ ] Show outgoing chat messages instantly without duplicate submissions
 - [ ] Consolidate staff access controls into one Radium-style menu
 - [ ] Verify instant chat delivery and the access menu
+- [ ] Revamp Console with searchable users, compact actions and contained history
+- [ ] Reduce initial loading and preserve visited Browser, Chat and Console views
+- [ ] Verify smoother Radium navigation and Console layout

@@ -111,9 +111,9 @@ export const sendMessage = createServerFn({ method: "POST" })
     const user = await requireUser();
     await requireMember(user.id, data.roomId, canModerate(user.role));
     const sb = await db();
-    const { error } = await sb.from("app_chat_messages").insert({ room_id: data.roomId, user_id: user.id, body: data.body });
-    if (error) throw new Error("Could not send message");
-    return { ok: true };
+    const { data: saved, error } = await sb.from("app_chat_messages").insert({ room_id: data.roomId, user_id: user.id, body: data.body }).select("id, created_at").single();
+    if (error || !saved) throw new Error("Could not send message");
+    return { id: saved.id, createdAt: saved.created_at };
   });
 
 export const editMessage = createServerFn({ method: "POST" })
