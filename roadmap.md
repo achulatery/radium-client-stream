@@ -18,13 +18,13 @@
 - [x] Rename promoted accounts to mods with server-enforced permissions
 - [x] Add shared Chat between Browser and YouTube
 - [x] Verify new account, password and chat flows
-- [ ] Show outgoing chat messages instantly without duplicate submissions
-- [ ] Consolidate staff access controls into one Radium-style menu
+- [x] Show outgoing chat messages instantly without duplicate submissions
+- [x] Consolidate staff access controls into one Radium-style menu
 - [ ] Verify instant chat delivery and the access menu
-- [ ] Revamp Console with searchable users, compact actions and contained history
-- [ ] Reduce initial loading and preserve visited Browser, Chat and Console views
+- [x] Revamp Console with searchable users, compact actions and contained history
+- [x] Reduce initial loading and preserve visited Browser, Chat and Console views
 - [ ] Verify smoother Radium navigation and Console layout
-- [ ] Add smooth client/menu entrance and chat input animations without Sending labels
-- [ ] Show Console profile images, profile cards and online/offline indicators
-- [ ] Theme SoundCloud playback, remove its sign-in action and add repeat
-- [ ] Verify the new menu, profile, presence, chat and music controls
+- [x] Add smooth client/menu entrance and chat input animations without Sending labels
+- [x] Show Console profile images, profile cards and online/offline indicators
+- [x] Theme SoundCloud playback, remove its sign-in action and add repeat
+- [x] Verify the new menu, profile, presence, chat and music controls (signed-in Console/profile, one message after double Enter, repeat toggle, reduced motion; full-track repeat playback not observed)
