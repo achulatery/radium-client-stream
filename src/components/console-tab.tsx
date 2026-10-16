@@ -1,187 +1,115 @@
-import { useCallback, useEffect, useState } from "react";
-import { Ban, RefreshCw, ShieldCheck, ShieldPlus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Activity, Ban, ChevronDown, Globe, KeyRound, MessageSquare, RefreshCw, Search, ShieldCheck, ShieldPlus, SlidersHorizontal, Trash2, Users, Youtube } from "lucide-react";
 import { adminDeleteUser, adminGetUser, adminListUsers, adminSetMod, adminSetBan, adminSetBlockedTabs } from "@/lib/account.functions";
 import { useAccount } from "@/lib/account";
+import { canDeleteAccounts, canRevokeTabs, roleRank } from "@/lib/account-permissions";
 import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/profile";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { PasswordSettings } from "./password-settings";
 
 type UserRow = Awaited<ReturnType<typeof adminListUsers>>[number];
 type Detail = Awaited<ReturnType<typeof adminGetUser>>;
 type Filter = "search" | "video" | "music" | "settings";
-
-const fmt = (d: string) => new Date(d).toLocaleString("en-SG", { timeZone: "Asia/Singapore" });
+const fmt = (d: string) => new Date(d).toLocaleString("en-SG", { timeZone: "Asia/Singapore", dateStyle: "medium", timeStyle: "short" });
+const filters = [["search", "Browser"], ["video", "YouTube"], ["music", "Music"], ["settings", "Settings"]] as const;
+const accessItems = [["browser", "Browser", Globe], ["youtube", "YouTube", Youtube], ["chat", "Chat", MessageSquare]] as const;
 
 export function ConsoleTab() {
+  const { user: me } = useAccount();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [filter, setFilter] = useState<Filter>("search");
+  const [query, setQuery] = useState("");
+  const [historyQuery, setHistoryQuery] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const loadUsers = useCallback(async () => setUsers(await adminListUsers()), []);
-  const loadDetail = useCallback(async (id: string) => {
-    setDetail(null);
-    setDetail(await adminGetUser({ data: { id } }));
-  }, []);
-
-  useEffect(() => { void loadUsers(); }, [loadUsers]);
-  useEffect(() => { if (selected) void loadDetail(selected); }, [selected, loadDetail]);
-
-  const toggleBan = async () => {
-    if (!detail) return;
-    setBusy(true);
-    try {
-      await adminSetBan({ data: { id: detail.user.id, banned: !detail.user.banned } });
-      await Promise.all([loadUsers(), loadDetail(detail.user.id)]);
-    } finally { setBusy(false); }
-  };
-
-  const { user: me } = useAccount();
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [err, setErr] = useState("");
-  const run = async (fn: () => Promise<unknown>, after?: () => void) => {
+  const detailRequest = useRef(0);
+  const loadUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try { setUsers(await adminListUsers()); }
+    finally { setLoadingUsers(false); }
+  }, []);
+  const loadDetail = useCallback(async (id: string) => {
+    const request = ++detailRequest.current;
+    setLoadingDetail(true);
+    try { const result = await adminGetUser({ data: { id } }); if (request === detailRequest.current) setDetail(result); }
+    finally { if (request === detailRequest.current) setLoadingDetail(false); }
+  }, []);
+  useEffect(() => { void loadUsers().catch((e) => setErr(e instanceof Error ? e.message : "Could not load users")); }, [loadUsers]);
+  useEffect(() => {
+    setDetail(null); setHistoryQuery(""); setErr("");
+    if (selected) void loadDetail(selected).catch((e) => setErr(e instanceof Error ? e.message : "Could not load account"));
+    return () => { ++detailRequest.current; };
+  }, [selected, loadDetail]);
+  const run = async (fn: () => Promise<unknown>) => {
+    if (busy) return;
     setBusy(true); setErr("");
-    try { await fn(); after?.(); } catch (e) { setErr(e instanceof Error ? e.message : "Action failed"); } finally { setBusy(false); }
+    try { await fn(); } catch (e) { setErr(e instanceof Error ? e.message : "Action failed"); } finally { setBusy(false); }
   };
-  const [rankOpen, setRankOpen] = useState(false);
-  const setRank = (role: "admin" | "mod" | "none") => detail && run(async () => { await adminSetMod({ data: { id: detail.user.id, role } }); setRankOpen(false); await Promise.all([loadUsers(), loadDetail(detail.user.id)]); });
-  const removeUser = () => detail && window.confirm(`Delete ${detail.user.username} permanently?`) && run(async () => { await adminDeleteUser({ data: { id: detail.user.id } }); setSelected(null); setDetail(null); await loadUsers(); });
-  const isSelf = detail?.user.id === me?.id;
-  const isProtected = detail?.user.username.toLowerCase() === "achulate";
-  const isOwner = me?.role === "owner";
-  const canDelete = me?.role === "owner" || me?.role === "admin";
-  const rank = (r: string | null | undefined) => (r === "owner" ? 3 : r === "admin" ? 2 : r === "mod" ? 1 : 0);
-  const outranks = rank(me?.role) > rank(detail?.user.role);
+  const refreshSelected = async (id: string) => { await Promise.all([loadUsers(), loadDetail(id)]); };
+  const own = detail?.user.id === me?.id;
+  const protectedAccount = detail?.user.username.toLowerCase() === "achulate";
+  const outranks = roleRank(me?.role ?? null) > roleRank(detail?.user.role ?? null);
+  const canAct = !!detail && !own && outranks;
+  const visibleUsers = users.filter((u) => u.username.toLowerCase().includes(query.toLowerCase()));
+  const items = detail?.activity.filter((a) => a.kind === filter && a.value.toLowerCase().includes(historyQuery.toLowerCase())) ?? [];
 
-  const panel = { background: "var(--rd-surface)", border: "1px solid var(--rd-line)" };
-  const items = detail?.activity.filter((a) => a.kind === filter) ?? [];
-
-  return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-4 md:flex-row">
-      <aside className="flex min-h-0 shrink-0 flex-col rounded-sm md:w-72" style={panel}>
-        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--rd-line)" }}>
-          <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>USERS · {users.length}</span>
-          <Button variant="ghost" onClick={() => void loadUsers()} aria-label="Refresh users" style={{ color: "var(--rd-accent)" }}><RefreshCw size={13} /></Button>
-        </div>
-        <ul className="max-h-72 overflow-auto md:max-h-none md:flex-1">
-          {users.map((u) => (
-            <li key={u.id}>
-              <Button variant="ghost" onClick={() => setSelected(u.id)} className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm"
-                style={{ background: selected === u.id ? "var(--rd-bg)" : "transparent", borderLeft: `2px solid ${selected === u.id ? "var(--rd-accent-alt)" : "transparent"}` }}>
-                <span className="truncate">{u.username}</span>
-                <span className="font-mono text-[9px] tracking-[0.15em]" style={{ color: u.banned ? "var(--rd-accent)" : "var(--rd-muted)" }}>
-                  {u.role ? u.role.toUpperCase() : u.banned ? "BANNED" : ""}
-                </span>
-              </Button>
-            </li>
-          ))}
+  return <div className="rc-shell">
+    <header className="rc-heading">
+      <div className="rc-title"><ShieldCheck size={23} /><div><h1>Console</h1><span>ACCOUNT CONTROL</span></div></div>
+      <div className="rc-counts"><span><Users size={14} /><b>{users.length}</b> accounts</span><span><ShieldCheck size={14} /><b>{users.filter((u) => u.role).length}</b> staff</span></div>
+      <Button variant="ghost" size="icon" className="rc-icon" disabled={loadingUsers || busy} title="Refresh accounts" aria-label="Refresh users" onClick={() => void run(loadUsers)}><RefreshCw size={16} className={loadingUsers ? "animate-spin" : undefined} /></Button>
+    </header>
+    {err && <p role="alert" className="rc-error">{err}</p>}
+    <div className="rc-workspace">
+      <aside className="rc-roster">
+        <label className="rc-search"><Search size={15} /><input aria-label="Search accounts" placeholder="Find an account…" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+        <div className="rc-list-label">ACCOUNTS <span>{visibleUsers.length}</span></div>
+        <ul className="rc-user-list">
+          {loadingUsers && !users.length && [0, 1, 2, 3].map((n) => <li key={n} className="rc-skeleton animate-pulse" />)}
+          {visibleUsers.map((u) => <li key={u.id}><Button variant="ghost" className={`rc-user ${selected === u.id ? "is-selected" : ""}`} onClick={() => setSelected(u.id)}>
+            <Avatar name={u.username} size={32} /><span><strong>{u.username}</strong><small>{u.banned ? "Banned" : u.role ? u.role.toUpperCase() : "Member"}</small></span><span className={`rc-dot ${u.banned ? "is-banned" : ""}`} />
+          </Button></li>)}
+          {!loadingUsers && !visibleUsers.length && <li className="rc-muted rc-no-results">No accounts found.</li>}
         </ul>
+        <div className="rc-roster-foot"><ShieldCheck size={13} />{me?.role?.toUpperCase()} SESSION</div>
       </aside>
-
-      <section className="min-h-0 flex-1 rounded-sm p-5" style={panel}>
-        {!selected && <p className="text-sm" style={{ color: "var(--rd-muted)" }}>Select a user to see their details.</p>}
-        {selected && !detail && <p className="text-sm" style={{ color: "var(--rd-muted)" }}>Loading…</p>}
-        {detail && (
-          <div className="flex flex-col gap-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-                <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>USERNAME</span>
-                <span className="font-semibold">{detail.user.username}</span>
-                <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>JOINED</span>
-                <span className="text-xs">{fmt(detail.user.createdAt)}</span>
-                <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>LAST SEEN</span>
-                <span className="text-xs">{fmt(detail.user.lastSeen)}</span>
-
-                <span className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>STATUS</span>
-                <span className="text-xs" style={{ color: detail.user.banned ? "var(--rd-accent)" : "var(--rd-accent-alt)" }}>{detail.user.banned ? "Banned" : "Active"}</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-              {isOwner && !isSelf && !isProtected && (
-                <div className="relative">
-                  <Button variant="ghost" disabled={busy} onClick={() => setRankOpen(!rankOpen)} className="flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-semibold disabled:opacity-60" style={{ background: "var(--rd-button)", color: "var(--rd-accent-alt)" }}>
-                    <ShieldPlus size={13} />Set rank · {(detail.user.role ?? "user").toUpperCase()}
-                  </Button>
-                  {rankOpen && (
-                    <div className="absolute right-0 z-10 mt-1 flex w-56 flex-col rounded-sm p-1" style={{ background: "var(--rd-bg)", border: "1px solid var(--rd-line)" }}>
-                      {([["admin", "Admin", "Ban & delete accounts, delete messages and rooms"], ["mod", "Mod", "Ban users, delete messages and rooms"], ["none", "User", "Remove rank"]] as const).map(([r, label, desc]) => (
-                        <button key={r} onClick={() => void setRank(r)} className="rounded-sm px-3 py-2 text-left hover:opacity-80" style={{ background: (detail.user.role ?? "none") === r ? "var(--rd-surface)" : "transparent", borderLeft: `2px solid ${(detail.user.role ?? "none") === r ? "var(--rd-accent-alt)" : "transparent"}` }}>
-                          <span className="block font-mono text-[11px] tracking-[0.15em]">{label.toUpperCase()}</span>
-                          <span className="block text-[11px]" style={{ color: "var(--rd-muted)" }}>{desc}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {!isSelf && !isProtected && canDelete && outranks && (
-                <Button variant="ghost" disabled={busy} onClick={() => void removeUser()} className="flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-semibold disabled:opacity-60" style={{ background: "var(--rd-button)", color: "var(--rd-accent)" }}>
-                  <Trash2 size={13} />Delete user
-                </Button>
-              )}
-              {!isSelf && outranks && (
-                <Button variant="ghost" disabled={busy} onClick={() => void toggleBan()} className="flex items-center gap-2 rounded-sm px-4 py-2 text-xs font-semibold disabled:opacity-60"
-                  style={detail.user.banned ? { background: "var(--rd-button)", color: "var(--rd-accent-alt)" } : { background: "var(--rd-accent)", color: "var(--rd-bg)" }}>
-                  {detail.user.banned ? <ShieldCheck size={13} /> : <Ban size={13} />}
-                  {detail.user.banned ? "Unban user" : "Ban user"}
-                </Button>
-              )}
-              </div>
-            </div>
-            {canDelete && !isSelf && outranks && (
-              <div>
-                <h2 className="mb-2 text-sm font-semibold">Access</h2>
-                <div className="flex flex-wrap gap-2">
-                  {(["browser", "youtube", "chat"] as const).map((t) => {
-                    const blocked = detail.user.blockedTabs.includes(t);
-                    return (
-                      <Button key={t} variant="ghost" disabled={busy} onClick={() => void run(async () => {
-                        const next = (blocked ? detail.user.blockedTabs.filter((x) => x !== t) : [...detail.user.blockedTabs, t]) as ("browser" | "youtube" | "chat")[];
-                        await adminSetBlockedTabs({ data: { id: detail.user.id, tabs: next } });
-                        await loadDetail(detail.user.id);
-                      })} className="rounded-sm px-3 py-2 font-mono text-[11px] tracking-[0.15em]"
-                        style={{ background: blocked ? "var(--rd-accent)" : "var(--rd-button)", color: blocked ? "var(--rd-bg)" : "var(--rd-accent-alt)" }}>
-                        {t.toUpperCase()} · {blocked ? "REVOKED" : "ALLOWED"}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {isOwner && <div><h2 className="mb-3 text-sm font-semibold">Change password</h2><PasswordSettings key={detail.user.id} targetId={detail.user.id} /></div>}
-            {err && <p role="alert" className="text-xs" style={{ color: "var(--rd-accent)" }}>{err}</p>}
-
-            {detail.canViewLogs && <>
-            <div className="flex flex-wrap gap-1" style={{ borderBottom: "1px solid var(--rd-line)" }}>
-              {([["search", "Search history"], ["video", "Video history"], ["music", "Music history"], ["settings", "Settings"]] as [Filter, string][]).map(([k, l]) => (
-                <Button variant="ghost" key={k} onClick={() => setFilter(k)} className="px-3 py-2 text-xs"
-                  style={{ color: filter === k ? "var(--rd-text)" : "var(--rd-muted)", borderBottom: `2px solid ${filter === k ? "var(--rd-accent-alt)" : "transparent"}` }}>
-                  {l} ({detail.activity.filter((a) => a.kind === k).length})
-                </Button>
-              ))}
-            </div>
-
-            {filter === "settings" && (
-              <pre className="max-h-48 overflow-auto rounded-sm p-3 font-mono text-[11px]" style={{ background: "var(--rd-bg)" }}>
-                {JSON.stringify(detail.user.settings, null, 2)}
-              </pre>
-            )}
-
-            <ul className="flex max-h-[50vh] flex-col overflow-y-auto pr-1">
-              {items.length === 0 && <li className="text-xs" style={{ color: "var(--rd-muted)" }}>Nothing yet.</li>}
-              {items.map((a) => (
-                <li key={a.id} className="flex items-start justify-between gap-4 py-2 text-sm" style={{ borderBottom: "1px solid var(--rd-line)" }}>
-                  <span className="min-w-0 break-all">
-                    {a.value}
-                    {typeof a.detail["source"] === "string" && <span className="ml-2 font-mono text-[10px]" style={{ color: "var(--rd-muted)" }}>{a.detail["source"]}</span>}
-                    {a.hidden && <span className="ml-2 font-mono text-[10px]" style={{ color: "var(--rd-accent)" }}>DELETED BY USER</span>}
-                  </span>
-                  <span className="shrink-0 font-mono text-[10px]" style={{ color: "var(--rd-muted)" }}>{fmt(a.created_at)}</span>
-                </li>
-              ))}
-            </ul>
-            </>}
+      <section className="rc-detail" aria-busy={loadingDetail}>
+        {!selected && <div className="rc-empty"><Users size={38} /><h2>Accounts</h2><p>Select an account</p></div>}
+        {selected && !detail && <div className="rc-empty"><RefreshCw size={26} className={loadingDetail ? "animate-spin" : undefined} /><p>{loadingDetail ? "Loading account…" : "Account unavailable"}</p></div>}
+        {detail && <>
+          <div className="rc-account-head"><Avatar name={detail.user.username} size={48} /><div className="rc-account-name"><h2>{detail.user.username}</h2><span className="rc-role">{(detail.user.role ?? "member").toUpperCase()}</span></div><span className={`rc-status ${detail.user.banned ? "is-banned" : ""}`}><span className="rc-dot" />{detail.user.banned ? "Banned" : "Active"}</span></div>
+          <dl className="rc-facts"><div><dt>JOINED</dt><dd>{fmt(detail.user.createdAt)}</dd></div><div><dt>LAST SEEN · SGT</dt><dd>{fmt(detail.user.lastSeen)}</dd></div></dl>
+          <div className="rc-actions">
+            {me?.role === "owner" && !own && !protectedAccount && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="rc-command" disabled={busy}><ShieldPlus size={14} />Rank<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent className="rc-menu" align="start"><DropdownMenuLabel>ACCOUNT RANK</DropdownMenuLabel><DropdownMenuRadioGroup value={detail.user.role ?? "none"} onValueChange={(role) => { if (role !== "admin" && role !== "mod" && role !== "none") return; void run(async () => { await adminSetMod({ data: { id: detail.user.id, role } }); await refreshSelected(detail.user.id); }); }}>
+              <DropdownMenuRadioItem value="admin">Admin</DropdownMenuRadioItem><DropdownMenuRadioItem value="mod">Mod</DropdownMenuRadioItem><DropdownMenuRadioItem value="none">Member</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
+            {canAct && canRevokeTabs(me?.role ?? null) && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="rc-command" disabled={busy}><SlidersHorizontal size={14} />Access<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent className="rc-menu" align="start"><DropdownMenuLabel>MENU ACCESS</DropdownMenuLabel>
+              {accessItems.map(([tab, label, Icon]) => <DropdownMenuCheckboxItem key={tab} disabled={busy} checked={!detail.user.blockedTabs.includes(tab)} onSelect={(e) => e.preventDefault()} onCheckedChange={(allowed) => void run(async () => {
+                const tabs = (allowed ? detail.user.blockedTabs.filter((t) => t !== tab) : [...detail.user.blockedTabs, tab]) as ("browser" | "youtube" | "chat")[];
+                await adminSetBlockedTabs({ data: { id: detail.user.id, tabs } }); await loadDetail(detail.user.id);
+              })}><Icon size={14} /><span>{label}</span><small>{detail.user.blockedTabs.includes(tab) ? "Revoked" : "Allowed"}</small></DropdownMenuCheckboxItem>)}
+            </DropdownMenuContent></DropdownMenu>}
+            {canAct && <Button variant="ghost" disabled={busy} className="rc-command rc-danger" onClick={() => void run(async () => { await adminSetBan({ data: { id: detail.user.id, banned: !detail.user.banned } }); await refreshSelected(detail.user.id); })}>{detail.user.banned ? <ShieldCheck size={14} /> : <Ban size={14} />}{detail.user.banned ? "Unban" : "Ban account"}</Button>}
+            {canAct && !protectedAccount && canDeleteAccounts(me?.role ?? null) && <Button variant="ghost" disabled={busy} className="rc-command rc-danger" onClick={() => { if (!window.confirm(`Delete ${detail.user.username} permanently?`)) return; void run(async () => { await adminDeleteUser({ data: { id: detail.user.id } }); setSelected(null); setDetail(null); await loadUsers(); }); }}><Trash2 size={14} />Delete</Button>}
           </div>
-        )}
+          {me?.role === "owner" && <details className="rc-security"><summary><KeyRound size={14} />Password reset<ChevronDown size={12} /></summary><PasswordSettings key={detail.user.id} targetId={detail.user.id} /></details>}
+          {detail.canViewLogs && <section className="rc-history">
+            <header><h3><Activity size={15} />Activity history</h3><span>{detail.activity.length} entries</span></header>
+            <div className="rc-history-tabs" role="tablist" aria-label="History type">{filters.map(([key, label]) => <Button variant="ghost" key={key} role="tab" aria-selected={filter === key} className={filter === key ? "is-active" : ""} onClick={() => setFilter(key)}>{label}<small>{detail.activity.filter((a) => a.kind === key).length}</small></Button>)}</div>
+            <label className="rc-search rc-history-search"><Search size={14} /><input aria-label="Search history" placeholder="Filter history…" value={historyQuery} onChange={(e) => setHistoryQuery(e.target.value)} /></label>
+            <div className="rc-history-scroll" role="tabpanel" aria-label={`${filter} history`}>
+              {filter === "settings" && <pre>{JSON.stringify(detail.user.settings, null, 2)}</pre>}
+              {!items.length && <p className="rc-no-results rc-muted">No activity found.</p>}
+              <ul>{items.map((a) => <li key={a.id}><span>{a.value}{typeof a.detail["source"] === "string" && <small>{a.detail["source"]}</small>}{a.hidden && <em>Deleted by user</em>}</span><time>{fmt(a.created_at)}</time></li>)}</ul>
+            </div>
+          </section>}
+        </>}
       </section>
     </div>
-  );
+  </div>;
 }

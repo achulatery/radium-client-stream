@@ -15,9 +15,8 @@ import {
   Sun,
   Youtube,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
-import { MusicTab } from "@/components/music-tab";
 import { VideoThumbnail } from "@/components/video-thumbnail";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,10 +42,12 @@ import { track } from "@/lib/track";
 import { firstUsable, preloadVideo } from "@/lib/video-loading";
 import { useAccount } from "@/lib/account";
 import { AuthScreen } from "@/components/auth-screen";
-import { ChatTab } from "@/components/chat-tab";
-import { ConsoleTab } from "@/components/console-tab";
 import { Avatar, ProfileDialog } from "@/components/profile";
 import { PRESET_THEMES, type Theme } from "@/lib/themes";
+
+const MusicTab = lazy(() => import("@/components/music-tab").then((m) => ({ default: m.MusicTab })));
+const ChatTab = lazy(() => import("@/components/chat-tab").then((m) => ({ default: m.ChatTab })));
+const ConsoleTab = lazy(() => import("@/components/console-tab").then((m) => ({ default: m.ConsoleTab })));
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -88,6 +89,7 @@ function RadiumApp() {
 
 function ClientShell() {
   const [tab, setTab] = useState<Tab>("browser");
+  const [visited, setVisited] = useState<Set<Tab>>(() => new Set(["browser"]));
   const { theme, toggleMode, settings } = useRadium();
   const { user, signOut } = useAccount();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -150,7 +152,7 @@ function ClientShell() {
         ).map(([id, label]) => (
           <button
             key={id}
-            onClick={() => setTab(id)}
+            onClick={() => { setVisited((previous) => previous.has(id) ? previous : new Set([...previous, id])); setTab(id); }}
             className="flex shrink-0 items-center justify-center gap-2 border-x px-3 text-xs transition-colors"
             style={{
               color: tab === id ? "var(--rd-text)" : "var(--rd-muted)",
@@ -167,14 +169,16 @@ function ClientShell() {
       </nav>
 
       <div className="min-h-0 flex-1">
-        {tab === "browser" && !user?.blockedTabs.includes("browser") && <BrowserTab />}
-        {tab === "chat" && !user?.blockedTabs.includes("chat") && <ChatTab />}
+        {!user?.blockedTabs.includes("browser") && <div className={tab === "browser" ? "h-full" : "hidden"}><BrowserTab /></div>}
+        <Suspense fallback={<div className="rc-tab-loading"><RefreshCw size={18} className="animate-spin" /><span>Loading…</span></div>}>
+        {visited.has("chat") && !user?.blockedTabs.includes("chat") && <div className={tab === "chat" ? "h-full" : "hidden"}><ChatTab visible={tab === "chat"} /></div>}
         {tab === "youtube" && !user?.blockedTabs.includes("youtube") && <YouTubeTab />}
-        <div className={tab === "music" ? "h-full" : "hidden"}>
+        {visited.has("music") && <div className={tab === "music" ? "h-full" : "hidden"}>
           <MusicTab />
-        </div>
+        </div>}
         {tab === "settings" && <SettingsTab />}
-        {tab === "console" && user?.isAdmin && <ConsoleTab />}
+        {visited.has("console") && user?.isAdmin && <div className={tab === "console" ? "h-full" : "hidden"}><ConsoleTab /></div>}
+        </Suspense>
       </div>
 
       <footer
