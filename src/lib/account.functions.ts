@@ -74,6 +74,14 @@ export const getMe = createServerFn({ method: "GET" }).handler(async () => {
   };
 });
 
+export const heartbeat = createServerFn({ method: "POST" }).handler(async () => {
+  const user = await requireUser();
+  const sb = await db();
+  const { error } = await sb.from("app_users").update({ last_seen: new Date().toISOString() }).eq("id", user.id);
+  if (error) throw new Error("Could not update status");
+  return { ok: true };
+});
+
 const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
 export const updateProfile = createServerFn({ method: "POST" })
@@ -203,7 +211,7 @@ export const adminListUsers = createServerFn({ method: "GET" }).handler(async ()
   const sb = await db();
   const { data } = await sb
     .from("app_users")
-    .select("id, username, is_admin, banned, created_at, last_seen")
+    .select("id, username, avatar, banned, created_at, last_seen")
     .order("created_at", { ascending: false });
   const { data: roles } = await sb.from("app_account_roles").select("user_id, role");
   return (data ?? []).map((row) => {
@@ -232,6 +240,7 @@ export const adminGetUser = createServerFn({ method: "GET" })
         id: user.id,
         username: user.username,
         isAdmin: Boolean(targetRole),
+        avatar: (user.avatar ?? null) as string | null,
         role: (targetRole?.role ?? null) as AccountRole,
         banned: user.banned,
         settings: showLogs ? (user.settings as Record<string, any>) : {},

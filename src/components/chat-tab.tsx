@@ -162,7 +162,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
                   ) : m.deleted ? (
                     <p className="dc-deleted">{deletedLabel(m.deletedBy)}{staff && m.body && <span className="dc-mod-view"> — {m.body}</span>}</p>
                   ) : (
-                    <p className={m.sending ? "dc-pending" : undefined}>{m.body}{m.sending && <small> · Sending…</small>}{m.editedAt && <small> (edited)</small>}</p>
+                    <p>{m.body}{m.editedAt && <small> (edited)</small>}</p>
                   )}
                 </div>
                 {!m.deleted && !m.sending && editing?.id !== m.id && (own || staff) && (
@@ -177,7 +177,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
           <div ref={end} />
         </div>
         {error && <p role="alert" className="chat-error">{error}</p>}
-        <form className="dc-compose" onSubmit={(e) => { e.preventDefault(); void submitMessage(); }}>
+        <form className={`dc-compose ${body ? "is-typing" : ""}`} onSubmit={(e) => { e.preventDefault(); void submitMessage(); }}>
           <input aria-label="Message" placeholder={`Message #${room?.name ?? ""}`} value={body} maxLength={2000} onChange={(e) => setBody(e.target.value)} />
           <Button variant="ghost" size="icon" type="submit" disabled={!body.trim() || sending || !active} aria-label="Send"><Send size={17} /></Button>
         </form>

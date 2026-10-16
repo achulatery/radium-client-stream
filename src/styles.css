@@ -464,3 +464,44 @@
   .rc-facts { gap: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .rc-shell .animate-spin, .rc-shell .animate-pulse, .rc-tab-loading .animate-spin { animation: none; } }
+
+:root {
+  --presence-online: oklch(0.76 0.19 150);
+  --presence-offline: oklch(0.67 0.22 25);
+  --motion-menu: 260ms;
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --music-dark-filter: invert(.9) hue-rotate(180deg);
+}
+@keyframes rd-menu-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.radium-shell { animation: rd-menu-in 340ms var(--motion-ease) both; }
+.rd-menu-enter, [role="dialog"], .dc-room-form { animation: rd-menu-in var(--motion-menu) var(--motion-ease) both; }
+.radium-shell input, .radium-shell textarea { transition: border-color 180ms, background-color 180ms, box-shadow 180ms; }
+.dc-compose { transition: border-color 180ms, box-shadow 180ms; }
+.dc-compose:focus-within, .dc-compose.is-typing { border-color: var(--rd-accent-alt); box-shadow: 0 0 0 1px color-mix(in oklab, var(--rd-accent-alt) 18%, transparent); }
+.dc-msg { animation: rd-menu-in 180ms var(--motion-ease) both; }
+.rc-profile-image { position: relative; display: inline-flex; width: 32px; height: 32px; flex: 0 0 32px !important; }
+.rc-presence { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.rc-profile-image .rc-presence { position: absolute; bottom: 0; right: 0; outline: 2px solid var(--rd-surface); }
+.rc-presence.is-online { background: var(--presence-online); box-shadow: 0 0 7px var(--presence-online); }
+.rc-presence.is-offline { background: var(--presence-offline); box-shadow: 0 0 7px var(--presence-offline); }
+.rc-profile-button { width: 48px; height: 48px; padding: 0; flex-shrink: 0; }
+.rc-profile-name { height: auto; max-width: 100%; padding: 0; justify-content: flex-start; white-space: normal; color: var(--rd-text); }
+.spotify-shell {
+  --spotify-background: var(--rd-bg);
+  --spotify-panel: var(--rd-surface);
+  --spotify-raised: var(--rd-button);
+  --spotify-hover: var(--rd-search);
+  --spotify-foreground: var(--rd-text);
+  --spotify-muted: var(--rd-muted);
+  --spotify-signal: var(--rd-accent-alt);
+  --spotify-liked: var(--rd-button);
+  font-family: inherit;
+}
+.spotify-search { border-radius: 4px; border: 1px solid var(--rd-line); }
+.spotify-player { border-top: 1px solid var(--rd-line); background: var(--rd-bg); }
+.spotify-embed-wrap { background: var(--rd-surface); border-radius: 4px; overflow: hidden; }
+.music-dark .spotify-embed-wrap iframe { filter: var(--music-dark-filter); }
+@media (prefers-reduced-motion: reduce) {
+  .radium-shell, .rd-menu-enter, [role="dialog"], .dc-room-form, .dc-msg { animation: none; }
+  .radium-shell input, .radium-shell textarea, .dc-compose { transition: none; }
+}

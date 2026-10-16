@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { getMe, signOut as signOutFn } from "./account.functions";
+import { getMe, heartbeat, signOut as signOutFn } from "./account.functions";
 
 export type AccountUser = {
   id: string;
@@ -43,6 +43,21 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let inFlight = false;
+    const update = async () => {
+      if (document.hidden || inFlight) return;
+      inFlight = true;
+      try { await heartbeat(); } catch { /* Retry on the next heartbeat. */ }
+      finally { inFlight = false; }
+    };
+    void update();
+    const timer = setInterval(() => void update(), 30000);
+    document.addEventListener("visibilitychange", update);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", update); };
+  }, [user?.id]);
 
   const signOut = useCallback(async () => {
     await signOutFn();
