@@ -25,6 +25,7 @@ export function MusicTab() {
   const [current, setCurrent] = useState(initial);
   useEffect(() => {
     let cancelled = false;
+    const iframe = player.current;
     let widget: SoundCloudWidget | undefined;
     let readyEvent = "";
     let finishEvent = "";
@@ -36,7 +37,14 @@ export function MusicTab() {
       widget.bind(readyEvent, () => { if (!cancelled) setPlayerReady(true); });
       widget.bind(finishEvent, () => { if (!cancelled && repeatRef.current) { widget?.seekTo(0); widget?.play(); } });
     }).catch(() => { if (!cancelled) setPlayerReady(false); });
-    return () => { cancelled = true; widget?.unbind(readyEvent); widget?.unbind(finishEvent); };
+    return () => {
+      cancelled = true;
+      // The provider posts to contentWindow when unbinding; detached frames have none.
+      if (iframe?.contentWindow) {
+        try { widget?.unbind(readyEvent); widget?.unbind(finishEvent); }
+        catch { /* A navigating provider frame may already have been disposed. */ }
+      }
+    };
   }, [current.url]);
   const [view, setView] = useState<"home" | "liked">("home");
   const [collapsed, setCollapsed] = useState(false);
