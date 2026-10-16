@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ExternalLink, Heart, Home, Library, LogIn, Menu, Music2, Play, Search } from "lucide-react";
+import { ArrowRight, ExternalLink, Heart, Home, Library, Menu, Music2, Play, Repeat1, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/lib/account";
 import { track } from "@/lib/track";
+import { useRadium } from "@/lib/radium";
+import { loadSoundCloudWidget, type SoundCloudWidget } from "@/lib/soundcloud-widget";
 
 type Track = { id: number; title: string; url: string; artist: string; artwork: string | null };
 const initial: Track = { id: 0, title: "Daily mix", artist: "", url: "https://soundcloud.com/lofi_girl", artwork: null };
@@ -11,10 +13,31 @@ function soundcloudLink(value: string) {
 }
 export function MusicTab() {
   const { user } = useAccount();
+  const { theme } = useRadium();
+  const [repeat, setRepeat] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
+  const repeatRef = useRef(repeat);
+  repeatRef.current = repeat;
+  const player = useRef<HTMLIFrameElement>(null);
   const [query, setQuery] = useState("");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [liked, setLiked] = useState<Track[]>([]);
   const [current, setCurrent] = useState(initial);
+  useEffect(() => {
+    let cancelled = false;
+    let widget: SoundCloudWidget | undefined;
+    let readyEvent = "";
+    let finishEvent = "";
+    setPlayerReady(false);
+    void loadSoundCloudWidget().then((factory) => {
+      if (cancelled || !player.current) return;
+      widget = factory(player.current);
+      readyEvent = factory.Events.READY; finishEvent = factory.Events.FINISH;
+      widget.bind(readyEvent, () => { if (!cancelled) setPlayerReady(true); });
+      widget.bind(finishEvent, () => { if (!cancelled && repeatRef.current) { widget?.seekTo(0); widget?.play(); } });
+    }).catch(() => { if (!cancelled) setPlayerReady(false); });
+    return () => { cancelled = true; widget?.unbind(readyEvent); widget?.unbind(finishEvent); };
+  }, [current.url]);
   const [view, setView] = useState<"home" | "liked">("home");
   const [collapsed, setCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,13 +62,12 @@ export function MusicTab() {
   const toggleLike = () => { const active = liked.some((item) => item.url === current.url); const next = active ? liked.filter((item) => item.url !== current.url) : [current, ...liked]; setLiked(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Storage may be unavailable. */ } track("music", current.title, { source: "soundcloud", preference: active ? "unlike" : "like" }); };
   const art = (item: Track, className = "") => item.artwork ? <img src={item.artwork} alt={item.title} className={className} loading="lazy" /> : <div className={`spotify-placeholder ${className}`}><Music2 size={26} /></div>;
   const isLiked = liked.some((item) => item.url === current.url);
-  return <div className={`spotify-shell ${collapsed ? "is-collapsed" : ""}`}>
+  return <div className={`spotify-shell ${theme.mode === "dark" ? "music-dark" : ""} ${collapsed ? "is-collapsed" : ""}`}>
     <aside className="spotify-sidebar">
       <div className="spotify-navigation">
         <div className="spotify-brand"><span className="music-online" title="Online"><span className="music-online-dot" />{!collapsed && "Online"}</span><Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} aria-label="Toggle library" title="Toggle library"><Menu /></Button></div>
         <Button variant="ghost" className="spotify-nav" title="Home" onClick={() => { setView("home"); setQuery(""); void load(); }}><Home />{!collapsed && "Home"}</Button>
         <Button variant="ghost" className="spotify-nav" title="Search" onClick={() => { setView("home"); input.current?.focus(); }}><Search />{!collapsed && "Search"}</Button>
-        <Button variant="ghost" className="spotify-nav" title="Sign in" onClick={() => window.open("https://soundcloud.com/signin", "radium-music-signin", "width=480,height=720,noopener,noreferrer")}><LogIn />{!collapsed && "Sign in"}</Button>
       </div>
       <div className="spotify-library"><div className="spotify-library-heading"><Library />{!collapsed && <strong>Your Library</strong>}</div><Button variant="ghost" className="spotify-library-item" title="Liked music" onClick={() => setView("liked")}><span className="spotify-liked-art"><Heart /></span>{!collapsed && <span><strong>Liked music</strong><small>{liked.length} saved</small></span>}</Button>{liked.map((item) => <Button key={item.url} variant="ghost" className="spotify-library-item" onClick={() => pick(item)} title={item.title}>{art(item)}{!collapsed && <span><strong>{item.title}</strong><small>{item.artist}</small></span>}</Button>)}</div>
     </aside>
@@ -56,6 +78,6 @@ export function MusicTab() {
       <section className="spotify-shelf"><h2>{view === "liked" ? "Your collection" : query ? "Tracks" : "Popular now"}</h2>{loading && view === "home" ? <p className="spotify-empty">Loading music…</p> : <div className="spotify-cards">{(view === "liked" ? liked : tracks).map((item) => <Button variant="ghost" className="spotify-card" key={item.url} onClick={() => pick(item)} aria-label={`Play ${item.title}`}><div className="spotify-card-art">{art(item)}<span className="spotify-play"><Play fill="currentColor" size={22} /></span></div><strong>{item.title}</strong><span>{item.artist}</span></Button>)}</div>}{view === "liked" && !liked.length && <p className="spotify-empty">No saved music yet.</p>}</section>
     </div></main>
     <aside className="spotify-now"><div className="spotify-now-heading"><strong>Now playing</strong></div>{art(current, "spotify-now-art")}<div className="spotify-now-title"><div><h2>{current.title}</h2><p>{current.artist}</p></div><Button variant="ghost" size="icon" onClick={toggleLike} aria-label="Save music" aria-pressed={isLiked} className={isLiked ? "spotify-saved" : ""}><Heart fill={isLiked ? "currentColor" : "none"} /></Button></div><a href={current.url} target="_blank" rel="noopener noreferrer">Open original <ExternalLink size={14} /></a></aside>
-    <footer className="spotify-player"><div className="spotify-player-summary">{art(current)}<div><strong>{current.title}</strong><small>{current.artist}</small></div></div><div className="spotify-embed-wrap"><iframe title="Music player" key={current.url} allow="autoplay; encrypted-media" src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(current.url)}&auto_play=false&visual=false&show_comments=false&show_user=false&show_reposts=false&buying=false&sharing=false&download=false`} /></div><Button variant="ghost" size="icon" onClick={toggleLike} aria-label="Save current music" aria-pressed={isLiked} className={isLiked ? "spotify-saved" : ""}><Heart fill={isLiked ? "currentColor" : "none"} /></Button></footer>
+    <footer className="spotify-player"><div className="spotify-player-summary">{art(current)}<div><strong>{current.title}</strong><small>{current.artist}</small></div></div><div className="spotify-embed-wrap"><iframe ref={player} title="Music player" key={current.url} allow="autoplay; encrypted-media" src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(current.url)}&auto_play=false&visual=false&show_comments=false&show_user=false&show_reposts=false&buying=false&sharing=false&download=false`} /></div><Button variant="ghost" size="icon" disabled={!playerReady} onClick={() => setRepeat(!repeat)} aria-label="Repeat track" title={playerReady ? (repeat ? "Repeat on" : "Repeat off") : "Repeat unavailable until player loads"} aria-pressed={repeat} className={repeat ? "spotify-saved" : ""}><Repeat1 size={18} /></Button><Button variant="ghost" size="icon" onClick={toggleLike} aria-label="Save current music" aria-pressed={isLiked} className={isLiked ? "spotify-saved" : ""}><Heart fill={isLiked ? "currentColor" : "none"} /></Button></footer>
   </div>;
 }

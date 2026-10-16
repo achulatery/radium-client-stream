@@ -4,7 +4,7 @@ import { adminDeleteUser, adminGetUser, adminListUsers, adminSetMod, adminSetBan
 import { useAccount } from "@/lib/account";
 import { canDeleteAccounts, canRevokeTabs, roleRank } from "@/lib/account-permissions";
 import { Button } from "@/components/ui/button";
-import { Avatar } from "@/components/profile";
+import { Avatar, ProfileDialog } from "@/components/profile";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { PasswordSettings } from "./password-settings";
 
@@ -15,7 +15,7 @@ const fmt = (d: string) => new Date(d).toLocaleString("en-SG", { timeZone: "Asia
 const filters = [["search", "Browser"], ["video", "YouTube"], ["music", "Music"], ["settings", "Settings"]] as const;
 const accessItems = [["browser", "Browser", Globe], ["youtube", "YouTube", Youtube], ["chat", "Chat", MessageSquare]] as const;
 
-export function ConsoleTab() {
+export function ConsoleTab({ visible = true }: { visible?: boolean }) {
   const { user: me } = useAccount();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -27,6 +27,9 @@ export function ConsoleTab() {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [err, setErr] = useState("");
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [now, setNow] = useState(0);
+  const online = (lastSeen: string) => now > 0 && now - Date.parse(lastSeen) < 90000;
   const detailRequest = useRef(0);
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true);
@@ -40,6 +43,22 @@ export function ConsoleTab() {
     finally { if (request === detailRequest.current) setLoadingDetail(false); }
   }, []);
   useEffect(() => { void loadUsers().catch((e) => setErr(e instanceof Error ? e.message : "Could not load users")); }, [loadUsers]);
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    let running = false;
+    const poll = async () => {
+      if (document.hidden || running) return;
+      running = true;
+      setNow(Date.now());
+      try { const rows = await adminListUsers(); if (!cancelled) setUsers(rows); }
+      catch { /* Keep the last successful roster. */ }
+      finally { running = false; }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 30000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [visible]);
   useEffect(() => {
     setDetail(null); setHistoryQuery(""); setErr("");
     if (selected) void loadDetail(selected).catch((e) => setErr(e instanceof Error ? e.message : "Could not load account"));
@@ -59,6 +78,7 @@ export function ConsoleTab() {
   const items = detail?.activity.filter((a) => a.kind === filter && a.value.toLowerCase().includes(historyQuery.toLowerCase())) ?? [];
 
   return <div className="rc-shell">
+    {profileId && <ProfileDialog userId={profileId} editable={profileId === me?.id} onClose={() => { setProfileId(null); void loadUsers(); }} />}
     <header className="rc-heading">
       <div className="rc-title"><ShieldCheck size={23} /><div><h1>Console</h1><span>ACCOUNT CONTROL</span></div></div>
       <div className="rc-counts"><span><Users size={14} /><b>{users.length}</b> accounts</span><span><ShieldCheck size={14} /><b>{users.filter((u) => u.role).length}</b> staff</span></div>
@@ -72,7 +92,7 @@ export function ConsoleTab() {
         <ul className="rc-user-list">
           {loadingUsers && !users.length && [0, 1, 2, 3].map((n) => <li key={n} className="rc-skeleton animate-pulse" />)}
           {visibleUsers.map((u) => <li key={u.id}><Button variant="ghost" className={`rc-user ${selected === u.id ? "is-selected" : ""}`} onClick={() => setSelected(u.id)}>
-            <Avatar name={u.username} size={32} /><span><strong>{u.username}</strong><small>{u.banned ? "Banned" : u.role ? u.role.toUpperCase() : "Member"}</small></span><span className={`rc-dot ${u.banned ? "is-banned" : ""}`} />
+            <span className="rc-profile-image"><Avatar src={u.avatar} name={u.username} size={32} /><span aria-label={online(u.last_seen) ? "Online" : "Offline"} title={online(u.last_seen) ? "Online" : "Offline"} className={`rc-presence ${online(u.last_seen) ? "is-online" : "is-offline"}`} /></span><span><strong>{u.username}</strong><small>{u.banned ? "Banned" : u.role ? u.role.toUpperCase() : "Member"}</small></span>
           </Button></li>)}
           {!loadingUsers && !visibleUsers.length && <li className="rc-muted rc-no-results">No accounts found.</li>}
         </ul>
@@ -82,7 +102,7 @@ export function ConsoleTab() {
         {!selected && <div className="rc-empty"><Users size={38} /><h2>Accounts</h2><p>Select an account</p></div>}
         {selected && !detail && <div className="rc-empty"><RefreshCw size={26} className={loadingDetail ? "animate-spin" : undefined} /><p>{loadingDetail ? "Loading account…" : "Account unavailable"}</p></div>}
         {detail && <>
-          <div className="rc-account-head"><Avatar name={detail.user.username} size={48} /><div className="rc-account-name"><h2>{detail.user.username}</h2><span className="rc-role">{(detail.user.role ?? "member").toUpperCase()}</span></div><span className={`rc-status ${detail.user.banned ? "is-banned" : ""}`}><span className="rc-dot" />{detail.user.banned ? "Banned" : "Active"}</span></div>
+          <div className="rc-account-head"><Button variant="ghost" size="icon" className="rc-profile-button" aria-label={`View ${detail.user.username}'s profile`} onClick={() => setProfileId(detail.user.id)}><Avatar src={detail.user.avatar} name={detail.user.username} size={48} /></Button><div className="rc-account-name"><Button variant="ghost" className="rc-profile-name" onClick={() => setProfileId(detail.user.id)}><h2>{detail.user.username}</h2></Button><span className="rc-role">{(detail.user.role ?? "member").toUpperCase()}</span></div><span className="rc-status"><span className={`rc-presence ${online(users.find((u) => u.id === detail.user.id)?.last_seen ?? detail.user.lastSeen) ? "is-online" : "is-offline"}`} />{online(users.find((u) => u.id === detail.user.id)?.last_seen ?? detail.user.lastSeen) ? "Online" : "Offline"}{detail.user.banned && " · Banned"}</span></div>
           <dl className="rc-facts"><div><dt>JOINED</dt><dd>{fmt(detail.user.createdAt)}</dd></div><div><dt>LAST SEEN · SGT</dt><dd>{fmt(detail.user.lastSeen)}</dd></div></dl>
           <div className="rc-actions">
             {me?.role === "owner" && !own && !protectedAccount && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="rc-command" disabled={busy}><ShieldPlus size={14} />Rank<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent className="rc-menu" align="start"><DropdownMenuLabel>ACCOUNT RANK</DropdownMenuLabel><DropdownMenuRadioGroup value={detail.user.role ?? "none"} onValueChange={(role) => { if (role !== "admin" && role !== "mod" && role !== "none") return; void run(async () => { await adminSetMod({ data: { id: detail.user.id, role } }); await refreshSelected(detail.user.id); }); }}>

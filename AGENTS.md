@@ -38,3 +38,9 @@ Lazy-load secondary tabs on first visit and retain Browser, Chat and Console wit
 Outgoing chat uses an immediate optimistic row reconciled by the saved message ID, a synchronous send lock and versioned reads; this prevents duplicate submissions and stale polling from replacing pending messages.
 
 Console controls reuse shared rank permissions and accessible themed dropdowns; this preserves server authority while containing access actions and history within the workspace.
+
+Console presence is approximate recent activity: a cookie-authenticated heartbeat updates last_seen every 30 seconds while the page is visible and Console refreshes its roster, with a 90-second expiry; this avoids exposing sessions or adding public table access.
+
+SoundCloud repeat binds the official widget READY/FINISH events and replays through its API, while theme styling leaves provider-owned controls and branding intact; never replace it with extracted audio streams.
+
+Menu entrance animations belong to visible tab wrappers and respect reduced motion; preserve mounted visited tabs so animations do not reset user state.

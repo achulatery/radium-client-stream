@@ -24,3 +24,7 @@
 - [ ] Revamp Console with searchable users, compact actions and contained history
 - [ ] Reduce initial loading and preserve visited Browser, Chat and Console views
 - [ ] Verify smoother Radium navigation and Console layout
+- [ ] Add smooth client/menu entrance and chat input animations without Sending labels
+- [ ] Show Console profile images, profile cards and online/offline indicators
+- [ ] Theme SoundCloud playback, remove its sign-in action and add repeat
+- [ ] Verify the new menu, profile, presence, chat and music controls

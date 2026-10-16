@@ -169,15 +169,15 @@ function ClientShell() {
       </nav>
 
       <div className="min-h-0 flex-1">
-        {!user?.blockedTabs.includes("browser") && <div className={tab === "browser" ? "h-full" : "hidden"}><BrowserTab /></div>}
+        {!user?.blockedTabs.includes("browser") && <div className={tab === "browser" ? "rd-menu-enter h-full" : "hidden"}><BrowserTab /></div>}
         <Suspense fallback={<div className="rc-tab-loading"><RefreshCw size={18} className="animate-spin" /><span>Loading…</span></div>}>
-        {visited.has("chat") && !user?.blockedTabs.includes("chat") && <div className={tab === "chat" ? "h-full" : "hidden"}><ChatTab visible={tab === "chat"} /></div>}
-        {tab === "youtube" && !user?.blockedTabs.includes("youtube") && <YouTubeTab />}
-        {visited.has("music") && <div className={tab === "music" ? "h-full" : "hidden"}>
+        {visited.has("chat") && !user?.blockedTabs.includes("chat") && <div className={tab === "chat" ? "rd-menu-enter h-full" : "hidden"}><ChatTab visible={tab === "chat"} /></div>}
+        {tab === "youtube" && !user?.blockedTabs.includes("youtube") && <div className="rd-menu-enter h-full"><YouTubeTab /></div>}
+        {visited.has("music") && <div className={tab === "music" ? "rd-menu-enter h-full" : "hidden"}>
           <MusicTab />
         </div>}
-        {tab === "settings" && <SettingsTab />}
-        {visited.has("console") && user?.isAdmin && <div className={tab === "console" ? "h-full" : "hidden"}><ConsoleTab /></div>}
+        {tab === "settings" && <div className="rd-menu-enter h-full"><SettingsTab /></div>}
+        {visited.has("console") && user?.isAdmin && <div className={tab === "console" ? "rd-menu-enter h-full" : "hidden"}><ConsoleTab visible={tab === "console"} /></div>}
         </Suspense>
       </div>
 
