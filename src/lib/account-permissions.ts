@@ -7,6 +7,13 @@ export function canChangePassword(role: AccountRole, callerId: string, targetId:
 export function canPromote(role: AccountRole) { return role === "owner"; }
 /** Owner and admins can view user history. */
 export function canViewLogs(role: AccountRole) { return role === "owner" || role === "admin"; }
+export function canViewAccountHistory(caller: AccountRole, target: AccountRole) {
+  return caller === "owner" || (caller === "admin" && target !== "owner");
+}
+export function canManageAccount(caller: AccountRole, target: AccountRole) {
+  return target !== "owner" && roleRank(caller) > roleRank(target);
+}
+export function canToggleSafeSearch(role: AccountRole) { return role === "owner" || role === "admin"; }
 /** Admins and the owner can revoke tab access. */
 export function canRevokeTabs(role: AccountRole) { return role === "owner" || role === "admin"; }
 export function canCreatePublicRoom(role: AccountRole) { return canModerate(role); }

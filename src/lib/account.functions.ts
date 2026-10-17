@@ -2,7 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { useSession } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { canChangePassword, canDeleteAccounts, canModerate, canPromote, canViewLogs, canRevokeTabs, REVOCABLE_TABS, roleRank, type AccountRole } from "./account-permissions";
+import { canChangePassword, canDeleteAccounts, canModerate, canPromote, canViewAccountHistory, canManageAccount, canRevokeTabs, REVOCABLE_TABS, roleRank, type AccountRole } from "./account-permissions";
 
 type AccountSession = { userId?: string };
 const PROTECTED_ADMIN = "achulate";
@@ -227,14 +227,14 @@ export const adminGetUser = createServerFn({ method: "GET" })
     const sb = await db();
     const { data: user } = await sb.from("app_users").select("*").eq("id", data.id).maybeSingle();
     if (!user) throw new Error("User not found");
-    const { data: activity } = await sb
+    const { data: targetRole } = await sb.from("app_account_roles").select("role").eq("user_id", user.id).maybeSingle();
+    const showLogs = canViewAccountHistory(caller.role, (targetRole?.role ?? null) as AccountRole) && (user.username.toLowerCase() !== PROTECTED_ADMIN || caller.role === "owner");
+    const { data: activity } = showLogs ? await sb
       .from("app_activity")
       .select("id, kind, value, detail, hidden, created_at")
       .eq("user_id", data.id)
       .order("created_at", { ascending: false })
-      .limit(1000);
-    const { data: targetRole } = await sb.from("app_account_roles").select("role").eq("user_id", user.id).maybeSingle();
-    const showLogs = canViewLogs(caller.role) && (caller.role === "owner" || roleRank(caller.role) > roleRank((targetRole?.role ?? null) as AccountRole));
+      .limit(1000) : { data: [] };
     return {
       user: {
         id: user.id,
@@ -260,7 +260,8 @@ export const adminSetBan = createServerFn({ method: "POST" })
     if (admin.id === data.id) throw new Error("You can't ban yourself");
     const sb = await db();
     const { data: target } = await sb.from("app_account_roles").select("role").eq("user_id", data.id).maybeSingle();
-    if (roleRank((target?.role ?? null) as AccountRole) >= roleRank(admin.role)) throw new Error("You can't ban someone with an equal or higher rank");
+    const { data: targetUser } = await sb.from("app_users").select("username").eq("id", data.id).maybeSingle();
+    if (!targetUser || targetUser.username.toLowerCase() === PROTECTED_ADMIN || !canManageAccount(admin.role, (target?.role ?? null) as AccountRole)) throw new Error("This account is protected");
     await sb.from("app_users").update({ banned: data.banned }).eq("id", data.id);
     return { ok: true };
   });
@@ -282,6 +283,8 @@ export const adminSetMod = createServerFn({ method: "POST" })
     const { data: target } = await sb.from("app_users").select("username").eq("id", data.id).maybeSingle();
     if (!target) throw new Error("User not found");
     if (target.username.toLowerCase() === PROTECTED_ADMIN) throw new Error("This account is protected");
+    const { data: targetRole } = await sb.from("app_account_roles").select("role").eq("user_id", data.id).maybeSingle();
+    if (!canManageAccount(admin.role, (targetRole?.role ?? null) as AccountRole)) throw new Error("This account is protected");
     const result = data.role !== "none"
       ? await sb.from("app_account_roles").upsert({ user_id: data.id, role: data.role })
       : await sb.from("app_account_roles").delete().eq("user_id", data.id);
@@ -324,6 +327,11 @@ export const ownerChangePassword = createServerFn({ method: "POST" })
     const user = await requireUser();
     if (!canChangePassword(user.role, user.id, data.id) || user.role !== "owner") throw new Error("Only Achulate can change another user's password");
     const sb = await db();
+    if (user.id !== data.id) {
+      const { data: targetRole } = await sb.from("app_account_roles").select("role").eq("user_id", data.id).maybeSingle();
+      const { data: targetUser } = await sb.from("app_users").select("username").eq("id", data.id).maybeSingle();
+      if (!targetUser || targetUser.username.toLowerCase() === PROTECTED_ADMIN || !canManageAccount(user.role, (targetRole?.role ?? null) as AccountRole)) throw new Error("This account is protected");
+    }
     const { error, data: target } = await sb.from("app_users").update({ password: await (await import("./password.server")).hashPassword(data.newPassword) }).eq("id", data.id).select("id").maybeSingle();
     if (error || !target) throw new Error("Could not change password");
     return { ok: true };
@@ -338,7 +346,8 @@ export const adminSetBlockedTabs = createServerFn({ method: "POST" })
     if (admin.id === data.id) throw new Error("You can't change your own access");
     const sb = await db();
     const { data: targetRole } = await sb.from("app_account_roles").select("role").eq("user_id", data.id).maybeSingle();
-    if (roleRank((targetRole?.role ?? null) as AccountRole) >= roleRank(admin.role)) throw new Error("You can't change access for an equal or higher rank");
+    const { data: targetUser } = await sb.from("app_users").select("username").eq("id", data.id).maybeSingle();
+    if (!targetUser || targetUser.username.toLowerCase() === PROTECTED_ADMIN || !canManageAccount(admin.role, (targetRole?.role ?? null) as AccountRole)) throw new Error("This account is protected");
     const { error } = await sb.from("app_users").update({ blocked_tabs: [...new Set(data.tabs)] }).eq("id", data.id);
     if (error) throw new Error("Could not update access");
     return { ok: true };
