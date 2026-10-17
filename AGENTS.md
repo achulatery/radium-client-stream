@@ -47,3 +47,6 @@ SoundCloud repeat binds the official widget READY/FINISH events and replays thro
 
 Menu entrance animations belong to visible tab wrappers and respect reduced motion; preserve mounted visited tabs so animations do not reset user state.
 Proxy compatibility preserves incoming browser identity, translates upstream referrers and leaves consent intact instead of spoofing browser globals or rotating fingerprints; direct browser opening is the fallback for unsupported website checks.
+Account history visibility uses canViewAccountHistory before querying activity; account mutations use rank and protected-owner checks so the Console and server enforce the same authority.
+DuckDuckGo policy is rechecked against the cookie-authenticated account on the server, including image requests and upstream preference cookies; client controls cannot grant permission to disable Safe Search.
+The Browser owns its navigation stack and accepts only same-origin messages from its current iframe; resource property setters and mutation handling keep dynamic images inside the proxy.
