@@ -28,3 +28,6 @@
 - [x] Show Console profile images, profile cards and online/offline indicators
 - [x] Theme SoundCloud playback, remove its sign-in action and add repeat
 - [x] Verify the new menu, profile, presence, chat and music controls (signed-in Console/profile, one message after double Enter, repeat toggle, reduced motion; full-track repeat playback not observed)
+- [ ] Improve browser compatibility without promising removal of website bot checks
+- [ ] Add staff-only public chat creation while preserving code-only rooms
+- [ ] Include Music in menu revocation and verify chat/access rules
