@@ -9,5 +9,6 @@ export function canPromote(role: AccountRole) { return role === "owner"; }
 export function canViewLogs(role: AccountRole) { return role === "owner" || role === "admin"; }
 /** Admins and the owner can revoke tab access. */
 export function canRevokeTabs(role: AccountRole) { return role === "owner" || role === "admin"; }
-export const REVOCABLE_TABS = ["browser", "youtube", "chat"] as const;
+export function canCreatePublicRoom(role: AccountRole) { return canModerate(role); }
+export const REVOCABLE_TABS = ["browser", "youtube", "chat", "music"] as const;
 export const roleRank = (role: AccountRole) => (role === "owner" ? 3 : role === "admin" ? 2 : role === "mod" ? 1 : 0);

@@ -93,6 +93,9 @@ function ClientShell() {
   const { theme, toggleMode, settings } = useRadium();
   const { user, signOut } = useAccount();
   const [profileOpen, setProfileOpen] = useState(false);
+  useEffect(() => {
+    if (user?.blockedTabs.includes(tab)) setTab("settings");
+  }, [user?.blockedTabs, tab]);
 
   return (
     <div
@@ -173,7 +176,7 @@ function ClientShell() {
         <Suspense fallback={<div className="rc-tab-loading"><RefreshCw size={18} className="animate-spin" /><span>Loading…</span></div>}>
         {visited.has("chat") && !user?.blockedTabs.includes("chat") && <div className={tab === "chat" ? "rd-menu-enter h-full" : "hidden"}><ChatTab visible={tab === "chat"} /></div>}
         {tab === "youtube" && !user?.blockedTabs.includes("youtube") && <div className="rd-menu-enter h-full"><YouTubeTab /></div>}
-        {visited.has("music") && <div className={tab === "music" ? "rd-menu-enter h-full" : "hidden"}>
+        {visited.has("music") && !user?.blockedTabs.includes("music") && <div className={tab === "music" ? "rd-menu-enter h-full" : "hidden"}>
           <MusicTab />
         </div>}
         {tab === "settings" && <div className="rd-menu-enter h-full"><SettingsTab /></div>}

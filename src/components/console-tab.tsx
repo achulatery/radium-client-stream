@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, Ban, ChevronDown, Globe, KeyRound, MessageSquare, RefreshCw, Search, ShieldCheck, ShieldPlus, SlidersHorizontal, Trash2, Users, Youtube } from "lucide-react";
+import { Activity, Ban, ChevronDown, Globe, KeyRound, MessageSquare, Music, RefreshCw, Search, ShieldCheck, ShieldPlus, SlidersHorizontal, Trash2, Users, Youtube } from "lucide-react";
 import { adminDeleteUser, adminGetUser, adminListUsers, adminSetMod, adminSetBan, adminSetBlockedTabs } from "@/lib/account.functions";
 import { useAccount } from "@/lib/account";
 import { canDeleteAccounts, canRevokeTabs, roleRank } from "@/lib/account-permissions";
@@ -13,7 +13,7 @@ type Detail = Awaited<ReturnType<typeof adminGetUser>>;
 type Filter = "search" | "video" | "music" | "settings";
 const fmt = (d: string) => new Date(d).toLocaleString("en-SG", { timeZone: "Asia/Singapore", dateStyle: "medium", timeStyle: "short" });
 const filters = [["search", "Browser"], ["video", "YouTube"], ["music", "Music"], ["settings", "Settings"]] as const;
-const accessItems = [["browser", "Browser", Globe], ["youtube", "YouTube", Youtube], ["chat", "Chat", MessageSquare]] as const;
+const accessItems = [["browser", "Browser", Globe], ["youtube", "YouTube", Youtube], ["chat", "Chat", MessageSquare], ["music", "Music", Music]] as const;
 
 export function ConsoleTab({ visible = true }: { visible?: boolean }) {
   const { user: me } = useAccount();
@@ -110,7 +110,7 @@ export function ConsoleTab({ visible = true }: { visible?: boolean }) {
             </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
             {canAct && canRevokeTabs(me?.role ?? null) && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="rc-command" disabled={busy}><SlidersHorizontal size={14} />Access<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent className="rc-menu" align="start"><DropdownMenuLabel>MENU ACCESS</DropdownMenuLabel>
               {accessItems.map(([tab, label, Icon]) => <DropdownMenuCheckboxItem key={tab} disabled={busy} checked={!detail.user.blockedTabs.includes(tab)} onSelect={(e) => e.preventDefault()} onCheckedChange={(allowed) => void run(async () => {
-                const tabs = (allowed ? detail.user.blockedTabs.filter((t) => t !== tab) : [...detail.user.blockedTabs, tab]) as ("browser" | "youtube" | "chat")[];
+                const tabs = (allowed ? detail.user.blockedTabs.filter((t) => t !== tab) : [...detail.user.blockedTabs, tab]) as ("browser" | "youtube" | "chat" | "music")[];
                 await adminSetBlockedTabs({ data: { id: detail.user.id, tabs } }); await loadDetail(detail.user.id);
               })}><Icon size={14} /><span>{label}</span><small>{detail.user.blockedTabs.includes(tab) ? "Revoked" : "Allowed"}</small></DropdownMenuCheckboxItem>)}
             </DropdownMenuContent></DropdownMenu>}

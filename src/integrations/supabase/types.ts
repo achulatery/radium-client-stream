@@ -129,6 +129,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_public: boolean
           name: string
         }
         Insert: {
@@ -136,6 +137,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_public?: boolean
           name: string
         }
         Update: {
@@ -143,6 +145,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_public?: boolean
           name?: string
         }
         Relationships: [
