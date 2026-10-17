@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { canModerate } from "./account-permissions";
+import { canModerate, canCreatePublicRoom } from "./account-permissions";
 
 const db = async () => (await import("./account-session.server")).db();
 const requireUser = async () => (await import("./account-session.server")).requireChatAccess();
@@ -11,8 +11,8 @@ async function requireMember(userId: string, rid: string, staff: boolean) {
   if (staff) return;
   const sb = await db();
   const { data } = await sb.from("app_room_members").select("room_id").eq("room_id", rid).eq("user_id", userId).maybeSingle();
-  const { data: room } = await sb.from("app_chat_rooms").select("code").eq("id", rid).maybeSingle();
-  if (!data && room?.code !== "general") throw new Error("Join this room first");
+  const { data: room } = await sb.from("app_chat_rooms").select("code, is_public").eq("id", rid).maybeSingle();
+  if (!data && room?.code !== "general" && !room?.is_public) throw new Error("Join this room first");
 }
 
 /** Rooms the user has joined (kept across sign-ins). Staff see every room. */
@@ -20,20 +20,21 @@ export const listRooms = createServerFn({ method: "GET" }).handler(async () => {
   const user = await requireUser();
   const sb = await db();
   const staff = canModerate(user.role);
-  const { data: rooms } = await sb.from("app_chat_rooms").select("id, code, name, created_by, created_at").order("created_at");
+  const { data: rooms } = await sb.from("app_chat_rooms").select("id, code, name, created_by, created_at, is_public").order("created_at");
   const { data: mine } = await sb.from("app_room_members").select("room_id").eq("user_id", user.id);
   const joined = new Set((mine ?? []).map((m) => m.room_id));
   return (rooms ?? [])
-    .filter((r) => r.code === "general" || joined.has(r.id) || staff)
-    .map((r) => ({ id: r.id, code: r.code, name: r.name, joined: r.code === "general" || joined.has(r.id), isCreator: r.created_by === user.id }));
+    .filter((r) => r.code === "general" || r.is_public || joined.has(r.id) || staff)
+    .map((r) => ({ id: r.id, code: r.code, name: r.name, isPublic: r.is_public || r.code === "general", joined: r.code === "general" || joined.has(r.id), isCreator: r.created_by === user.id }));
 });
 
 export const createRoom = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ name: z.string().trim().min(1).max(60), code: z.string().trim().regex(/^[a-zA-Z0-9-]{3,24}$/, "Code must be 3–24 letters, numbers or dashes") }).parse(d))
+  .inputValidator((d) => z.object({ name: z.string().trim().min(1).max(60), code: z.string().trim().regex(/^[a-zA-Z0-9-]{3,24}$/, "Code must be 3–24 letters, numbers or dashes"), isPublic: z.boolean().default(false) }).parse(d))
   .handler(async ({ data }) => {
     const user = await requireUser();
+    if (data.isPublic && !canCreatePublicRoom(user.role)) throw new Error("Only mods, admins and the owner can create public chats");
     const sb = await db();
-    const { data: row, error } = await sb.from("app_chat_rooms").insert({ name: data.name, code: data.code.toLowerCase(), created_by: user.id }).select("id").single();
+    const { data: row, error } = await sb.from("app_chat_rooms").insert({ name: data.name, code: data.code.toLowerCase(), created_by: user.id, is_public: data.isPublic }).select("id").single();
     if (error || !row) throw new Error(error?.code === "23505" ? "That room code is taken" : "Could not create room");
     await sb.from("app_room_members").insert({ room_id: row.id, user_id: user.id });
     return { id: row.id };
