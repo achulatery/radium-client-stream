@@ -20,6 +20,9 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
 import { VideoThumbnail } from "@/components/video-thumbnail";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { canToggleSafeSearch } from "@/lib/account-permissions";
+import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled } from "@/lib/browser-policy";
 import {
   formatDuration,
   formatViews,
@@ -45,6 +48,7 @@ import { useAccount } from "@/lib/account";
 import { AuthScreen } from "@/components/auth-screen";
 import { Avatar, ProfileDialog } from "@/components/profile";
 import { PRESET_THEMES, type Theme } from "@/lib/themes";
+import { saveSettings } from "@/lib/account.functions";
 
 const MusicTab = lazy(() => import("@/components/music-tab").then((m) => ({ default: m.MusicTab })));
 const ChatTab = lazy(() => import("@/components/chat-tab").then((m) => ({ default: m.ChatTab })));
@@ -199,110 +203,86 @@ function ClientShell() {
 }
 
 function BrowserTab() {
-  const { settings, pushHistory, history } = useRadium();
+  const { settings, theme, updateSettings, pushHistory, history } = useRadium();
+  const { user } = useAccount();
+  const safe = safeSearchEnabled(user?.role ?? null, settings.duckduckgoSafeSearch);
   const [input, setInput] = useState("");
   const [target, setTarget] = useState<string | null>(null);
   const [status, setStatus] = useState("Ready");
   const [nonce, setNonce] = useState(0);
-
+  const [savingSearch, setSavingSearch] = useState(false);
+  const [entries, setEntries] = useState<string[]>([]);
+  const [cursor, setCursor] = useState(-1);
+  const frame = useRef<HTMLIFrameElement>(null);
+  const current = useRef<string | null>(null);
+  const addressFocused = useRef(false);
   const videoId = target ? getYouTubeVideoId(target) : null;
-  const playerHref = videoId ? videoPlayerUrl(videoId) : null;
-  const frameSrc = target ? proxyUrl(playerHref ?? target, false) : null;
+  const frameSrc = target ? proxyUrl(videoId ? videoPlayerUrl(videoId) : target, false) : null;
 
-  // Watch/Shorts URLs resolve to the embed player, then load through the edge
-  // proxy inside Radium. Everything else proxies as-is.
-  const open = useCallback(
-    (raw: string) => {
-      const url = normalizeQuery(raw);
+  const remember = useCallback((url: string) => {
+    if (url === current.current) return;
+    current.current = url;
+    setTarget(url);
+    if (!addressFocused.current) setInput(cleanBrowserAddress(url));
+    setEntries((previous) => [...previous.slice(0, cursor + 1), url]);
+    setCursor((previous) => previous + 1);
+    pushHistory(url);
+  }, [cursor, pushHistory]);
+
+  const open = useCallback((raw: string) => {
+    const normalized = normalizeQuery(raw);
+    const destination = normalized ? browserDestination(normalized) : null;
+    if (!destination) return;
+    const url = applySearchPolicy(new URL(destination), safe).href;
+    remember(url);
+    setInput(cleanBrowserAddress(url));
+    setNonce((n) => n + 1);
+    setStatus("Loading page");
+  }, [remember, safe]);
+
+  const travel = (next: number) => {
+    const url = entries[next];
+    if (!url) return;
+    current.current = url;
+    setCursor(next); setTarget(url); setInput(cleanBrowserAddress(url));
+    setNonce((n) => n + 1); setStatus("Loading page");
+  };
+
+  useEffect(() => {
+    const receive = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
+      if (!event.data || typeof event.data !== "object" || !["navigate", "loaded"].includes(event.data.__radium) || typeof event.data.url !== "string") return;
+      const url = browserDestination(event.data.url);
       if (!url) return;
-      setInput(url);
-      setTarget(url);
-      setNonce((n) => n + 1);
-      setStatus(getYouTubeVideoId(url) ? "Loading player" : `Loading ${url}`);
-      pushHistory(url);
-    },
-    [pushHistory],
-  );
+      if (event.data.__radium === "navigate") open(url);
+      else { remember(url); setStatus("Ready"); }
+    };
+    window.addEventListener("message", receive);
+    return () => window.removeEventListener("message", receive);
+  }, [remember, open]);
 
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-2 px-3 py-2">
-        <div className="hidden items-center gap-1 sm:flex">
-          {[ArrowLeft, ArrowRight, RefreshCw, Home].map((Icon, index) => (
-            <button key={index} type="button" aria-label={["Back", "Forward", "Refresh", "Home"][index]} className="toolbar-icon">
-              <Icon size={15} />
-            </button>
-          ))}
+  return <div className="flex h-full flex-col">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 py-2">
+      <div className="flex shrink-0 items-center gap-1">
+        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Back" title="Back" disabled={cursor <= 0} onClick={() => travel(cursor - 1)}><ArrowLeft size={15} /></Button>
+        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Forward" title="Forward" disabled={cursor >= entries.length - 1} onClick={() => travel(cursor + 1)}><ArrowRight size={15} /></Button>
+        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Refresh" title="Refresh" disabled={!target} onClick={() => { setNonce((n) => n + 1); setStatus("Loading page"); }}><RefreshCw size={15} /></Button>
+      </div>
+      <form className="min-w-0 flex-1 basis-40" onSubmit={(e) => { e.preventDefault(); open(input); }}>
+        <div className="flex h-9 items-center gap-2 rounded-sm border border-client-line bg-client-search px-2 text-client-search-text">
+          <Button variant="ghost" size="icon" type="button" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Home" title="Home" onClick={() => open(settings.homePage)}><Home size={14} /></Button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} onFocus={() => { addressFocused.current = true; }} onBlur={() => { addressFocused.current = false; }} placeholder="Search or enter a web address" aria-label="Address bar" autoComplete="off" className="min-w-0 w-full bg-transparent font-mono text-sm outline-none" />
+          <Button variant="ghost" size="icon" type="submit" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Open address"><Search size={14} /></Button>
         </div>
-        <form
-          className="min-w-[200px] flex-1"
-          onSubmit={(e) => {
-            e.preventDefault();
-            open(input);
-          }}
-        >
-          <div
-            className="flex h-9 items-center gap-2 rounded-sm px-3"
-            style={{ background: "var(--rd-search)", border: "1px solid var(--rd-line)" }}
-          >
-            <LockKeyhole size={13} style={{ color: "var(--rd-accent-alt)" }} />
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Search or enter a web address"
-              aria-label="Address bar"
-              autoComplete="off"
-              className="w-full bg-transparent font-mono text-sm outline-none"
-              style={{ color: "var(--rd-search-text)" }}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              type="submit"
-              className="h-6 w-6 shrink-0 text-client-signal hover:bg-client-button hover:text-client-signal"
-              aria-label="Open address"
-            >
-              <Search size={14} />
-            </Button>
-          </div>
-        </form>
-        {target && <Button variant="ghost" size="icon" aria-label="Open in browser" title="Open in browser" onClick={() => window.open(target, "_blank", "noopener,noreferrer")}><ExternalLink size={15} /></Button>}
-      </div>
-
-      <span className="sr-only" aria-live="polite">{status}</span>
-
-      <div className="relative min-h-0 flex-1">
-        {frameSrc ? (
-          <>
-            <iframe
-              key={`web-${nonce}`}
-              src={frameSrc}
-              title="Proxied content"
-              className="h-full w-full"
-              style={{ border: "none", background: "var(--rd-bg)" }}
-              loading="eager"
-              referrerPolicy="strict-origin-when-cross-origin"
-              onLoad={() => setStatus("Ready")}
-              sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation"
-            />
-            <button
-              onClick={() => {
-                setTarget(null);
-                setInput("");
-                setStatus("Ready");
-              }}
-              className="absolute right-3 bottom-3 rounded-md px-3 py-1.5 font-mono text-[11px]"
-              style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
-            >
-              CLOSE
-            </button>
-          </>
-        ) : (
-          <StartScreen open={open} history={history} />
-        )}
-      </div>
+      </form>
+      <label className="flex shrink-0 items-center gap-2 text-xs text-client-muted"><ShieldCheck size={14} />Safe Search<Switch aria-label="DuckDuckGo Safe Search" checked={safe} disabled={savingSearch || !canToggleSafeSearch(user?.role ?? null)} onCheckedChange={(value) => { setSavingSearch(true); void saveSettings({ data: { settings: { ...settings, duckduckgoSafeSearch: value }, theme } }).then(() => { updateSettings({ duckduckgoSafeSearch: value }); if (target && new URL(target).hostname.endsWith("duckduckgo.com")) { const next = applySearchPolicy(new URL(target), value).href; current.current = next; setTarget(next); setInput(cleanBrowserAddress(next)); setNonce((n) => n + 1); } }).catch(() => setStatus("Could not save Safe Search preference")).finally(() => setSavingSearch(false)); }} /></label>
+      {target && <Button variant="ghost" size="icon" aria-label="Open in browser" title="Open in browser" onClick={() => window.open(target, "_blank", "noopener,noreferrer")}><ExternalLink size={15} /></Button>}
     </div>
-  );
+    <span className="sr-only" aria-live="polite">{status}</span>
+    <div className="relative min-h-0 flex-1">
+      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <StartScreen open={open} history={history} />}
+    </div>
+  </div>;
 }
 
 function StartScreen({

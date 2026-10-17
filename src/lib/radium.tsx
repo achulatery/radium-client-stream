@@ -26,6 +26,7 @@ export type Settings = {
   wispServer: string;
   homePage: string;
   httpCache: boolean;
+  duckduckgoSafeSearch: boolean;
 };
 
 const DEFAULT_SETTINGS: Settings = {
@@ -35,6 +36,7 @@ const DEFAULT_SETTINGS: Settings = {
   wispServer: "wss://wisp.mercurywork.shop/",
   homePage: "https://google.com",
   httpCache: true,
+  duckduckgoSafeSearch: true,
 };
 
 type Ctx = {

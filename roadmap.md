@@ -1,4 +1,7 @@
 - [x] Make YouTube playback immediate and independent of Invidious metadata/comments
+- [ ] Enforce history visibility and owner account protection
+- [ ] Enforce role-aware DuckDuckGo Safe Search and improve image loading
+- [ ] Wire browser navigation and clean address display; verify signed-in flows
 - [x] Fail Invidious lookups quickly without an endless loading state
 - [x] Restyle Settings to match the attached lightweight row layout
 - [x] Verify video failure handling and Settings in the browser

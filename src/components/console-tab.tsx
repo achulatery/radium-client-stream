@@ -73,7 +73,7 @@ export function ConsoleTab({ visible = true }: { visible?: boolean }) {
   const own = detail?.user.id === me?.id;
   const protectedAccount = detail?.user.username.toLowerCase() === "achulate";
   const outranks = roleRank(me?.role ?? null) > roleRank(detail?.user.role ?? null);
-  const canAct = !!detail && !own && outranks;
+   const canAct = !!detail && !own && !protectedAccount && outranks;
   const visibleUsers = users.filter((u) => u.username.toLowerCase().includes(query.toLowerCase()));
   const items = detail?.activity.filter((a) => a.kind === filter && a.value.toLowerCase().includes(historyQuery.toLowerCase())) ?? [];
 
@@ -117,7 +117,7 @@ export function ConsoleTab({ visible = true }: { visible?: boolean }) {
             {canAct && <Button variant="ghost" disabled={busy} className="rc-command rc-danger" onClick={() => void run(async () => { await adminSetBan({ data: { id: detail.user.id, banned: !detail.user.banned } }); await refreshSelected(detail.user.id); })}>{detail.user.banned ? <ShieldCheck size={14} /> : <Ban size={14} />}{detail.user.banned ? "Unban" : "Ban account"}</Button>}
             {canAct && !protectedAccount && canDeleteAccounts(me?.role ?? null) && <Button variant="ghost" disabled={busy} className="rc-command rc-danger" onClick={() => { if (!window.confirm(`Delete ${detail.user.username} permanently?`)) return; void run(async () => { await adminDeleteUser({ data: { id: detail.user.id } }); setSelected(null); setDetail(null); await loadUsers(); }); }}><Trash2 size={14} />Delete</Button>}
           </div>
-          {me?.role === "owner" && <details className="rc-security"><summary><KeyRound size={14} />Password reset<ChevronDown size={12} /></summary><PasswordSettings key={detail.user.id} targetId={detail.user.id} /></details>}
+           {me?.role === "owner" && (own || canAct) && <details className="rc-security"><summary><KeyRound size={14} />Password reset<ChevronDown size={12} /></summary><PasswordSettings key={detail.user.id} targetId={detail.user.id} /></details>}
           {detail.canViewLogs && <section className="rc-history">
             <header><h3><Activity size={15} />Activity history</h3><span>{detail.activity.length} entries</span></header>
             <div className="rc-history-tabs" role="tablist" aria-label="History type">{filters.map(([key, label]) => <Button variant="ghost" key={key} role="tab" aria-selected={filter === key} className={filter === key ? "is-active" : ""} onClick={() => setFilter(key)}>{label}<small>{detail.activity.filter((a) => a.kind === key).length}</small></Button>)}</div>

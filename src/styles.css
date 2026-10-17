@@ -63,6 +63,9 @@
   --color-client-button: var(--rd-button);
   --color-client-background: var(--rd-bg);
   --color-client-line: var(--rd-line);
+  --color-client-search: var(--rd-search);
+  --color-client-search-text: var(--rd-search-text);
+  --color-client-muted: var(--rd-muted);
   --color-spotify-signal: var(--spotify-signal);
 }
 
