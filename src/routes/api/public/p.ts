@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { applyBrowserHeaders, upstreamReferer } from "@/lib/proxy-compatibility";
+import { applySearchPolicy, isDuckDuckGo, safeSearchEnabled } from "@/lib/browser-policy";
 
 /** Cookie names accepted from the operator-supplied YouTube session string. */
 const SESSION_COOKIE_NAMES = [
@@ -68,6 +69,7 @@ const STRIPPED_RESPONSE_HEADERS = new Set([
   "permissions-policy",
   "cross-origin-opener-policy",
   "cross-origin-embedder-policy",
+  "cross-origin-resource-policy",
   "report-to",
   "set-cookie",
 ]);
@@ -102,7 +104,8 @@ function upstreamCookieHeader(cookieHeader: string, scope: string) {
     if (!trimmed.startsWith(prefix)) continue;
     const eq = trimmed.indexOf("=");
     if (eq < 0) continue;
-    const name = decodeURIComponent(trimmed.slice(prefix.length, eq));
+    let name: string;
+    try { name = decodeURIComponent(trimmed.slice(prefix.length, eq)); } catch { continue; }
     out.push(`${name}=${trimmed.slice(eq + 1)}`);
   }
   return out.join("; ");
@@ -179,6 +182,9 @@ const CLIENT_PATCH = `<script>(function(){
     if(x.origin===location.origin&&x.pathname==='/api/public/p'&&x.searchParams.has('u'))return x.pathname+x.search;
     return '/api/public/p?u='+encodeURIComponent(U(u))+(S?'&stealth=1':'');
   }catch(e){return u}}
+  function SS(v){return String(v).replace(/(\\S+)(\\s+[^,]+)?(\\s*,|$)/g,function(_m,u,d,c){return P(u)+(d||'')+(c||'')})}
+  function CSS(v){return String(v).replace(/url\\(\\s*(['"]?)([^'")]+)\\1\\s*\\)/gi,function(_m,q,u){return 'url('+q+P(u)+q+')'})}
+  function notify(type,url){parent.postMessage({__radium:type,url:url},location.origin)}
   window.__radiumProxy=P;
   var f=window.fetch;
   window.fetch=function(i,o){ if(typeof i==='string')return f(P(i),o);
@@ -186,20 +192,19 @@ const CLIENT_PATCH = `<script>(function(){
   var xo=XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open=function(m,u){var a=[].slice.call(arguments);a[1]=P(u);return xo.apply(this,a)};
   var hp=history.pushState,hr=history.replaceState;
-  history.pushState=function(s,t,u){return hp.call(this,s,t,u==null?u:P(String(u)))};
-  history.replaceState=function(s,t,u){return hr.call(this,s,t,u==null?u:P(String(u)))};
+  history.pushState=function(s,t,u){var result=hp.call(this,s,t,u==null?u:P(String(u)));if(u!=null){B=U(String(u));notify('loaded',B)}return result};
+  history.replaceState=function(s,t,u){var result=hr.call(this,s,t,u==null?u:P(String(u)));if(u!=null){B=U(String(u));notify('loaded',B)}return result};
   var ws=window.WebSocket;
   if(ws){window.WebSocket=function(u,p){try{var t=new URL(u,B);var s=location.protocol==='https:'?'wss:':'ws:';
     return new ws(s+'//'+location.host+'/api/public/p?ws=1&u='+encodeURIComponent(t.toString()),p)}catch(e){return new ws(u,p)}};
     window.WebSocket.prototype=ws.prototype;}
   document.addEventListener('click',function(e){
     var a=e.target&&e.target.closest?e.target.closest('a[href]'):null;
-    if(!a)return;var h=a.getAttribute('href')||'';
+    if(!a||e.defaultPrevented||e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||a.hasAttribute('download'))return;var h=a.getAttribute('href')||'';
     if(/^(javascript:|#|mailto:|tel:)/i.test(h))return;
     e.preventDefault();
     var abs=U(h);
-    parent.postMessage({__radium:'navigate',url:abs},'*');
-    location.href=P(abs);
+    if(parent!==window&&parent===top)notify('navigate',abs);else location.href=P(abs);
   },true);
   document.addEventListener('submit',function(e){
     var f=e.target;if(!f||f.tagName!=='FORM')return;
@@ -211,16 +216,23 @@ const CLIENT_PATCH = `<script>(function(){
     var keys=[];data.forEach(function(_v,k){if(keys.indexOf(k)<0)keys.push(k)});
     keys.forEach(function(k){action.searchParams.delete(k)});
     data.forEach(function(v,k){if(typeof v==='string')action.searchParams.append(k,v)});
-    parent.postMessage({__radium:'navigate',url:action.toString()},'*');
-    location.href=P(action.toString());
+    if(parent!==window&&parent===top)notify('navigate',action.toString());else location.href=P(action.toString());
   },true);
   // Elements created or mutated by page scripts never went through the server
   // rewrite, so their raw URLs escaped the proxy and 404'd.
   var sa=Element.prototype.setAttribute;
   Element.prototype.setAttribute=function(n,v){
-    try{if(/^(src|href|action|poster|formaction)$/i.test(n)&&typeof v==='string'&&v)v=P(v)}catch(e){}
+    try{if(/^(src|href|action|poster|formaction|data-src)$/i.test(n)&&typeof v==='string'&&v)v=P(v);else if(/^(srcset|imagesrcset|data-srcset)$/i.test(n))v=SS(v);else if(n.toLowerCase()==='style')v=CSS(v)}catch(e){}
     return sa.call(this,n,v)};
-  window.addEventListener('load',function(){parent.postMessage({__radium:'loaded',url:B},'*')});
+  function prop(proto,name,convert){if(!proto)return;var d=Object.getOwnPropertyDescriptor(proto,name);if(!d||!d.set||!d.get||!d.configurable)return;
+    Object.defineProperty(proto,name,{configurable:true,enumerable:d.enumerable,get:d.get,set:function(v){return d.set.call(this,convert(v))}})}
+  [[window.HTMLImageElement,'src'],[window.HTMLImageElement,'srcset'],[window.HTMLSourceElement,'src'],[window.HTMLSourceElement,'srcset'],[window.HTMLScriptElement,'src'],[window.HTMLLinkElement,'href'],[window.HTMLIFrameElement,'src'],[window.HTMLMediaElement,'src'],[window.HTMLVideoElement,'poster'],[window.HTMLAnchorElement,'href'],[window.HTMLFormElement,'action']].forEach(function(pair){if(pair[0])prop(pair[0].prototype,pair[1],pair[1]==='srcset'?SS:P)});
+  prop(CSSStyleDeclaration.prototype,'backgroundImage',CSS);
+  var sp=CSSStyleDeclaration.prototype.setProperty;
+  CSSStyleDeclaration.prototype.setProperty=function(n,v,p){return sp.call(this,n,CSS(v),p)};
+  function fix(el){if(!el||el.nodeType!==1)return;['src','href','action','poster','data-src','srcset','imagesrcset','data-srcset','style'].forEach(function(n){var v=el.getAttribute(n);if(!v)return;var next=n==='style'?CSS(v):/srcset$/.test(n)?SS(v):P(v);if(next!==v)sa.call(el,n,next)})}
+  new MutationObserver(function(records){records.forEach(function(r){if(r.type==='attributes')fix(r.target);else r.addedNodes.forEach(function(n){fix(n);if(n.querySelectorAll)n.querySelectorAll('[src],[href],[srcset],[style],[data-src]').forEach(fix)})})}).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['src','href','srcset','style','data-src','data-srcset']});
+  window.addEventListener('load',function(){notify('loaded',B)});
 })();</script>`;
 
 function rewriteHtml(html: string, base: string, stealth: boolean) {
@@ -239,6 +251,10 @@ function rewriteHtml(html: string, base: string, stealth: boolean) {
       const value = (dq ?? sq ?? "") as string;
       const quote = dq !== undefined ? '"' : "'";
       return ` ${attr}=${quote}${rewriteSrcset(value, base, stealth)}${quote}`;
+    })
+    .replace(/\sstyle=("([^"]*)"|'([^']*)')/gi, (_m, _raw, dq, sq) => {
+      const quote = dq !== undefined ? '"' : "'";
+      return ` style=${quote}${rewriteCss(decodeAttrEntities(dq ?? sq ?? ""), base, stealth)}${quote}`;
     })
     .replace(/<style([^>]*)>([\s\S]*?)<\/style>/gi, (_m, attrs, css) => {
       return `<style${attrs}>${rewriteCss(css as string, base, stealth)}</style>`;
@@ -272,6 +288,17 @@ async function handle(request: Request) {
     return new Response("Only http/https targets are supported", { status: 400 });
   }
 
+  let safe = true;
+  if (isDuckDuckGo(targetUrl)) {
+    try {
+      const { requireUser } = await import("@/lib/account-session.server");
+      const user = await requireUser();
+      const preferences = user.settings as { settings?: { duckduckgoSafeSearch?: boolean } } | null;
+      safe = safeSearchEnabled(user.role, preferences?.settings?.duckduckgoSafeSearch);
+    } catch { /* Signed-out requests always receive strict search. */ }
+    targetUrl = applySearchPolicy(targetUrl, safe);
+  }
+
   const isYouTube = /(?:^|\.)(?:youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(targetUrl.hostname);
   // Watch pages carry the heaviest bot checks (PoToken, "not a bot" wall); the
   // embed endpoint serves the same player context with far fewer checks.
@@ -295,6 +322,11 @@ async function handle(request: Request) {
   if (cookie) {
     const upstreamCookie = upstreamCookieHeader(cookie, scope);
     if (upstreamCookie) headers.set("cookie", upstreamCookie);
+  }
+  if (isDuckDuckGo(targetUrl)) {
+    const jar = (headers.get("cookie") ?? "").split(";").filter((part) => !/^\s*(kp|safe|safesearch)=/i.test(part));
+    jar.push(`kp=${safe ? "1" : "-2"}`);
+    headers.set("cookie", jar.filter(Boolean).join("; "));
   }
   // Optional operator session applies only to YouTube, never other sites.
   if (isYouTube) {
@@ -331,6 +363,13 @@ async function handle(request: Request) {
   });
   outHeaders.set("x-radium-proxied", targetUrl.toString());
   outHeaders.set("access-control-allow-origin", "*");
+  outHeaders.set("cache-control", "private, no-store");
+  // Static, cookie-free resources can be reused by this browser, never a shared cache.
+  const contentType = upstream.headers.get("content-type") ?? "";
+  if (request.method === "GET" && upstream.ok && !headers.has("cookie") && !upstream.headers.has("set-cookie") && !isDuckDuckGo(targetUrl) && /^(image\/|font\/|text\/css)/i.test(contentType)) {
+    outHeaders.set("cache-control", "private, max-age=300");
+  }
+  if (/text\/(html|css)/i.test(contentType)) { outHeaders.delete("etag"); outHeaders.delete("last-modified"); }
 
   const setCookies =
     typeof upstream.headers.getSetCookie === "function"

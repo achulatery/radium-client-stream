@@ -252,12 +252,12 @@ function BrowserTab() {
       if (!event.data || typeof event.data !== "object" || !["navigate", "loaded"].includes(event.data.__radium) || typeof event.data.url !== "string") return;
       const url = browserDestination(event.data.url);
       if (!url) return;
-      remember(url);
-      setStatus(event.data.__radium === "loaded" ? "Ready" : "Loading page");
+      if (event.data.__radium === "navigate") open(url);
+      else { remember(url); setStatus("Ready"); }
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
-  }, [remember]);
+  }, [remember, open]);
 
   return <div className="flex h-full flex-col">
     <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 py-2">
