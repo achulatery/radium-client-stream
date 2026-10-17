@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Code2,
+  ExternalLink,
   Home,
   LockKeyhole,
   Moon,
@@ -265,6 +266,7 @@ function BrowserTab() {
             </Button>
           </div>
         </form>
+        {target && <Button variant="ghost" size="icon" aria-label="Open in browser" title="Open in browser" onClick={() => window.open(target, "_blank", "noopener,noreferrer")}><ExternalLink size={15} /></Button>}
       </div>
 
       <span className="sr-only" aria-live="polite">{status}</span>

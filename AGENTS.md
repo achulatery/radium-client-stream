@@ -46,3 +46,4 @@ Console presence is approximate recent activity: a cookie-authenticated heartbea
 SoundCloud repeat binds the official widget READY/FINISH events and replays through its API, while theme styling leaves provider-owned controls and branding intact; never replace it with extracted audio streams.
 
 Menu entrance animations belong to visible tab wrappers and respect reduced motion; preserve mounted visited tabs so animations do not reset user state.
+Proxy compatibility preserves incoming browser identity, translates upstream referrers and leaves consent intact instead of spoofing browser globals or rotating fingerprints; direct browser opening is the fallback for unsupported website checks.
