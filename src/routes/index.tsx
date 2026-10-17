@@ -48,6 +48,7 @@ import { useAccount } from "@/lib/account";
 import { AuthScreen } from "@/components/auth-screen";
 import { Avatar, ProfileDialog } from "@/components/profile";
 import { PRESET_THEMES, type Theme } from "@/lib/themes";
+import { saveSettings } from "@/lib/account.functions";
 
 const MusicTab = lazy(() => import("@/components/music-tab").then((m) => ({ default: m.MusicTab })));
 const ChatTab = lazy(() => import("@/components/chat-tab").then((m) => ({ default: m.ChatTab })));
@@ -202,13 +203,14 @@ function ClientShell() {
 }
 
 function BrowserTab() {
-  const { settings, updateSettings, pushHistory, history } = useRadium();
+  const { settings, theme, updateSettings, pushHistory, history } = useRadium();
   const { user } = useAccount();
   const safe = safeSearchEnabled(user?.role ?? null, settings.duckduckgoSafeSearch);
   const [input, setInput] = useState("");
   const [target, setTarget] = useState<string | null>(null);
   const [status, setStatus] = useState("Ready");
   const [nonce, setNonce] = useState(0);
+  const [savingSearch, setSavingSearch] = useState(false);
   const [entries, setEntries] = useState<string[]>([]);
   const [cursor, setCursor] = useState(-1);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -273,12 +275,12 @@ function BrowserTab() {
           <Button variant="ghost" size="icon" type="submit" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Open address"><Search size={14} /></Button>
         </div>
       </form>
-      <label className="flex shrink-0 items-center gap-2 text-xs text-client-muted"><ShieldCheck size={14} />Safe Search<Switch aria-label="DuckDuckGo Safe Search" checked={safe} disabled={!canToggleSafeSearch(user?.role ?? null)} onCheckedChange={(value) => { updateSettings({ duckduckgoSafeSearch: value }); if (target && new URL(target).hostname.endsWith("duckduckgo.com")) { const next = applySearchPolicy(new URL(target), value).href; current.current = next; setTarget(next); setInput(cleanBrowserAddress(next)); setNonce((n) => n + 1); } }} /></label>
+      <label className="flex shrink-0 items-center gap-2 text-xs text-client-muted"><ShieldCheck size={14} />Safe Search<Switch aria-label="DuckDuckGo Safe Search" checked={safe} disabled={savingSearch || !canToggleSafeSearch(user?.role ?? null)} onCheckedChange={(value) => { setSavingSearch(true); void saveSettings({ data: { settings: { ...settings, duckduckgoSafeSearch: value }, theme } }).then(() => { updateSettings({ duckduckgoSafeSearch: value }); if (target && new URL(target).hostname.endsWith("duckduckgo.com")) { const next = applySearchPolicy(new URL(target), value).href; current.current = next; setTarget(next); setInput(cleanBrowserAddress(next)); setNonce((n) => n + 1); } }).catch(() => setStatus("Could not save Safe Search preference")).finally(() => setSavingSearch(false)); }} /></label>
       {target && <Button variant="ghost" size="icon" aria-label="Open in browser" title="Open in browser" onClick={() => window.open(target, "_blank", "noopener,noreferrer")}><ExternalLink size={15} /></Button>}
     </div>
     <span className="sr-only" aria-live="polite">{status}</span>
     <div className="relative min-h-0 flex-1">
-      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-bg" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <StartScreen open={open} history={history} />}
+      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <StartScreen open={open} history={history} />}
     </div>
   </div>;
 }
