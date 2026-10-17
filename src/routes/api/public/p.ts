@@ -1,59 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-/**
- * Authentic modern desktop browser identities. Mobile/Linux/old-Chrome strings
- * are what Google's bot heuristics score hardest, so the pool is desktop only
- * and each entry ships matching client hints.
- */
-const DESKTOP_AGENTS: { ua: string; hints: Record<string, string> }[] = [
-  {
-    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-    hints: {
-      "sec-ch-ua": '"Chromium";v="141", "Not;A=Brand";v="24", "Google Chrome";v="141"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-    },
-  },
-  {
-    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
-    hints: {
-      "sec-ch-ua": '"Chromium";v="140", "Not;A=Brand";v="24", "Microsoft Edge";v="140"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-    },
-  },
-  {
-    ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-    hints: {
-      "sec-ch-ua": '"Chromium";v="141", "Not;A=Brand";v="24", "Google Chrome";v="141"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"macOS"',
-    },
-  },
-];
-
-const DEFAULT_AGENT = DESKTOP_AGENTS[0]!;
-
-/** Headers that would expose the data-center hop to Google's security systems. */
-const PROXY_FINGERPRINT_HEADERS = [
-  "x-forwarded-for",
-  "x-forwarded-host",
-  "x-forwarded-proto",
-  "x-forwarded-port",
-  "x-real-ip",
-  "forwarded",
-  "via",
-  "x-radium-proxied",
-  "cf-connecting-ip",
-  "cf-ipcountry",
-  "cf-ray",
-  "cf-visitor",
-  "cf-worker",
-  "cdn-loop",
-  "true-client-ip",
-  "x-vercel-forwarded-for",
-  "x-request-id",
-];
+import { applyBrowserHeaders, upstreamReferer } from "@/lib/proxy-compatibility";
 
 /** Cookie names accepted from the operator-supplied YouTube session string. */
 const SESSION_COOKIE_NAMES = [
@@ -233,11 +180,6 @@ const CLIENT_PATCH = `<script>(function(){
     return '/api/public/p?u='+encodeURIComponent(U(u))+(S?'&stealth=1':'');
   }catch(e){return u}}
   window.__radiumProxy=P;
-  // Automation fingerprint hiding: headless/driver tells that Google scores.
-  try{Object.defineProperty(navigator,'webdriver',{get:function(){return false},configurable:true})}catch(e){}
-  try{if(!navigator.languages||!navigator.languages.length)Object.defineProperty(navigator,'languages',{get:function(){return['en-SG','en']}})}catch(e){}
-  try{if(!(navigator.plugins&&navigator.plugins.length))Object.defineProperty(navigator,'plugins',{get:function(){return[1,2,3]}})}catch(e){}
-  try{delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol}catch(e){}
   var f=window.fetch;
   window.fetch=function(i,o){ if(typeof i==='string')return f(P(i),o);
     if(i&&i.url)return f(new Request(P(i.url),i),o); return f(i,o); };
@@ -331,7 +273,6 @@ async function handle(request: Request) {
   }
 
   const isYouTube = /(?:^|\.)(?:youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(targetUrl.hostname);
-  const isGoogle = /(?:^|\.)google\.[a-z.]+$/i.test(targetUrl.hostname);
   // Watch pages carry the heaviest bot checks (PoToken, "not a bot" wall); the
   // embed endpoint serves the same player context with far fewer checks.
   if (isYouTube) {
@@ -348,8 +289,6 @@ async function handle(request: Request) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-  // Never let a data-center hop signature reach the upstream site.
-  for (const name of PROXY_FINGERPRINT_HEADERS) headers.delete(name);
   const scope = cookieScope(targetUrl.hostname);
   const cookie = request.headers.get("cookie");
   headers.delete("cookie");
@@ -357,33 +296,17 @@ async function handle(request: Request) {
     const upstreamCookie = upstreamCookieHeader(cookie, scope);
     if (upstreamCookie) headers.set("cookie", upstreamCookie);
   }
-  // Google/YouTube otherwise bounce every fresh session to a consent page on
-  // accounts.google.com, whose in-page navigation is what produced 404s.
-  if (isYouTube || isGoogle) {
-    const existing = headers.get("cookie") ?? "";
-    const extras: string[] = [];
-    if (!/\bSOCS=/.test(existing)) extras.push("SOCS=CAESEwgDEgk0ODE3Nzk3MjQaAmVuIAEaBgiA_LyaBg");
-    if (!/\bCONSENT=/.test(existing)) extras.push("CONSENT=YES+cb");
-    // YouTube's own region preference; keeps the site on Singapore even when
-    // the edge IP geolocates elsewhere.
-    if (isYouTube && !/\bPREF=/.test(existing)) extras.push("PREF=gl=SG&hl=en");
-    // Operator-supplied signed-in session (SID/HSID/SAPISID/...). A real
-    // account session is the strongest signal against YouTube's bot checks.
+  // Optional operator session applies only to YouTube, never other sites.
+  if (isYouTube) {
     const session = sessionCookie(process.env["YOUTUBE_SESSION_COOKIE"]);
-    if (session) extras.push(session);
-    if (extras.length) headers.set("cookie", [existing, ...extras].filter(Boolean).join("; "));
+    if (session) headers.set("cookie", [headers.get("cookie"), session].filter(Boolean).join("; "));
   }
-
-  // Always present as a real desktop browser: a random identity in stealth
-  // mode, a stable one otherwise, with matching client hints.
-  const identity =
-    stealth || isYouTube || isGoogle
-      ? (DESKTOP_AGENTS[Math.floor(Math.random() * DESKTOP_AGENTS.length)] ?? DEFAULT_AGENT)
-      : DEFAULT_AGENT;
-  headers.set("user-agent", identity.ua);
-  for (const [k, v] of Object.entries(identity.hints)) headers.set(k, v);
-  headers.set("accept-language", headers.get("accept-language") ?? "en-SG,en;q=0.9");
-  headers.set("referer", targetUrl.origin + "/");
+  applyBrowserHeaders(request.headers, headers);
+  const referringPage = upstreamReferer(request.headers.get("referer"));
+  if (referringPage) {
+    const ref = new URL(referringPage);
+    headers.set("referer", ref.origin === targetUrl.origin ? ref.href : ref.origin + "/");
+  }
   if (request.method !== "GET" && request.method !== "HEAD") headers.set("origin", targetUrl.origin);
   headers.delete("accept-encoding");
 
@@ -412,7 +335,7 @@ async function handle(request: Request) {
   const setCookies =
     typeof upstream.headers.getSetCookie === "function"
       ? upstream.headers.getSetCookie()
-      : ((upstream.headers.get("set-cookie") ? [upstream.headers.get("set-cookie")!] : []) as string[]);
+      : (upstream.headers.get("set-cookie") ? [upstream.headers.get("set-cookie") ?? ""] : []);
   for (const raw of setCookies) {
     const rewritten = rewriteSetCookie(raw, scope);
     if (rewritten) outHeaders.append("set-cookie", rewritten);
@@ -434,6 +357,7 @@ async function handle(request: Request) {
     const body = rewriteHtml(await upstream.text(), base, stealth);
     outHeaders.set("content-type", "text/html; charset=utf-8");
     outHeaders.set("referrer-policy", "same-origin");
+    outHeaders.set("cache-control", "private, no-store");
     // Only the top proxied frame owns the navigation fallback. Nested frames
     // (Google consent/auth) are referred by a proxy URL; skip those so a later
     // escaped navigation still resolves against the real page.

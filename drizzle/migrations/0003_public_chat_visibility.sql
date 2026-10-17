@@ -1,0 +1,2 @@
+ALTER TABLE public.app_chat_rooms ADD COLUMN is_public boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.app_chat_rooms.is_public IS 'Public rooms are visible to all active Radium accounts; creation is staff-only through cookie-authenticated server functions.';

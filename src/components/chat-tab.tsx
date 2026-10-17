@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Hash, LogOut, Pencil, Plus, Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, ProfileDialog } from "@/components/profile";
 import { useAccount } from "@/lib/account";
 import { canModerate } from "@/lib/account-permissions";
@@ -23,7 +24,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
   const [editing, setEditing] = useState<{ id: string; body: string } | null>(null);
   const [error, setError] = useState("");
   const [panel, setPanel] = useState<"none" | "create" | "join">("none");
-  const [form, setForm] = useState({ name: "", code: "" });
+  const [form, setForm] = useState({ name: "", code: "", isPublic: false });
   const end = useRef<HTMLDivElement>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -112,7 +113,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
           {rooms.map((r) => (
             <li key={r.id}>
               <button className={r.id === active ? "dc-room active" : "dc-room"} onClick={() => setActive(r.id)}>
-                <Hash size={15} /><span>{r.name}</span>{!r.joined && <em>VIEW</em>}
+                <Hash size={15} /><span>{r.name}</span>{r.isPublic ? <em>PUBLIC</em> : !r.joined && <em>VIEW</em>}
               </button>
             </li>
           ))}
@@ -124,9 +125,10 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
         {panel !== "none" && (
           <form className="dc-room-form" onSubmit={(e) => { e.preventDefault(); void run(async () => {
             const r = panel === "create" ? await createRoom({ data: form }) : await joinRoom({ data: { code: form.code } });
-            setForm({ name: "", code: "" }); setPanel("none"); await loadRooms(); setActive(r.id);
+            setForm({ name: "", code: "", isPublic: false }); setPanel("none"); await loadRooms(); setActive(r.id);
           }); }}>
             {panel === "create" && <input placeholder="Room name" value={form.name} maxLength={60} onChange={(e) => setForm({ ...form, name: e.target.value })} required />}
+            {panel === "create" && staff && <label className="flex items-center justify-between gap-2 text-xs">Public chat<Switch aria-label="Public chat" checked={form.isPublic} onCheckedChange={(isPublic) => setForm({ ...form, isPublic })} /></label>}
             <input placeholder={panel === "create" ? "Custom room code" : "Enter room code"} value={form.code} maxLength={24} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
             <Button type="submit" size="sm">{panel === "create" ? "Create room" : "Join room"}</Button>
           </form>
