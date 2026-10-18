@@ -59,10 +59,12 @@ export const searchWeb = createServerFn({ method: "GET" })
     const snippets = [...html.matchAll(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)];
     const out: WebResult[] = [];
     for (let i = 0; i < titles.length && out.length < 12; i++) {
-      const target = resultUrl(decodeEntities(titles[i][1]));
+      const match = titles[i];
+      if (!match) continue;
+      const target = resultUrl(decodeEntities(match[1] ?? ""));
       if (!target) continue;
       out.push({
-        title: decodeEntities(stripTags(titles[i][2])).trim(),
+        title: decodeEntities(stripTags(match[2] ?? "")).trim(),
         url: target,
         snippet: decodeEntities(stripTags(snippets[i]?.[1] ?? "")).trim(),
       });
