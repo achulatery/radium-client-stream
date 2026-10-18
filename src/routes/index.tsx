@@ -22,7 +22,8 @@ import { VideoThumbnail } from "@/components/video-thumbnail";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { canToggleSafeSearch } from "@/lib/account-permissions";
-import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled } from "@/lib/browser-policy";
+import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled, searchQueryOf } from "@/lib/browser-policy";
+import { searchWeb, type WebResult } from "@/lib/search.functions";
 import {
   formatDuration,
   formatViews,
@@ -211,6 +212,8 @@ function BrowserTab() {
   const [status, setStatus] = useState("Ready");
   const [nonce, setNonce] = useState(0);
   const [savingSearch, setSavingSearch] = useState(false);
+  const [results, setResults] = useState<{ query: string; items: WebResult[] } | null>(null);
+  const [searching, setSearching] = useState(false);
   const [entries, setEntries] = useState<string[]>([]);
   const [cursor, setCursor] = useState(-1);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -229,16 +232,47 @@ function BrowserTab() {
     pushHistory(url);
   }, [cursor, pushHistory]);
 
+  // Search pages are never proxied: results load natively (no bot checks),
+  // and only the site the user clicks goes through the proxy.
+  const runSearch = useCallback(async (query: string) => {
+    setResults({ query, items: [] });
+    setSearching(true);
+    setInput(query);
+    setStatus("Searching");
+    try {
+      const items = await searchWeb({ data: { query } });
+      setResults({ query, items });
+      setStatus("Ready");
+    } catch {
+      // Fall back to the proxied search page when native search fails.
+      setResults(null);
+      const url = applySearchPolicy(new URL(searchUrl(query)), safe).href;
+      remember(url);
+      setInput(cleanBrowserAddress(url));
+      setNonce((n) => n + 1);
+      setStatus("Loading page");
+    } finally {
+      setSearching(false);
+    }
+  }, [remember, safe]);
+
   const open = useCallback((raw: string) => {
     const normalized = normalizeQuery(raw);
-    const destination = normalized ? browserDestination(normalized) : null;
+    if (!normalized) return;
+    const query = searchQueryOf(normalized);
+    if (query) {
+      void runSearch(query);
+      return;
+    }
+    const destination = browserDestination(normalized);
     if (!destination) return;
+    setResults(null);
     const url = applySearchPolicy(new URL(destination), safe).href;
     remember(url);
     setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1);
     setStatus("Loading page");
-  }, [remember, safe]);
+  }, [remember, safe, runSearch]);
 
   const travel = (next: number) => {
     const url = entries[next];
@@ -264,7 +298,7 @@ function BrowserTab() {
   return <div className="flex h-full flex-col">
     <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 py-2">
       <div className="flex shrink-0 items-center gap-1">
-        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Back" title="Back" disabled={cursor <= 0} onClick={() => travel(cursor - 1)}><ArrowLeft size={15} /></Button>
+        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Back" title="Back" disabled={!results && cursor <= 0} onClick={() => { if (results) setResults(null); else travel(cursor - 1); }}><ArrowLeft size={15} /></Button>
         <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Forward" title="Forward" disabled={cursor >= entries.length - 1} onClick={() => travel(cursor + 1)}><ArrowRight size={15} /></Button>
         <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Refresh" title="Refresh" disabled={!target} onClick={() => { setNonce((n) => n + 1); setStatus("Loading page"); }}><RefreshCw size={15} /></Button>
       </div>
@@ -280,9 +314,52 @@ function BrowserTab() {
     </div>
     <span className="sr-only" aria-live="polite">{status}</span>
     <div className="relative min-h-0 flex-1">
-      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <StartScreen open={open} history={history} />}
+      {results ? (
+        <SearchResults state={results} searching={searching} onOpen={open} />
+      ) : frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <StartScreen open={open} history={history} />}
     </div>
   </div>;
+}
+
+function SearchResults({
+  state,
+  searching,
+  onOpen,
+}: {
+  state: { query: string; items: WebResult[] };
+  searching: boolean;
+  onOpen: (url: string) => void;
+}) {
+  return (
+    <div className="radium-grid h-full overflow-auto px-4 py-8">
+      <div className="mx-auto max-w-[680px]">
+        <p className="text-xs uppercase tracking-widest text-client-muted">
+          Results for “{state.query}” — loaded directly, nothing is proxied until you open a site
+        </p>
+        {searching ? (
+          <p className="mt-6 text-sm text-client-muted">Searching…</p>
+        ) : state.items.length === 0 ? (
+          <p className="mt-6 text-sm text-client-muted">No results found.</p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {state.items.map((r) => (
+              <li key={r.url}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(r.url)}
+                  className="block w-full rounded-sm border border-client-line bg-client-search/40 p-3 text-left transition-colors hover:border-client-signal"
+                >
+                  <span className="text-client-signal">{r.title || r.url}</span>
+                  <span className="block truncate font-mono text-xs text-client-muted">{cleanBrowserAddress(r.url)}</span>
+                  {r.snippet && <span className="mt-1 block text-sm text-client-muted">{r.snippet}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function StartScreen({

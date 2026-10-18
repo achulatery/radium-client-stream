@@ -23,6 +23,17 @@ export function cleanBrowserAddress(raw: string) {
   } catch { return raw; }
 }
 
+/** Returns the search query when the URL is a search page, null for real sites. */
+export function searchQueryOf(raw: string): string | null {
+  try {
+    const url = new URL(raw);
+    if (isDuckDuckGo(url) && url.searchParams.has("q")) return url.searchParams.get("q");
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function browserDestination(raw: string) {
   try {
     let url = new URL(raw);
