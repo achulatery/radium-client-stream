@@ -34,3 +34,6 @@
 - [x] Improve browser compatibility without promising removal of website bot checks (live upstream page and direct-opening control verified)
 - [x] Add staff-only public chat creation while preserving code-only rooms (owner creation and member read verified)
 - [x] Include Music in menu revocation and verify chat/access rules (saved revocation and member reload verified; 11 tests passed)
+- [x] Add owner-only complete message deletion alongside soft "deleted by owner"
+- [x] Load search results natively and proxy only clicked sites
+- [ ] Verify owner delete options and native search in the browser
