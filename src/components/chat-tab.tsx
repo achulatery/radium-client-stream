@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Hash, LogOut, Pencil, Plus, Send, Trash2, X } from "lucide-react";
+import { Hash, LogOut, Pencil, Plus, Send, Trash, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, ProfileDialog } from "@/components/profile";
@@ -171,6 +171,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
                   <div className="dc-tools">
                     {own && <button title="Edit" aria-label="Edit message" onClick={() => setEditing({ id: m.id, body: m.body })}><Pencil size={14} /></button>}
                     <button title="Delete" aria-label="Delete message" onClick={() => void run(async () => { await deleteMessage({ data: { id: m.id } }); await loadMessages(); })}><Trash2 size={14} /></button>
+                    {user?.role === "owner" && <button title="Delete forever — no one will see it was deleted" aria-label="Delete message forever" onClick={() => { if (window.confirm("Completely delete this message? No one will see that it was deleted.")) void run(async () => { await deleteMessage({ data: { id: m.id, hard: true } }); await loadMessages(); }); }}><Trash size={14} /></button>}
                   </div>
                 )}
               </article>
