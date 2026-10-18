@@ -321,6 +321,47 @@ function BrowserTab() {
   </div>;
 }
 
+function SearchResults({
+  state,
+  searching,
+  onOpen,
+}: {
+  state: { query: string; items: WebResult[] };
+  searching: boolean;
+  onOpen: (url: string) => void;
+}) {
+  return (
+    <div className="radium-grid h-full overflow-auto px-4 py-8">
+      <div className="mx-auto max-w-[680px]">
+        <p className="text-xs uppercase tracking-widest text-client-muted">
+          Results for “{state.query}” — loaded directly, nothing is proxied until you open a site
+        </p>
+        {searching ? (
+          <p className="mt-6 text-sm text-client-muted">Searching…</p>
+        ) : state.items.length === 0 ? (
+          <p className="mt-6 text-sm text-client-muted">No results found.</p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {state.items.map((r) => (
+              <li key={r.url}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(r.url)}
+                  className="block w-full rounded-sm border border-client-line bg-client-search/40 p-3 text-left transition-colors hover:border-client-signal"
+                >
+                  <span className="text-client-signal">{r.title || r.url}</span>
+                  <span className="block truncate font-mono text-xs text-client-muted">{cleanBrowserAddress(r.url)}</span>
+                  {r.snippet && <span className="mt-1 block text-sm text-client-muted">{r.snippet}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StartScreen({
   open,
   history,
