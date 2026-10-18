@@ -22,7 +22,8 @@ import { VideoThumbnail } from "@/components/video-thumbnail";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { canToggleSafeSearch } from "@/lib/account-permissions";
-import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled } from "@/lib/browser-policy";
+import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled, searchQueryOf } from "@/lib/browser-policy";
+import { searchWeb, type WebResult } from "@/lib/search.functions";
 import {
   formatDuration,
   formatViews,
@@ -211,6 +212,8 @@ function BrowserTab() {
   const [status, setStatus] = useState("Ready");
   const [nonce, setNonce] = useState(0);
   const [savingSearch, setSavingSearch] = useState(false);
+  const [results, setResults] = useState<{ query: string; items: WebResult[] } | null>(null);
+  const [searching, setSearching] = useState(false);
   const [entries, setEntries] = useState<string[]>([]);
   const [cursor, setCursor] = useState(-1);
   const frame = useRef<HTMLIFrameElement>(null);
