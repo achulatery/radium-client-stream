@@ -298,7 +298,7 @@ function BrowserTab() {
   return <div className="flex h-full flex-col">
     <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 py-2">
       <div className="flex shrink-0 items-center gap-1">
-        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Back" title="Back" disabled={cursor <= 0} onClick={() => travel(cursor - 1)}><ArrowLeft size={15} /></Button>
+        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Back" title="Back" disabled={!results && cursor <= 0} onClick={() => { if (results) setResults(null); else travel(cursor - 1); }}><ArrowLeft size={15} /></Button>
         <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Forward" title="Forward" disabled={cursor >= entries.length - 1} onClick={() => travel(cursor + 1)}><ArrowRight size={15} /></Button>
         <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Refresh" title="Refresh" disabled={!target} onClick={() => { setNonce((n) => n + 1); setStatus("Loading page"); }}><RefreshCw size={15} /></Button>
       </div>
@@ -314,7 +314,9 @@ function BrowserTab() {
     </div>
     <span className="sr-only" aria-live="polite">{status}</span>
     <div className="relative min-h-0 flex-1">
-      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <StartScreen open={open} history={history} />}
+      {results ? (
+        <SearchResults state={results} searching={searching} onOpen={open} />
+      ) : frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <StartScreen open={open} history={history} />}
     </div>
   </div>;
 }
