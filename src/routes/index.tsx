@@ -232,16 +232,47 @@ function BrowserTab() {
     pushHistory(url);
   }, [cursor, pushHistory]);
 
+  // Search pages are never proxied: results load natively (no bot checks),
+  // and only the site the user clicks goes through the proxy.
+  const runSearch = useCallback(async (query: string) => {
+    setResults({ query, items: [] });
+    setSearching(true);
+    setInput(query);
+    setStatus("Searching");
+    try {
+      const items = await searchWeb({ data: { query } });
+      setResults({ query, items });
+      setStatus("Ready");
+    } catch {
+      // Fall back to the proxied search page when native search fails.
+      setResults(null);
+      const url = applySearchPolicy(new URL(searchUrl(query)), safe).href;
+      remember(url);
+      setInput(cleanBrowserAddress(url));
+      setNonce((n) => n + 1);
+      setStatus("Loading page");
+    } finally {
+      setSearching(false);
+    }
+  }, [remember, safe]);
+
   const open = useCallback((raw: string) => {
     const normalized = normalizeQuery(raw);
-    const destination = normalized ? browserDestination(normalized) : null;
+    if (!normalized) return;
+    const query = searchQueryOf(normalized);
+    if (query) {
+      void runSearch(query);
+      return;
+    }
+    const destination = browserDestination(normalized);
     if (!destination) return;
+    setResults(null);
     const url = applySearchPolicy(new URL(destination), safe).href;
     remember(url);
     setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1);
     setStatus("Loading page");
-  }, [remember, safe]);
+  }, [remember, safe, runSearch]);
 
   const travel = (next: number) => {
     const url = entries[next];
