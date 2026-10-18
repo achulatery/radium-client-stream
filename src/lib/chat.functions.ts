@@ -135,12 +135,19 @@ export const editMessage = createServerFn({ method: "POST" })
   });
 
 export const deleteMessage = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d) => z.object({ id: z.string().uuid(), hard: z.boolean().optional() }).parse(d))
   .handler(async ({ data }) => {
     const user = await requireUser();
     const sb = await db();
     const { data: msg } = await sb.from("app_chat_messages").select("user_id").eq("id", data.id).maybeSingle();
     if (!msg) throw new Error("Message not found");
+    // Hard delete removes the row entirely so not even staff can see it was
+    // there; only the owner can do this.
+    if (data.hard) {
+      if (user.role !== "owner") throw new Error("Only the owner can completely delete messages");
+      await sb.from("app_chat_messages").delete().eq("id", data.id);
+      return { ok: true };
+    }
     const own = msg.user_id === user.id;
     if (!own && !canModerate(user.role)) throw new Error("You can only delete your own messages");
     const by = own ? "self" : (user.role as "owner" | "admin" | "mod");
