@@ -37,3 +37,5 @@
 - [x] Add owner-only complete message deletion alongside soft "deleted by owner"
 - [x] Load search results natively and proxy only clicked sites
 - [ ] Verify owner delete options and native search in the browser
+- [x] Search natively through Google (DuckDuckGo fallback) and proxy clicked sites with Ultraviolet
+- [ ] Verify Google search results and Ultraviolet site loading in the browser
