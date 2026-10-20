@@ -1,15 +1,15 @@
 export type AccountRole = "owner" | "admin" | "mod" | null;
 /** Mods, admins and the owner can moderate chat and ban users. */
 export function canModerate(role: AccountRole) { return role === "owner" || role === "admin" || role === "mod"; }
-/** Only admins and the owner can delete accounts. */
-export function canDeleteAccounts(role: AccountRole) { return role === "owner" || role === "admin"; }
+/** Only the owner can delete accounts. */
+export function canDeleteAccounts(role: AccountRole) { return role === "owner"; }
 export function canChangePassword(role: AccountRole, callerId: string, targetId: string) { return callerId === targetId || role === "owner"; }
 export function canPromote(role: AccountRole) { return role === "owner"; }
 /** Owner and admins can view user history. */
 export function canViewLogs(role: AccountRole) { return role === "owner" || role === "admin"; }
-/** History viewing is removed for everyone, including the owner. */
-export function canViewAccountHistory(_caller: AccountRole, _target: AccountRole) {
-  return false;
+/** Only the owner can view account history, never another owner's. */
+export function canViewAccountHistory(caller: AccountRole, target: AccountRole) {
+  return caller === "owner" && target !== "owner";
 }
 export function canManageAccount(caller: AccountRole, target: AccountRole) {
   return target !== "owner" && roleRank(caller) > roleRank(target);
