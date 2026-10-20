@@ -1,3 +1,7 @@
+- [ ] Fix reported image sending/loading and verify a real chat image
+- [ ] Keep Browser searches native, remove HTML error fallback and explanatory loading copy
+- [ ] Use Ultraviolet exclusively for Browser websites with an explicit retry when unavailable
+- [ ] Combine staff and chat ranks in Console Rank; retain menu access controls
 - [x] Fix upload compilation errors and verify Radium loads (clean compilation; opening page and three tests verified)
 - [x] Diagnose reported deployment/storage failure (caused by the browser re-wrapping proxied addresses endlessly; fixed)
 - [ ] Add owner-granted personal Kleb pages with 5 GB picture allowance
