@@ -232,9 +232,17 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
           <div ref={end} />
         </div>
         {error && <p role="alert" className="chat-error">{error}</p>}
+        {pending.length > 0 && <div className="dc-pending-files">{pending.map((p) => <div key={p.key} className="dc-pending-file" title={p.error ?? p.file.name}>
+          {p.preview ? <img src={p.preview} alt="" /> : <FileIcon size={14} />}<span>{p.error ? p.error : p.file.name}</span>
+          {!p.error && p.progress < 100 && <progress value={p.progress} max={100} aria-label={`Uploading ${p.file.name}`} />}
+          <button type="button" aria-label={`Remove ${p.file.name}`} onClick={() => dropPending(p)}><X size={12} /></button>
+        </div>)}</div>}
+        {media && <p className="dc-limit">Media limit: {formatBytes(media.limit)} per message</p>}
         <form className={`dc-compose ${body ? "is-typing" : ""}`} onSubmit={(e) => { e.preventDefault(); void submitMessage(); }}>
+          <input ref={picker} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+          <Button variant="ghost" size="icon" type="button" disabled={!active || !media || pending.length >= MAX_FILES} aria-label="Attach images" title="Attach images or videos" onClick={() => picker.current?.click()}><Paperclip size={17} /></Button>
           <input aria-label="Message" placeholder={`Message #${room?.name ?? ""}`} value={body} maxLength={2000} onChange={(e) => setBody(e.target.value)} />
-          <Button variant="ghost" size="icon" type="submit" disabled={!body.trim() || sending || !active} aria-label="Send"><Send size={17} /></Button>
+          <Button variant="ghost" size="icon" type="submit" disabled={(!body.trim() && !pending.length) || sending || !active} aria-label="Send"><Send size={17} /></Button>
         </form>
       </section>
     </div>
