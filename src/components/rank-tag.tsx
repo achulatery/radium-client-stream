@@ -8,8 +8,9 @@ export function RankTag({ rank, accent }: { rank: ChatRank; accent?: string | nu
   return <span className={`rd-rank rd-rank-${rank}`} style={style}>{rank.toUpperCase()}</span>;
 }
 
-/** Owner and admin tags share the staff neon red. */
+/** Owner and admin tags share the staff neon red; contributor glows orange. */
 export function StaffTag({ role }: { role: string | null | undefined }) {
+  if (role === "contributor") return <span className="rd-rank rd-rank-contributor">CONTRIBUTOR</span>;
   if (role !== "owner" && role !== "admin") return null;
   return <span className="rd-rank rd-rank-staff">{role.toUpperCase()}</span>;
 }
