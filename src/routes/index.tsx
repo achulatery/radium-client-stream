@@ -5,15 +5,19 @@ import {
   ExternalLink,
   Home,
   LockKeyhole,
+  Megaphone,
   Moon,
   Music,
   MessageSquare,
+  Newspaper,
   RefreshCw,
   Search,
   Settings,
   ShieldCheck,
+  Sparkles,
   Sun,
   Youtube,
+  type LucideIcon,
 } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { PingCounter, RadiumMark, SingaporeClock } from "@/components/radium-ui";
@@ -51,6 +55,8 @@ import { saveSettings } from "@/lib/account.functions";
 const MusicTab = lazy(() => import("@/components/music-tab").then((m) => ({ default: m.MusicTab })));
 const ChatTab = lazy(() => import("@/components/chat-tab").then((m) => ({ default: m.ChatTab })));
 const ConsoleTab = lazy(() => import("@/components/console-tab").then((m) => ({ default: m.ConsoleTab })));
+const PostsTab = lazy(() => import("@/components/posts-tab").then((m) => ({ default: m.PostsTab })));
+const KlebTab = lazy(() => import("@/components/kleb-tab").then((m) => ({ default: m.KlebTab })));
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -73,7 +79,19 @@ export const Route = createFileRoute("/")({
   component: RadiumApp,
 });
 
-type Tab = "chat" | "browser" | "youtube" | "music" | "settings" | "console";
+type Tab = "announcements" | "updates" | "chat" | "browser" | "youtube" | "music" | "settings" | "console" | "kleb";
+
+const TAB_ICONS: Record<Tab, LucideIcon> = {
+  announcements: Megaphone,
+  updates: Newspaper,
+  browser: ShieldCheck,
+  chat: MessageSquare,
+  youtube: Youtube,
+  music: Music,
+  settings: Settings,
+  console: LockKeyhole,
+  kleb: Sparkles,
+};
 
 function RadiumApp() {
   const account = useAccount();
@@ -148,12 +166,15 @@ function ClientShell() {
       <nav className="flex h-11 shrink-0 items-stretch gap-0 overflow-x-auto px-3" style={{ background: "var(--rd-surface)", borderBottom: "1px solid var(--rd-line)" }}>
         {(
           [
+            ["announcements", "Announcements"],
+            ["updates", "Updates"],
             ["browser", "Browser"],
             ["chat", "Chat"],
             ["youtube", "YouTube"],
             ["music", "Music"],
             ["settings", "Settings"],
             ...(user?.isAdmin ? ([["console", "Console"]] as [Tab, string][]) : []),
+            ...(user?.isAdmin || user?.klebEnabled ? ([["kleb", "Kleb"]] as [Tab, string][]) : []),
           ] as [Tab, string][]).filter(([id]) => !user?.blockedTabs.includes(id)
         ).map(([id, label]) => (
           <button
@@ -168,7 +189,7 @@ function ClientShell() {
               borderRightColor: tab === id ? "var(--rd-line)" : "transparent",
             }}
           >
-            {id === "browser" ? <ShieldCheck size={13} className="text-client-signal" /> : id === "chat" ? <MessageSquare size={13} className="text-client-signal" /> : id === "youtube" ? <Youtube size={14} className="text-client-signal" /> : id === "music" ? <Music size={13} className="text-client-signal" /> : id === "console" ? <LockKeyhole size={13} className="text-client-signal" /> : <Settings size={13} className="text-client-signal" />}
+            {(() => { const Icon = TAB_ICONS[id]; return <Icon size={13} className="text-client-signal" />; })()}
             {label}
           </button>
         ))}
@@ -177,6 +198,8 @@ function ClientShell() {
       <div className="min-h-0 flex-1">
         {!user?.blockedTabs.includes("browser") && <div className={tab === "browser" ? "rd-menu-enter h-full" : "hidden"}><BrowserTab /></div>}
         <Suspense fallback={<div className="rc-tab-loading"><RefreshCw size={18} className="animate-spin" /><span>Loading…</span></div>}>
+        {tab === "announcements" && <div className="rd-menu-enter h-full"><PostsTab kind="announcement" /></div>}
+        {tab === "updates" && <div className="rd-menu-enter h-full"><PostsTab kind="update" /></div>}
         {visited.has("chat") && !user?.blockedTabs.includes("chat") && <div className={tab === "chat" ? "rd-menu-enter h-full" : "hidden"}><ChatTab visible={tab === "chat"} /></div>}
         {tab === "youtube" && !user?.blockedTabs.includes("youtube") && <div className="rd-menu-enter h-full"><YouTubeTab /></div>}
         {visited.has("music") && !user?.blockedTabs.includes("music") && <div className={tab === "music" ? "rd-menu-enter h-full" : "hidden"}>
@@ -184,6 +207,7 @@ function ClientShell() {
         </div>}
         {tab === "settings" && <div className="rd-menu-enter h-full"><SettingsTab /></div>}
         {visited.has("console") && user?.isAdmin && <div className={tab === "console" ? "rd-menu-enter h-full" : "hidden"}><ConsoleTab visible={tab === "console"} /></div>}
+        {visited.has("kleb") && (user?.isAdmin || user?.klebEnabled) && <div className={tab === "kleb" ? "rd-menu-enter h-full" : "hidden"}><KlebTab /></div>}
         </Suspense>
       </div>
 
