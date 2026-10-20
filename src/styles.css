@@ -508,3 +508,20 @@
   .radium-shell, .rd-menu-enter, [role="dialog"], .dc-room-form, .dc-msg { animation: none; }
   .radium-shell input, .radium-shell textarea, .dc-compose { transition: none; }
 }
+
+/* Neon chat rank tags */
+.rd-rank { --rank-color: var(--rd-accent); display: inline-flex; align-items: center; font-size: 9px; font-weight: 800; letter-spacing: .15em; line-height: 1; padding: 3px 6px; border-radius: 3px; color: var(--rank-color); border: 1px solid var(--rank-color); background: color-mix(in oklab, var(--rank-color) 14%, transparent); text-shadow: 0 0 4px var(--rank-color), 0 0 10px var(--rank-color); box-shadow: 0 0 6px color-mix(in oklab, var(--rank-color) 60%, transparent), inset 0 0 6px color-mix(in oklab, var(--rank-color) 30%, transparent); }
+.rd-rank-vip { --rank-color: #55ff55; }
+.rd-rank-mvp { --rank-color: #55ffff; }
+.rd-rank-mythic { --rank-color: #a000ff; }
+.rd-rank-legend { --rank-color: #ffaa00; }
+.rd-rank-staff { --rank-color: #aa0000; text-shadow: 0 0 4px #ff2a2a, 0 0 10px #aa0000; }
+.dc-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.dc-attachments img, .dc-attachments video { max-width: min(360px, 100%); max-height: 320px; border-radius: 6px; border: 1px solid var(--rd-line); background: var(--rd-surface); object-fit: contain; }
+.dc-file { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--rd-line); background: var(--rd-surface); color: var(--rd-text); font-size: 12px; }
+.dc-pending-files { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 12px 0; }
+.dc-pending-file { position: relative; display: inline-flex; align-items: center; gap: 6px; max-width: 220px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--rd-line); background: var(--rd-surface); font-size: 11px; color: var(--rd-text); }
+.dc-pending-file img { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; }
+.dc-pending-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-pending-file progress { width: 48px; height: 4px; accent-color: var(--rd-accent); }
+.dc-limit { padding: 4px 12px 0; font-size: 11px; color: var(--rd-muted); }
