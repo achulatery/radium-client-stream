@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, Ban, ChevronDown, Globe, KeyRound, MessageSquare, Music, RefreshCw, Search, ShieldCheck, ShieldPlus, SlidersHorizontal, Trash2, Users, Youtube } from "lucide-react";
+import { Activity, Ban, ChevronDown, Globe, KeyRound, MessageSquare, Music, RefreshCw, Search, ShieldCheck, ShieldPlus, SlidersHorizontal, Sparkles, Trash2, Users, Youtube } from "lucide-react";
 import { adminDeleteUser, adminGetUser, adminListUsers, adminSetMod, adminSetBan, adminSetBlockedTabs } from "@/lib/account.functions";
 import { useAccount } from "@/lib/account";
 import { canDeleteAccounts, canRevokeTabs, roleRank } from "@/lib/account-permissions";
+import { attachmentLimit, CHAT_RANKS, formatBytes, type ChatRank } from "@/lib/chat-ranks";
+import { ownerGetExtras, ownerSetExtras } from "@/lib/extras.functions";
 import { Button } from "@/components/ui/button";
 import { Avatar, ProfileDialog } from "@/components/profile";
+import { RankTag } from "@/components/rank-tag";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { PasswordSettings } from "./password-settings";
 
@@ -28,6 +31,7 @@ export function ConsoleTab({ visible = true }: { visible?: boolean }) {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [err, setErr] = useState("");
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [extras, setExtras] = useState<{ chatRank: ChatRank; klebEnabled: boolean } | null>(null);
   const [now, setNow] = useState(0);
   const online = (lastSeen: string) => now > 0 && now - Date.parse(lastSeen) < 90000;
   const detailRequest = useRef(0);
@@ -60,10 +64,12 @@ export function ConsoleTab({ visible = true }: { visible?: boolean }) {
     return () => { cancelled = true; clearInterval(timer); };
   }, [visible]);
   useEffect(() => {
-    setDetail(null); setHistoryQuery(""); setErr("");
+    setDetail(null); setHistoryQuery(""); setErr(""); setExtras(null);
     if (selected) void loadDetail(selected).catch((e) => setErr(e instanceof Error ? e.message : "Could not load account"));
-    return () => { ++detailRequest.current; };
-  }, [selected, loadDetail]);
+    let cancelled = false;
+    if (selected && me?.role === "owner") void ownerGetExtras({ data: { id: selected } }).then((x) => { if (!cancelled) setExtras(x); }).catch(() => {});
+    return () => { ++detailRequest.current; cancelled = true; };
+  }, [selected, loadDetail, me?.role]);
   const run = async (fn: () => Promise<unknown>) => {
     if (busy) return;
     setBusy(true); setErr("");
@@ -107,6 +113,10 @@ export function ConsoleTab({ visible = true }: { visible?: boolean }) {
           <div className="rc-actions">
             {me?.role === "owner" && !own && !protectedAccount && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="rc-command" disabled={busy}><ShieldPlus size={14} />Rank<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent className="rc-menu" align="start"><DropdownMenuLabel>ACCOUNT RANK</DropdownMenuLabel><DropdownMenuRadioGroup value={detail.user.role ?? "none"} onValueChange={(role) => { if (role !== "admin" && role !== "mod" && role !== "none") return; void run(async () => { await adminSetMod({ data: { id: detail.user.id, role } }); await refreshSelected(detail.user.id); }); }}>
               <DropdownMenuRadioItem value="admin">Admin</DropdownMenuRadioItem><DropdownMenuRadioItem value="mod">Mod</DropdownMenuRadioItem><DropdownMenuRadioItem value="none">Member</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
+            {me?.role === "owner" && extras && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="rc-command" disabled={busy}><Sparkles size={14} />Chat rank{extras.chatRank && <RankTag rank={extras.chatRank} accent={detail.user.accent} />}<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent className="rc-menu" align="start"><DropdownMenuLabel>CHAT RANK</DropdownMenuLabel><DropdownMenuRadioGroup value={extras.chatRank ?? "none"} onValueChange={(value) => { const chatRank = value === "none" ? null : CHAT_RANKS.find((r) => r === value); if (chatRank === undefined) return; void run(async () => { await ownerSetExtras({ data: { id: detail.user.id, chatRank } }); setExtras({ ...extras, chatRank }); }); }}>
+              {[...CHAT_RANKS].reverse().map((r) => <DropdownMenuRadioItem key={r} value={r}><RankTag rank={r} accent={detail.user.accent} /><small>{formatBytes(attachmentLimit(null, r))} per message</small></DropdownMenuRadioItem>)}
+              <DropdownMenuRadioItem value="none">No rank</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
             {canAct && canRevokeTabs(me?.role ?? null) && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="rc-command" disabled={busy}><SlidersHorizontal size={14} />Access<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent className="rc-menu" align="start"><DropdownMenuLabel>MENU ACCESS</DropdownMenuLabel>
               {accessItems.map(([tab, label, Icon]) => <DropdownMenuCheckboxItem key={tab} disabled={busy} checked={!detail.user.blockedTabs.includes(tab)} onSelect={(e) => e.preventDefault()} onCheckedChange={(allowed) => void run(async () => {
