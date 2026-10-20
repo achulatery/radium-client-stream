@@ -516,10 +516,6 @@ function PipedView({ options }: { options: React.ReactNode }) {
     setVideo(fallback);
     setQuality(EMBED);
     setStatus(fallback.title);
-    const streams = await preloadVideo(id);
-    if (activeId.current !== id || !streams?.length) return;
-    setVideo({ ...fallback, streams });
-    setQuality(streams[0]?.url ?? EMBED);
   };
 
   const onStreamError = () => {
@@ -698,14 +694,6 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
     const videoId = v.videoId;
     void getVideo(videoId).then((meta) => {
       if (meta.success) setSelected((current) => current?.videoId === videoId ? { ...current, ...meta.video } : current);
-    });
-    void preloadVideo(videoId).then((streams) => {
-      const url = streams?.[0]?.url;
-      if (!url) return;
-      setSelected((current) => {
-        if (current?.videoId === videoId) { setStreamUrl(url); setPlayMode("stream"); }
-        return current;
-      });
     });
     void getComments(videoId).then((response) => {
       if (!response.success) return;
