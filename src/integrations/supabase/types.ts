@@ -158,6 +158,41 @@ export type Database = {
           },
         ]
       }
+      app_extras: {
+        Row: {
+          chat_rank: string | null
+          kleb_body: string
+          kleb_enabled: boolean
+          kleb_layout: string
+          kleb_title: string
+          user_id: string
+        }
+        Insert: {
+          chat_rank?: string | null
+          kleb_body?: string
+          kleb_enabled?: boolean
+          kleb_layout?: string
+          kleb_title?: string
+          user_id: string
+        }
+        Update: {
+          chat_rank?: string | null
+          kleb_body?: string
+          kleb_enabled?: boolean
+          kleb_layout?: string
+          kleb_title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_extras_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_room_members: {
         Row: {
           joined_at: string
@@ -184,6 +219,70 @@ export type Database = {
           },
           {
             foreignKeyName: "app_room_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_uploads: {
+        Row: {
+          chunk_count: number
+          complete: boolean
+          created_at: string
+          id: string
+          kind: string
+          message_id: string | null
+          mime: string
+          name: string
+          room_id: string | null
+          size_bytes: number
+          user_id: string
+        }
+        Insert: {
+          chunk_count: number
+          complete?: boolean
+          created_at?: string
+          id?: string
+          kind: string
+          message_id?: string | null
+          mime: string
+          name: string
+          room_id?: string | null
+          size_bytes: number
+          user_id: string
+        }
+        Update: {
+          chunk_count?: number
+          complete?: boolean
+          created_at?: string
+          id?: string
+          kind?: string
+          message_id?: string | null
+          mime?: string
+          name?: string
+          room_id?: string | null
+          size_bytes?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_uploads_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "app_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_uploads_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "app_chat_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_uploads_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "app_users"
@@ -241,7 +340,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      reserve_radium_upload: {
+        Args: {
+          p_chunks: number
+          p_id: string
+          p_kind: string
+          p_mime: string
+          p_name: string
+          p_room: string
+          p_size: number
+          p_user: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

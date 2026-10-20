@@ -1,3 +1,6 @@
+- [ ] Add owner-granted personal Kleb pages with 5 GB picture allowance
+- [ ] Add owner-assigned neon chat ranks without staff privileges
+- [ ] Add private chunked rank-limited attachments and verify signed-in flows
 - [x] Make YouTube playback immediate and independent of Invidious metadata/comments
 - [ ] Enforce history visibility and owner account protection
 - [ ] Enforce role-aware DuckDuckGo Safe Search and improve image loading

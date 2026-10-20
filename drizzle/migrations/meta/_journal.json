@@ -29,6 +29,13 @@
       "when": 1792197766764,
       "tag": "0003_public_chat_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792455993882,
+      "tag": "0004_kleb_chat_ranks_uploads",
+      "breakpoints": true
     }
   ]
 }
