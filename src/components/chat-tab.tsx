@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileIcon, Hash, LogOut, Megaphone, Newspaper, Paperclip, Pencil, Plus, Send, Trash, Trash2, X } from "lucide-react";
-import { PostsTab } from "@/components/posts-tab";
+import { Eye, FileIcon, Hash, LogOut, Megaphone, Newspaper, Paperclip, Pencil, Plus, Send, Trash, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, ProfileDialog } from "@/components/profile";
@@ -11,19 +10,14 @@ import { formatBytes } from "@/lib/chat-ranks";
 import { CHAT_MEDIA_ACCEPT, prepareChatMedia } from "@/lib/chat-media";
 import { uploadFile } from "@/lib/upload-file";
 import { removeUpload } from "@/lib/uploads.functions";
-import { createRoom, deleteMessage, deleteRoom, editMessage, getMyMediaLimit, joinRoom, leaveRoom, listMessages, listRooms, sendMessage } from "@/lib/chat.functions";
+import { createRoom, deleteMessage, deleteRoom, editMessage, getMyMediaLimit, joinRoom, leaveRoom, listMessages, listRooms, sendMessage, setRoomReadOnly } from "@/lib/chat.functions";
 
 type Room = Awaited<ReturnType<typeof listRooms>>[number];
 type Message = Awaited<ReturnType<typeof listMessages>>[number] & { sending?: boolean };
 type Pending = { key: string; file: File; preview: string | null; progress: number; uploadId?: string; error?: string; done: Promise<string | null> };
 const LAST = "radium-chat-room";
 const MAX_FILES = 10;
-/** Read-only staff channels pinned above the rooms; everyone reads, staff post. */
-const CHANNELS = [
-  { id: "channel:announcement", label: "Announcements", kind: "announcement" as const, Icon: Megaphone },
-  { id: "channel:update", label: "Updates", kind: "update" as const, Icon: Newspaper },
-];
-const channelOf = (id: string | null) => CHANNELS.find((c) => c.id === id) ?? null;
+const roomIcon = (code: string) => code === "announcements" ? Megaphone : code === "updates" ? Newspaper : Hash;
 const deletedLabel = (by: string | null) =>
   by === "self" || !by ? "Message deleted" : `Message deleted by ${by === "mod" ? "moderator" : by}`;
 const fileUrl = (id: string) => `/api/public/attachment?id=${id}`;
@@ -96,14 +90,13 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
     const r = await listRooms();
     setRooms(r);
     setActive((cur) => {
-      if (cur && (channelOf(cur) || r.some((x) => x.id === cur))) return cur;
+      if (cur && r.some((x) => x.id === cur)) return cur;
       const saved = localStorage.getItem(LAST);
-      if (channelOf(saved)) return saved;
       return r.find((x) => x.id === saved)?.id ?? r[0]?.id ?? null;
     });
   }, []);
   const loadMessages = useCallback(async () => {
-    if (!active || channelOf(active) || sendingRef.current) return;
+    if (!active || sendingRef.current) return;
     const version = ++requestVersion.current;
     try {
       const rows = await listMessages({ data: { roomId: active } });
@@ -167,28 +160,18 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
 
   const run = async (fn: () => Promise<unknown>) => { setError(""); try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong"); } };
   const room = rooms.find((r) => r.id === active);
-  const channel = channelOf(active);
+  const canPost = room?.canPost ?? true;
 
   return (
     <div className="dc-shell">
       {profileId && <ProfileDialog userId={profileId} editable={profileId === user?.id} onClose={() => { setProfileId(null); void loadMessages(); }} />}
       <aside className="dc-rooms">
-        <div className="dc-rooms-head">CHANNELS</div>
-        <ul>
-          {CHANNELS.map((c) => (
-            <li key={c.id}>
-              <button className={c.id === active ? "dc-room active" : "dc-room"} onClick={() => setActive(c.id)}>
-                <c.Icon size={15} /><span>{c.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
         <div className="dc-rooms-head">ROOMS</div>
         <ul>
           {rooms.map((r) => (
             <li key={r.id}>
               <button className={r.id === active ? "dc-room active" : "dc-room"} onClick={() => setActive(r.id)}>
-                <Hash size={15} /><span>{r.name}</span>{r.isPublic ? <em>PUBLIC</em> : !r.joined && <em>VIEW</em>}
+                {(() => { const I = roomIcon(r.code); return <I size={15} />; })()}<span>{r.name}</span>{r.readOnly ? <em>VIEW</em> : r.isPublic ? <em>PUBLIC</em> : !r.joined && <em>VIEW</em>}
               </button>
             </li>
           ))}
@@ -212,12 +195,12 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
       </aside>
 
       <section className="dc-main">
-        {channel ? <PostsTab kind={channel.kind} /> : <>
         <header className="dc-head">
-          <div><Hash size={18} /><strong>{room?.name ?? "…"}</strong>{room && <span>code: {room.code}</span>}</div>
+          <div><Hash size={18} /><strong>{room?.name ?? "…"}</strong>{room && <span>code: {room.code}</span>}{room?.readOnly && <span>· view-only</span>}</div>
           <div className="flex gap-1">
-            {room && room.code !== "general" && room.joined && <Button variant="ghost" size="icon" title="Leave room" aria-label="Leave room" onClick={() => void run(async () => { await leaveRoom({ data: { roomId: room.id } }); setActive(null); await loadRooms(); })}><LogOut size={15} /></Button>}
-            {room && room.code !== "general" && staff && <Button variant="ghost" size="icon" title="Delete room" aria-label="Delete room" onClick={() => window.confirm(`Delete #${room.name}?`) && void run(async () => { await deleteRoom({ data: { roomId: room.id } }); setActive(null); await loadRooms(); })}><Trash2 size={15} /></Button>}
+            {room && user?.role === "owner" && <Button variant={room.readOnly ? "secondary" : "ghost"} size="icon" title={room.readOnly ? "Let everyone type" : "Make view-only"} aria-label="Toggle view-only" onClick={() => void run(async () => { await setRoomReadOnly({ data: { roomId: room.id, readOnly: !room.readOnly } }); await loadRooms(); })}><Eye size={15} /></Button>}
+            {room && !["general", "announcements", "updates"].includes(room.code) && room.joined && <Button variant="ghost" size="icon" title="Leave room" aria-label="Leave room" onClick={() => void run(async () => { await leaveRoom({ data: { roomId: room.id } }); setActive(null); await loadRooms(); })}><LogOut size={15} /></Button>}
+            {room && !["general", "announcements", "updates"].includes(room.code) && staff && <Button variant="ghost" size="icon" title="Delete room" aria-label="Delete room" onClick={() => window.confirm(`Delete #${room.name}?`) && void run(async () => { await deleteRoom({ data: { roomId: room.id } }); setActive(null); await loadRooms(); })}><Trash2 size={15} /></Button>}
           </div>
         </header>
 
@@ -261,6 +244,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
           {!p.error && p.progress < 100 && <progress value={p.progress} max={100} aria-label={`Uploading ${p.file.name}`} />}
           <button type="button" aria-label={`Remove ${p.file.name}`} onClick={() => dropPending(p)}><X size={12} /></button>
         </div>)}</div>}
+        {!canPost ? <p className="dc-limit">This channel is view-only. Only staff can post here.</p> : <>
         {media && <p className="dc-limit">Media limit: {formatBytes(media.limit)} per message</p>}
         <form className={`dc-compose ${body ? "is-typing" : ""}`} onSubmit={(e) => { e.preventDefault(); void submitMessage(); }}>
           <input ref={picker} type="file" accept={CHAT_MEDIA_ACCEPT} multiple hidden onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
