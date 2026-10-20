@@ -196,10 +196,14 @@ async function handle(request: Request): Promise<Response> {
         const list = Array.isArray(data)
           ? (data as RawItem[])
           : ((data as { items?: RawItem[] }).items ?? []);
+        const shaped = list.filter((v) => (v.type ?? "stream") === "stream").map(shapeItem).filter((v) => v.videoId);
+        const results = (
+          await Promise.all(shaped.map(async (v) => ((await playableWithoutLogin(v.videoId!)) ? v : null)))
+        ).filter((v) => v !== null);
         return json({
           success: true,
           instance,
           nextpage: Array.isArray(data) ? null : ((data as { nextpage?: string | null }).nextpage ?? null),
-          results: list.filter((v) => (v.type ?? "stream") === "stream").map(shapeItem).filter((v) => v.videoId),
+          results,
         });
 }
