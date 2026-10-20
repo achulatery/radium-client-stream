@@ -64,6 +64,13 @@
       "when": 1792472355828,
       "tag": "0008_add_contributor_role",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792482335477,
+      "tag": "0009_read_only_rooms",
+      "breakpoints": true
     }
   ]
 }
