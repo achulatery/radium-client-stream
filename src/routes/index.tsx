@@ -25,7 +25,8 @@ import { VideoThumbnail } from "@/components/video-thumbnail";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { canToggleSafeSearch } from "@/lib/account-permissions";
-import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled, searchQueryOf } from "@/lib/browser-policy";
+import { browserDestination, cleanBrowserAddress, safeSearchEnabled, searchQueryOf } from "@/lib/browser-policy";
+import { searchWeb, type WebResult } from "@/lib/search.functions";
 import { isHostingErrorPage, resetUltraviolet, setupUltraviolet, uvTargetOf, uvUrl, type UvFailure } from "@/lib/ultraviolet";
 import {
   formatDuration,
@@ -248,6 +249,9 @@ function BrowserTab() {
   const [savingSearch, setSavingSearch] = useState(false);
   const [entries, setEntries] = useState<string[]>([]);
   const [cursor, setCursor] = useState(-1);
+  const [results, setResults] = useState<{ q: string; items: WebResult[] } | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const frame = useRef<HTMLIFrameElement>(null);
   const current = useRef<string | null>(null);
   const addressFocused = useRef(false);
@@ -256,7 +260,6 @@ function BrowserTab() {
   const [uvStarting, setUvStarting] = useState(true);
   const [uvReason, setUvReason] = useState<UvFailure | null>(null);
   const [uvAttempt, setUvAttempt] = useState(0);
-  const visitedHome = useRef(false);
 
   // Ultraviolet proxies clicked sites inside the browser via a service worker;
   // Never load a website until the Ultraviolet transport is verified.
@@ -276,6 +279,7 @@ function BrowserTab() {
     : null;
 
   const remember = useCallback((url: string) => {
+    setResults(null);
     if (url === current.current) return;
     current.current = url;
     setTarget(url);
@@ -285,38 +289,45 @@ function BrowserTab() {
     pushHistory(url);
   }, [cursor, pushHistory]);
 
-  // Radium visits DuckDuckGo itself: the home page and every search load
-  // through Ultraviolet like any other site, so results and clicks stay
-  // inside the same proxied session.
-  const home = applySearchPolicy(new URL("https://duckduckgo.com/"), safe).href;
+  // Searching is native and unproxied; only a chosen site loads through Ultraviolet.
+  const runSearch = useCallback(async (q: string, safeValue = safe) => {
+    setSearching(true); setSearchError(""); setResults(null);
+    setTarget(null); current.current = null;
+    setInput(q);
+    setStatus(`Searching for ${q}`);
+    try {
+      const items = await searchWeb({ data: { q, safe: safeValue } });
+      setResults({ q, items });
+      setStatus("Ready");
+    } catch (error) {
+      setSearchError(error instanceof Error ? error.message : "Search failed");
+      setStatus("Search failed");
+    } finally { setSearching(false); }
+  }, [safe]);
 
   const open = useCallback((raw: string) => {
     const normalized = normalizeQuery(raw);
     if (!normalized) return;
     const query = searchQueryOf(normalized);
-    const destination = query
-      ? `https://duckduckgo.com/?q=${encodeURIComponent(query)}`
-      : browserDestination(normalized);
+    if (query) { void runSearch(query); return; }
+    const destination = browserDestination(normalized);
     if (!destination) return;
-    const url = applySearchPolicy(new URL(destination), safe).href;
-    remember(url);
-    setInput(cleanBrowserAddress(url));
+    remember(destination);
+    setInput(cleanBrowserAddress(destination));
     setNonce((n) => n + 1);
     setStatus("Loading page");
-  }, [remember, safe]);
+  }, [remember, runSearch]);
 
-  // The Browser starts by visiting DuckDuckGo.
-  useEffect(() => {
-    if (visitedHome.current) return;
-    visitedHome.current = true;
-    open(home);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const goHome = useCallback(() => {
+    current.current = null;
+    setTarget(null); setResults(null); setSearchError(""); setInput(""); setStatus("Ready");
   }, []);
 
   const travel = (next: number) => {
     const url = entries[next];
     if (!url) return;
     current.current = url;
+    setResults(null);
     setCursor(next); setTarget(url); setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1); setStatus("Loading page");
   };
@@ -343,17 +354,38 @@ function BrowserTab() {
       </div>
       <form className="min-w-0 flex-1 basis-40" onSubmit={(e) => { e.preventDefault(); open(input); }}>
         <div className="flex h-9 items-center gap-2 rounded-sm border border-client-line bg-client-search px-2 text-client-search-text">
-          <Button variant="ghost" size="icon" type="button" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Home" title="Home" onClick={() => open(home)}><Home size={14} /></Button>
+          <Button variant="ghost" size="icon" type="button" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Home" title="Home" onClick={goHome}><Home size={14} /></Button>
           <input value={input} onChange={(e) => setInput(e.target.value)} onFocus={() => { addressFocused.current = true; }} onBlur={() => { addressFocused.current = false; }} placeholder="Search or enter a web address" aria-label="Address bar" autoComplete="off" className="min-w-0 w-full bg-transparent font-mono text-sm outline-none" />
           <Button variant="ghost" size="icon" type="submit" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Open address"><Search size={14} /></Button>
         </div>
       </form>
-      <label className="flex shrink-0 items-center gap-2 text-xs text-client-muted"><ShieldCheck size={14} />Safe Search<Switch aria-label="DuckDuckGo Safe Search" checked={safe} disabled={savingSearch || !canToggleSafeSearch(user?.role ?? null)} onCheckedChange={(value) => { setSavingSearch(true); void saveSettings({ data: { settings: { ...settings, duckduckgoSafeSearch: value }, theme } }).then(() => { updateSettings({ duckduckgoSafeSearch: value }); if (target && new URL(target).hostname.endsWith("duckduckgo.com")) { const next = applySearchPolicy(new URL(target), value).href; current.current = next; setTarget(next); setInput(cleanBrowserAddress(next)); setNonce((n) => n + 1); } }).catch(() => setStatus("Could not save Safe Search preference")).finally(() => setSavingSearch(false)); }} /></label>
+      <label className="flex shrink-0 items-center gap-2 text-xs text-client-muted"><ShieldCheck size={14} />Safe Search<Switch aria-label="DuckDuckGo Safe Search" checked={safe} disabled={savingSearch || !canToggleSafeSearch(user?.role ?? null)} onCheckedChange={(value) => { setSavingSearch(true); void saveSettings({ data: { settings: { ...settings, duckduckgoSafeSearch: value }, theme } }).then(() => { updateSettings({ duckduckgoSafeSearch: value }); if (results) void runSearch(results.q, value); }).catch(() => setStatus("Could not save Safe Search preference")).finally(() => setSavingSearch(false)); }} /></label>
       {target && <Button variant="ghost" size="icon" aria-label="Open in browser" title="Open in browser" onClick={() => window.open(target, "_blank", "noopener,noreferrer")}><ExternalLink size={15} /></Button>}
     </div>
     <span className="sr-only" aria-live="polite">{status}</span>
     <div className="relative min-h-0 flex-1">
-      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Ultraviolet connection unavailable"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : target ? <div className="flex h-full flex-col items-center justify-center gap-4 text-client-muted"><ShieldCheck size={28} /><p className="max-w-sm text-center">{uvStarting ? "Connecting…" : uvFailureMessage(uvReason)}</p>{!uvStarting && <Button variant="secondary" onClick={() => { setUvReady(false); setUvAttempt((n) => n + 1); }}><RefreshCw size={14} />Retry connection</Button>}</div> : <div className="flex h-full items-center justify-center text-sm text-client-muted">Connecting…</div>}
+      {!target ? <div className="rd-websearch">
+        {results || searching || searchError ? <div className="rd-websearch-results">
+          <header className="rd-websearch-summary">{searching ? `Searching for “${input}”…` : searchError ? "Search failed" : `${results?.items.length ?? 0} results for “${results?.q ?? ""}”`}</header>
+          {searchError && <div className="rd-websearch-error"><p>{searchError}</p><Button variant="secondary" onClick={() => void runSearch(results?.q ?? input)}><RefreshCw size={14} />Retry</Button></div>}
+          <ol>
+            {results?.items.map((item) => <li key={item.url}>
+              <button type="button" onClick={() => open(item.url)}>
+                <strong>{item.title}</strong>
+                <span className="rd-websearch-url">{cleanBrowserAddress(item.url)}</span>
+                {item.snippet && <span className="rd-websearch-snippet">{item.snippet}</span>}
+              </button>
+            </li>)}
+            {results && !results.items.length && !searching && !searchError && <li className="rd-websearch-empty">No results found.</li>}
+          </ol>
+        </div> : <div className="rd-websearch-hero">
+          <RadiumMark />
+          <h2>Search the web</h2>
+          <form onSubmit={(e) => { e.preventDefault(); open(input); }}>
+            <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Search with DuckDuckGo" aria-label="Search the web" autoComplete="off" />
+          </form>
+        </div>}
+      </div> : frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Ultraviolet connection unavailable"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <div className="flex h-full flex-col items-center justify-center gap-4 text-client-muted"><ShieldCheck size={28} /><p className="max-w-sm text-center">{uvStarting ? "Connecting…" : uvFailureMessage(uvReason)}</p>{!uvStarting && <Button variant="secondary" onClick={() => { setUvReady(false); setUvAttempt((n) => n + 1); }}><RefreshCw size={14} />Retry connection</Button>}</div>}
     </div>
   </div>;
 }
