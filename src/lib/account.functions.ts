@@ -275,6 +275,7 @@ export const adminSetBan = createServerFn({ method: "POST" })
     const { data: targetUser } = await sb.from("app_users").select("username").eq("id", data.id).maybeSingle();
     if (!targetUser || targetUser.username.toLowerCase() === PROTECTED_ADMIN || !canManageAccount(admin.role, (target?.role ?? null) as AccountRole)) throw new Error("This account is protected");
     await sb.from("app_users").update({ banned: data.banned }).eq("id", data.id);
+    await sb.from("app_activity").insert({ user_id: admin.id, kind: "staff", value: `${data.banned ? "Banned" : "Unbanned"} ${targetUser.username}` });
     return { ok: true };
   });
 
@@ -362,5 +363,6 @@ export const adminSetBlockedTabs = createServerFn({ method: "POST" })
     if (!targetUser || targetUser.username.toLowerCase() === PROTECTED_ADMIN || !canManageAccount(admin.role, (targetRole?.role ?? null) as AccountRole)) throw new Error("This account is protected");
     const { error } = await sb.from("app_users").update({ blocked_tabs: [...new Set(data.tabs)] }).eq("id", data.id);
     if (error) throw new Error("Could not update access");
+    await sb.from("app_activity").insert({ user_id: admin.id, kind: "staff", value: `Set ${targetUser.username}'s revoked menus: ${data.tabs.join(", ") || "none"}` });
     return { ok: true };
   });
