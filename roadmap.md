@@ -44,3 +44,6 @@
 - [ ] Verify owner delete options and native search in the browser
 - [x] Search natively through Google (DuckDuckGo fallback) and proxy clicked sites with Ultraviolet
 - [ ] Verify Google search results and Ultraviolet site loading in the browser
+- [ ] Fix "Deployment storage temporarily unavailable" when opening any website in Browser
+- [ ] Neon rank tag colours in chat: VIP #55FF55, MVP #55FFFF, MYTHIC #A000FF, LEGEND #FFAA00, RADIUM = user's accent, owner/admin #AA0000
+- [ ] Let chat users send images within their rank's per-message media limit
