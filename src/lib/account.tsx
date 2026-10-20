@@ -11,6 +11,7 @@ export type AccountUser = {
   bio: string;
   createdAt: string;
   blockedTabs: string[];
+  klebEnabled: boolean;
 };
 
 type Ctx = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canChangePassword, canDeleteAccounts, canModerate, canPromote, canCreatePublicRoom, canRevokeTabs, canViewAccountHistory, canManageAccount, REVOCABLE_TABS } from "@/lib/account-permissions";
+import { canBan, canChangePassword, canDeleteAccounts, canModerate, canPromote, canCreatePublicRoom, canRevokeTabs, canViewAccountHistory, canManageAccount, REVOCABLE_TABS } from "@/lib/account-permissions";
 describe("account permissions", () => {
   it("lets only the owner view other people's history", () => {
     for (const target of [null, "mod", "admin"] as const) expect(canViewAccountHistory("owner", target)).toBe(true);
@@ -15,5 +15,6 @@ describe("account permissions", () => {
   it("allows mods to moderate but not ordinary users", () => { expect(canModerate("mod")).toBe(true); expect(canModerate(null)).toBe(false); });
   it("restricts public chat creation to mods, admins and owner", () => { expect(canCreatePublicRoom(null)).toBe(false); for (const role of ["mod", "admin", "owner"] as const) expect(canCreatePublicRoom(role)).toBe(true); });
   it("supports revoking all four requested menus", () => { expect([...REVOCABLE_TABS].sort()).toEqual(["browser", "chat", "music", "youtube"]); });
-  it("keeps menu revocation restricted to admins and owner", () => { expect(canRevokeTabs(null)).toBe(false); expect(canRevokeTabs("mod")).toBe(false); expect(canRevokeTabs("admin")).toBe(true); expect(canRevokeTabs("owner")).toBe(true); });
+  it("lets mods, admins and owner revoke menus", () => { expect(canRevokeTabs(null)).toBe(false); expect(canRevokeTabs("mod")).toBe(true); expect(canRevokeTabs("admin")).toBe(true); expect(canRevokeTabs("owner")).toBe(true); });
+  it("lets admins and owner ban but not mods", () => { expect(canBan(null)).toBe(false); expect(canBan("mod")).toBe(false); expect(canBan("admin")).toBe(true); expect(canBan("owner")).toBe(true); });
 });

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Ban, ChevronDown, Globe, KeyRound, MessageSquare, Music, RefreshCw, Search, ShieldCheck, ShieldPlus, SlidersHorizontal, Trash2, Users, Youtube } from "lucide-react";
 import { adminDeleteUser, adminGetUser, adminListUsers, adminSetMod, adminSetBan, adminSetBlockedTabs } from "@/lib/account.functions";
 import { useAccount } from "@/lib/account";
-import { canDeleteAccounts, canRevokeTabs, roleRank } from "@/lib/account-permissions";
+import { canBan, canDeleteAccounts, canRevokeTabs, roleRank } from "@/lib/account-permissions";
 import { attachmentLimit, CHAT_RANKS, formatBytes, type ChatRank } from "@/lib/chat-ranks";
 import { ownerGetExtras, ownerSetExtras } from "@/lib/extras.functions";
 import { Button } from "@/components/ui/button";
@@ -118,7 +118,7 @@ export function ConsoleTab({ visible = true }: { visible?: boolean }) {
                 await adminSetBlockedTabs({ data: { id: detail.user.id, tabs } }); await loadDetail(detail.user.id);
               })}><Icon size={14} /><span>{label}</span><small>{detail.user.blockedTabs.includes(tab) ? "Revoked" : "Allowed"}</small></DropdownMenuCheckboxItem>)}
             </DropdownMenuContent></DropdownMenu>}
-            {canAct && <Button variant="ghost" disabled={busy} className="rc-command rc-danger" onClick={() => void run(async () => { await adminSetBan({ data: { id: detail.user.id, banned: !detail.user.banned } }); await refreshSelected(detail.user.id); })}>{detail.user.banned ? <ShieldCheck size={14} /> : <Ban size={14} />}{detail.user.banned ? "Unban" : "Ban account"}</Button>}
+            {canAct && canBan(me?.role ?? null) && <Button variant="ghost" disabled={busy} className="rc-command rc-danger" onClick={() => void run(async () => { await adminSetBan({ data: { id: detail.user.id, banned: !detail.user.banned } }); await refreshSelected(detail.user.id); })}>{detail.user.banned ? <ShieldCheck size={14} /> : <Ban size={14} />}{detail.user.banned ? "Unban" : "Ban account"}</Button>}
             {canAct && !protectedAccount && canDeleteAccounts(me?.role ?? null) && <Button variant="ghost" disabled={busy} className="rc-command rc-danger" onClick={() => { if (!window.confirm(`Delete ${detail.user.username} permanently?`)) return; void run(async () => { await adminDeleteUser({ data: { id: detail.user.id } }); setSelected(null); setDetail(null); await loadUsers(); }); }}><Trash2 size={14} />Delete</Button>}
           </div>
            {me?.role === "owner" && (own || canAct) && <details className="rc-security"><summary><KeyRound size={14} />Password reset<ChevronDown size={12} /></summary><PasswordSettings key={detail.user.id} targetId={detail.user.id} /></details>}

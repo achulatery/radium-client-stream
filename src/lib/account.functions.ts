@@ -2,7 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { useSession } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { canChangePassword, canDeleteAccounts, canModerate, canPromote, canViewAccountHistory, canManageAccount, canRevokeTabs, REVOCABLE_TABS, roleRank, type AccountRole } from "./account-permissions";
+import { canBan, canChangePassword, canDeleteAccounts, canModerate, canPromote, canViewAccountHistory, canManageAccount, canRevokeTabs, REVOCABLE_TABS, roleRank, type AccountRole } from "./account-permissions";
 import type { ChatRank } from "./chat-ranks";
 
 type AccountSession = { userId?: string };
@@ -59,6 +59,7 @@ export const getMe = createServerFn({ method: "GET" }).handler(async () => {
   if (user.banned) return { user: null, banned: true };
   const sb = await db();
   await sb.from("app_users").update({ last_seen: new Date().toISOString() }).eq("id", user.id);
+  const { data: extra } = await sb.from("app_extras").select("kleb_enabled").eq("user_id", user.id).maybeSingle();
   return {
     banned: false,
     user: {
@@ -71,6 +72,7 @@ export const getMe = createServerFn({ method: "GET" }).handler(async () => {
       bio: (user.bio ?? "") as string,
       createdAt: user.created_at as string,
       blockedTabs: (user.blocked_tabs ?? []) as string[],
+      klebEnabled: Boolean(extra?.kleb_enabled),
     },
   };
 });
@@ -266,6 +268,7 @@ export const adminSetBan = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ id: z.string().uuid(), banned: z.boolean() }).parse(d))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!canBan(admin.role)) throw new Error("Mods can't ban accounts");
     if (admin.id === data.id) throw new Error("You can't ban yourself");
     const sb = await db();
     const { data: target } = await sb.from("app_account_roles").select("role").eq("user_id", data.id).maybeSingle();
