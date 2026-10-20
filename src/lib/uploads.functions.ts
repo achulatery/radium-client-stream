@@ -4,7 +4,8 @@ import { attachmentLimit, CHUNK_BYTES, KLEB_BYTES, type ChatRank } from "./chat-
 export const beginUpload = createServerFn({ method: "POST" })
   .validator((d: { kind: "chat" | "kleb"; roomId?: string; name: string; mime: string; size: number }) => z.object({ kind: z.enum(["chat", "kleb"]), roomId: z.string().uuid().optional(), name: z.string().min(1).max(255), mime: z.string().max(100), size: z.number().int().positive().max(15_000_000_000) }).parse(d))
   .handler(async ({ data }) => {
-    const { uploadContext } = await import("./uploads.server"); const { user, sb } = await uploadContext(data.kind, data.roomId);
+    const { uploadContext, cleanupAbandonedUploads } = await import("./uploads.server"); const { user, sb } = await uploadContext(data.kind, data.roomId);
+    await cleanupAbandonedUploads(sb, user.id).catch(() => {});
     const { data: extra } = await sb.from("app_extras").select("chat_rank").eq("user_id", user.id).maybeSingle();
     const limit = data.kind === "kleb" ? KLEB_BYTES : attachmentLimit(user.role, (extra?.chat_rank ?? null) as ChatRank);
     if (data.size > limit) throw new Error("This file exceeds your upload allowance");
@@ -42,9 +43,6 @@ export const removeUpload = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { ownedUpload } = await import("./uploads.server"); const { sb, row } = await ownedUpload(data.id);
     if (row.message_id) throw new Error("Delete the chat message instead");
-    for (let i = 0; i < row.chunk_count; i += 100) {
-      const paths = Array.from({ length: Math.min(100, row.chunk_count - i) }, (_, n) => `${row.user_id}/${row.id}/${(i + n).toString().padStart(6, "0")}`);
-      const { error } = await sb.storage.from("radium-files").remove(paths); if (error) throw new Error("Could not remove file");
-    }
+    const { removeChunks } = await import("./uploads.server"); await removeChunks(sb, row);
     await sb.from("app_uploads").delete().eq("id", row.id); return { ok: true };
   });

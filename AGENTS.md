@@ -9,6 +9,8 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
+Subdirectories have their own AGENTS.md (src/lib holds browser, proxy and chat-media rules); read it before changing files there.
+
 Radium's Home Screen entry is rooted at `/` through the web manifest, and Piped API calls must bypass caches and validate JSON responses; this prevents stale or HTML responses from masquerading as video data.
 
 Use the shared VideoThumbnail for both video result grids; viewport-aware preloading keeps scrolling smooth without fetching every result at once.
@@ -19,13 +21,11 @@ Accounts are custom (app_users/app_activity tables, cookie session in src/lib/ac
 
 Music uses the official SoundCloud widget and validated SoundCloud URLs; preserve provider-controlled playback and do not claim verified sign-in from popup closure.
 
-Account authorization reads app_account_roles on the server, never the deprecated app_users.is_admin field; this separates protected owner/mod grants from user data.
-
 Password changes and new signups use Worker-compatible PBKDF2 hashes, while login accepts legacy passwords; never return stored passwords to any client.
 
 Shared chat uses cookie-authenticated server functions and app_chat_messages with server-only table access; this keeps messages restricted to active Radium accounts.
 
-Account ranks are owner > admin > mod in app_account_roles; checks live in src/lib/account-permissions.ts and staff can never act on equal or higher ranks, so rank rules stay in one place.
+Account ranks are owner > admin > mod in app_account_roles (never app_users.is_admin); checks live in src/lib/account-permissions.ts and staff can never act on equal or higher ranks.
 
 Chat rooms are joined by code and membership persists in app_room_members; deleted messages are soft-deleted with the deleter's rank so staff can still review them.
 Public visibility lives on app_chat_rooms.is_public and is checked in room lists and message access; creation authorization reuses shared server rank permissions, while code-only creation remains available to members.
@@ -46,8 +46,4 @@ Console presence is approximate recent activity: a cookie-authenticated heartbea
 SoundCloud repeat binds the official widget READY/FINISH events and replays through its API, while theme styling leaves provider-owned controls and branding intact; never replace it with extracted audio streams.
 
 Menu entrance animations belong to visible tab wrappers and respect reduced motion; preserve mounted visited tabs so animations do not reset user state.
-Proxy compatibility preserves incoming browser identity, translates upstream referrers and leaves consent intact instead of spoofing browser globals or rotating fingerprints; direct browser opening is the fallback for unsupported website checks.
 Account history visibility uses canViewAccountHistory before querying activity; account mutations use rank and protected-owner checks so the Console and server enforce the same authority.
-DuckDuckGo policy is rechecked against the cookie-authenticated account on the server, including image requests and upstream preference cookies; client controls cannot grant permission to disable Safe Search.
-The Browser owns its navigation stack and accepts only same-origin messages from its current iframe; resource property setters and mutation handling keep dynamic images inside the proxy.
-Browser search runs unproxied (Google first, DuckDuckGo HTML fallback in src/lib/search.functions.ts); only clicked sites are proxied — through Ultraviolet (service worker in public/uv + Wisp transport via bare-mux, set up in src/lib/ultraviolet.ts) with /api/public/p as the fallback when service workers are unavailable.

@@ -50,16 +50,64 @@ let setupPromise: Promise<boolean> | null = null;
  * server. Resolves false when service workers are unavailable, in which case
  * the caller falls back to the edge proxy.
  */
+function wispReachable(server: string, timeoutMs = 4000): Promise<boolean> {
+  return new Promise((resolve) => {
+    let socket: WebSocket;
+    try { socket = new WebSocket(server); } catch { resolve(false); return; }
+    const done = (ok: boolean) => { clearTimeout(timer); try { socket.close(); } catch { /* already closed */ } resolve(ok); };
+    const timer = setTimeout(() => done(false), timeoutMs);
+    socket.onopen = () => done(true);
+    socket.onerror = () => done(false);
+  });
+}
+
+function probeUltraviolet(timeoutMs = 12000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const frame = document.createElement("iframe");
+    frame.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px";
+    frame.setAttribute("aria-hidden", "true");
+    const finish = (ok: boolean) => { clearTimeout(timer); frame.remove(); resolve(ok); };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    frame.onload = () => {
+      try { finish(/example domain/i.test(frame.contentDocument?.title ?? "")); } catch { finish(false); }
+    };
+    frame.src = uvUrl("https://example.com/");
+    document.body.appendChild(frame);
+  });
+}
+
 export function setupUltraviolet(wispServer: string): Promise<boolean> {
   if (setupPromise) return setupPromise;
   setupPromise = (async () => {
     try {
       if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+      // Ultraviolet depends on an outside Wisp relay; when it is down every
+      // site fails, so only use Ultraviolet when the relay actually answers.
+      if (!(await wispReachable(wispServer))) return false;
       const { BareMuxConnection } = await import("@mercuryworkshop/bare-mux");
       const connection = new BareMuxConnection("/baremux/worker.js");
       await connection.setTransport("/libcurl/index.mjs", [{ wisp: wispServer }]);
-      await navigator.serviceWorker.register("/uv/uv.sw.js", { scope: UV_PREFIX });
-      return true;
+      // uv.sw.js is only the library; /uv/sw.js is the entry that wires it up.
+      for (const old of await navigator.serviceWorker.getRegistrations()) {
+        if (old.active?.scriptURL.endsWith("/uv/uv.sw.js")) await old.unregister();
+      }
+      const reg = await navigator.serviceWorker.register("/uv/sw.js", { scope: UV_PREFIX });
+      // The Radium page sits outside the worker's scope, so serviceWorker.ready
+      // never resolves here; wait for this registration to activate instead.
+      const worker = reg.active ?? reg.installing ?? reg.waiting;
+      if (!worker) return false;
+      if (worker.state !== "activated") {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("Ultraviolet worker timed out")), 10000);
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "activated") { clearTimeout(timer); resolve(); }
+            if (worker.state === "redundant") { clearTimeout(timer); reject(new Error("Ultraviolet worker failed")); }
+          });
+        });
+      }
+      // Only switch sites to Ultraviolet after it really loads a page; any
+      // failure keeps the reliable built-in proxy in charge.
+      return await probeUltraviolet();
     } catch {
       setupPromise = null;
       return false;

@@ -7,7 +7,7 @@
       "dependencies": {
         "@hookform/resolvers": "^5.9.1",
         "@mercuryworkshop/bare-mux": "^2.1.9",
-        "@mercuryworkshop/libcurl-transport": "^2.0.5",
+        "@mercuryworkshop/libcurl-transport": "1.5.2",
         "@radix-ui/react-accordion": "^1.2.21",
         "@radix-ui/react-alert-dialog": "^1.1.24",
         "@radix-ui/react-aspect-ratio": "^1.1.16",
@@ -274,7 +274,7 @@
 
     "@mercuryworkshop/bare-mux": ["@mercuryworkshop/bare-mux@2.1.9", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@mercuryworkshop/bare-mux/-/bare-mux-2.1.9.tgz", {}, "sha512-fiOqWm3VP0Bl8T+0l+qnb7ab9zO+PpKVbtJvOnMsefUv6kWIaoDtqyr9hd/t4gA8oBwgtyZVqIwO2J9nKY9ylw=="],
 
-    "@mercuryworkshop/libcurl-transport": ["@mercuryworkshop/libcurl-transport@2.0.5", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@mercuryworkshop/libcurl-transport/-/libcurl-transport-2.0.5.tgz", { "dependencies": { "libcurl.js": "^0.7.4" } }, "sha512-YkAPEAWTEUZZkEOejmRQJxNHw90+kNQnoiSqa5H2sExHBXXdGSXEtg7/35A53U8MDVaznpAwjVbXRONSsfatzw=="],
+    "@mercuryworkshop/libcurl-transport": ["@mercuryworkshop/libcurl-transport@1.5.2", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@mercuryworkshop/libcurl-transport/-/libcurl-transport-1.5.2.tgz", { "dependencies": { "libcurl.js": "^0.7.4" } }, "sha512-E0tD/3W6HE99ypc7CStpchU6xs+TP5u2vms/9q/46BShblB2pbRCNeXHBlvXqdz97nh2Xh4A68DryDt5CM29Dg=="],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.2.0", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^2.0.0-alpha.3", "@emnapi/runtime": "^2.0.0-alpha.3" } }, "sha512-kDoONqMa+VnZ4vvvu/ZUurpJ4gkZU57e7g69qpNgWhYcZFPUHZM2CEMKm+cG6ufDVALbjMvfmMjFVqaK7uEMnA=="],
 

@@ -1,18 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Hash, LogOut, Pencil, Plus, Send, Trash, Trash2, X } from "lucide-react";
+import { FileIcon, Hash, LogOut, Paperclip, Pencil, Plus, Send, Trash, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, ProfileDialog } from "@/components/profile";
+import { RankTag, StaffTag } from "@/components/rank-tag";
 import { useAccount } from "@/lib/account";
 import { canModerate } from "@/lib/account-permissions";
-import { createRoom, deleteMessage, deleteRoom, editMessage, joinRoom, leaveRoom, listMessages, listRooms, sendMessage } from "@/lib/chat.functions";
+import { formatBytes } from "@/lib/chat-ranks";
+import { uploadFile } from "@/lib/upload-file";
+import { removeUpload } from "@/lib/uploads.functions";
+import { createRoom, deleteMessage, deleteRoom, editMessage, getMyMediaLimit, joinRoom, leaveRoom, listMessages, listRooms, sendMessage } from "@/lib/chat.functions";
 
 type Room = Awaited<ReturnType<typeof listRooms>>[number];
 type Message = Awaited<ReturnType<typeof listMessages>>[number] & { sending?: boolean };
+type Pending = { key: string; file: File; preview: string | null; progress: number; uploadId?: string; error?: string; done: Promise<string | null> };
 const LAST = "radium-chat-room";
-const roleLabel: Record<string, string> = { owner: "OWNER", admin: "ADMIN", mod: "MOD" };
+const MAX_FILES = 10;
 const deletedLabel = (by: string | null) =>
   by === "self" || !by ? "Message deleted" : `Message deleted by ${by === "mod" ? "moderator" : by}`;
+const fileUrl = (id: string) => `/api/public/attachment?id=${id}`;
+
+function Attachments({ items }: { items: Message["attachments"] }) {
+  if (!items.length) return null;
+  return <div className="dc-attachments">{items.map((a) => a.mime.startsWith("image/")
+    ? <a key={a.id} href={fileUrl(a.id)} target="_blank" rel="noreferrer"><img src={fileUrl(a.id)} alt={a.name} loading="lazy" decoding="async" /></a>
+    : a.mime.startsWith("video/")
+      ? <video key={a.id} src={fileUrl(a.id)} controls preload="metadata" />
+      : <a key={a.id} className="dc-file" href={`${fileUrl(a.id)}&download=1`}><FileIcon size={14} />{a.name}<small>{formatBytes(a.size)}</small></a>)}</div>;
+}
 
 export function ChatTab({ visible = true }: { visible?: boolean }) {
   const { user } = useAccount();
@@ -34,6 +49,37 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
   currentRoom.current = active;
   const roomCache = useRef(new Map<string, Message[]>());
   const nearBottom = useRef(true);
+  const [pending, setPending] = useState<Pending[]>([]);
+  const [media, setMedia] = useState<{ chatRank: Message["chatRank"]; limit: number } | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  useEffect(() => { void getMyMediaLimit().then(setMedia).catch(() => {}); }, [user?.id]);
+  // Room changes drop unsent files so they can't be posted in the wrong room.
+  useEffect(() => () => {
+    setPending((list) => { for (const p of list) { if (p.preview) URL.revokeObjectURL(p.preview); void p.done.then((id) => { if (id) void removeUpload({ data: { id } }).catch(() => {}); }); } return []; });
+  }, [active]);
+
+  const addFiles = (files: FileList | null) => {
+    if (!files || !active || !media) return;
+    const chosen = [...files].slice(0, MAX_FILES - pending.length);
+    const total = [...pending.map((p) => p.file), ...chosen].reduce((sum, f) => sum + f.size, 0);
+    if (total > media.limit) { setError(`Your media limit is ${formatBytes(media.limit)} per message`); return; }
+    setError("");
+    const rid = active;
+    const added = chosen.map((file): Pending => {
+      const key = crypto.randomUUID();
+      const update = (patch: Partial<Pending>) => setPending((list) => list.map((p) => p.key === key ? { ...p, ...patch } : p));
+      const done = uploadFile(file, "chat", rid, (progress) => update({ progress }))
+        .then((r) => { update({ uploadId: r.id, progress: 100 }); return r.id; })
+        .catch((e: unknown) => { update({ error: e instanceof Error ? e.message : "Upload failed" }); return null; });
+      return { key, file, preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null, progress: 0, done };
+    });
+    setPending((list) => [...list, ...added]);
+  };
+  const dropPending = (item: Pending) => {
+    if (item.preview) URL.revokeObjectURL(item.preview);
+    setPending((list) => list.filter((p) => p.key !== item.key));
+    void item.done.then((id) => { if (id) void removeUpload({ data: { id } }).catch(() => {}); });
+  };
 
   const loadRooms = useCallback(async () => {
     const r = await listRooms();
@@ -79,16 +125,21 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
 
   const submitMessage = async () => {
     const text = body.trim();
-    if (!text || !active || !user || sendingRef.current) return;
+    const files = pending;
+    if ((!text && !files.length) || !active || !user || sendingRef.current) return;
+    if (files.some((p) => p.error)) { setError("Remove the files that failed to upload first"); return; }
     const rid = active;
     sendingRef.current = true; setSending(true); ++requestVersion.current;
     setBody(""); setError(""); nearBottom.current = true;
     const temporaryId = `pending-${crypto.randomUUID()}`;
-    const optimistic: Message = { id: temporaryId, userId: user.id, username: user.username, avatar: user.avatar, authorRole: user.role, body: text, createdAt: new Date().toISOString(), editedAt: null, deleted: false, deletedBy: null, sending: true };
+    const optimistic: Message = { id: temporaryId, userId: user.id, username: user.username, avatar: user.avatar, authorRole: user.role, chatRank: media?.chatRank ?? null, accent: null, body: text, attachments: [], createdAt: new Date().toISOString(), editedAt: null, deleted: false, deletedBy: null, sending: true };
     const next = [...(roomCache.current.get(rid) ?? messages), optimistic];
     roomCache.current.set(rid, next); setMessages(next);
     try {
-      const saved = await sendMessage({ data: { roomId: rid, body: text } });
+      const uploadIds = (await Promise.all(files.map((p) => p.done))).filter((id): id is string => Boolean(id));
+      if (uploadIds.length !== files.length) throw new Error("A file failed to upload");
+      const saved = await sendMessage({ data: { roomId: rid, body: text, uploadIds } });
+      setPending((list) => { for (const p of list) if (p.preview && files.includes(p)) URL.revokeObjectURL(p.preview); return list.filter((p) => !files.includes(p)); });
       ++requestVersion.current;
       const confirmed = (roomCache.current.get(rid) ?? []).map((m) => m.id === temporaryId ? { ...m, id: saved.id, createdAt: saved.createdAt, sending: false } : m);
       roomCache.current.set(rid, confirmed);
@@ -99,6 +150,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
       if (currentRoom.current === rid) { setMessages(remaining); setBody((draft) => draft || text); }
       setError(e instanceof Error ? e.message : "Could not send message");
     } finally { sendingRef.current = false; setSending(false); }
+    if (files.length) void loadMessages();
   };
 
   const run = async (fn: () => Promise<unknown>) => { setError(""); try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong"); } };
@@ -133,7 +185,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
             <Button type="submit" size="sm">{panel === "create" ? "Create room" : "Join room"}</Button>
           </form>
         )}
-        <button type="button" className="dc-user" onClick={() => user && setProfileId(user.id)} title="Your profile"><Avatar src={user?.avatar} name={user?.username ?? "?"} size={32} /><span>{user?.username}</span>{user?.role && <b>{roleLabel[user.role]}</b>}</button>
+        <button type="button" className="dc-user" onClick={() => user && setProfileId(user.id)} title="Your profile"><Avatar src={user?.avatar} name={user?.username ?? "?"} size={32} /><span>{user?.username}</span><StaffTag role={user?.role} />{user?.role === "mod" && <b>MOD</b>}<RankTag rank={media?.chatRank ?? null} /></button>
       </aside>
 
       <section className="dc-main">
@@ -155,16 +207,16 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
               <article key={m.id} className={grouped ? "dc-msg grouped" : "dc-msg"}>
                 {!grouped && <button type="button" className="dc-avatar-btn" onClick={() => setProfileId(m.userId)} aria-label={`View ${m.username}'s profile`}><Avatar src={m.avatar} name={m.username} size={40} /></button>}
                 <div className="dc-msg-body">
-                  {!grouped && <div className="dc-msg-meta"><strong role="button" tabIndex={0} className="cursor-pointer hover:underline" onClick={() => setProfileId(m.userId)}>{m.username}</strong>{m.authorRole && <b>{roleLabel[m.authorRole]}</b>}<time>{new Date(m.createdAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" })}</time></div>}
+                  {!grouped && <div className="dc-msg-meta"><strong role="button" tabIndex={0} className="cursor-pointer hover:underline" onClick={() => setProfileId(m.userId)}>{m.username}</strong><StaffTag role={m.authorRole} />{m.authorRole === "mod" && <b>MOD</b>}<RankTag rank={m.chatRank} accent={m.accent} /><time>{new Date(m.createdAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" })}</time></div>}
                   {editing?.id === m.id ? (
                     <form className="dc-edit" onSubmit={(e) => { e.preventDefault(); void run(async () => { await editMessage({ data: editing }); setEditing(null); await loadMessages(); }); }}>
                       <input autoFocus value={editing.body} maxLength={2000} onChange={(e) => setEditing({ ...editing, body: e.target.value })} onKeyDown={(e) => e.key === "Escape" && setEditing(null)} />
                       <Button type="submit" size="sm">Save</Button><Button type="button" variant="ghost" size="icon" onClick={() => setEditing(null)}><X size={14} /></Button>
                     </form>
                   ) : m.deleted ? (
-                    <p className="dc-deleted">{deletedLabel(m.deletedBy)}{staff && m.body && <span className="dc-mod-view"> — {m.body}</span>}</p>
+                    <><p className="dc-deleted">{deletedLabel(m.deletedBy)}{staff && m.body && <span className="dc-mod-view"> — {m.body}</span>}</p>{staff && <Attachments items={m.attachments} />}</>
                   ) : (
-                    <p>{m.body}{m.editedAt && <small> (edited)</small>}</p>
+                    <>{(m.body || m.editedAt) && <p>{m.body}{m.editedAt && <small> (edited)</small>}</p>}<Attachments items={m.attachments} /></>
                   )}
                 </div>
                 {!m.deleted && !m.sending && editing?.id !== m.id && (own || staff) && (
@@ -180,9 +232,17 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
           <div ref={end} />
         </div>
         {error && <p role="alert" className="chat-error">{error}</p>}
+        {pending.length > 0 && <div className="dc-pending-files">{pending.map((p) => <div key={p.key} className="dc-pending-file" title={p.error ?? p.file.name}>
+          {p.preview ? <img src={p.preview} alt="" /> : <FileIcon size={14} />}<span>{p.error ? p.error : p.file.name}</span>
+          {!p.error && p.progress < 100 && <progress value={p.progress} max={100} aria-label={`Uploading ${p.file.name}`} />}
+          <button type="button" aria-label={`Remove ${p.file.name}`} onClick={() => dropPending(p)}><X size={12} /></button>
+        </div>)}</div>}
+        {media && <p className="dc-limit">Media limit: {formatBytes(media.limit)} per message</p>}
         <form className={`dc-compose ${body ? "is-typing" : ""}`} onSubmit={(e) => { e.preventDefault(); void submitMessage(); }}>
+          <input ref={picker} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+          <Button variant="ghost" size="icon" type="button" disabled={!active || !media || pending.length >= MAX_FILES} aria-label="Attach images" title="Attach images or videos" onClick={() => picker.current?.click()}><Paperclip size={17} /></Button>
           <input aria-label="Message" placeholder={`Message #${room?.name ?? ""}`} value={body} maxLength={2000} onChange={(e) => setBody(e.target.value)} />
-          <Button variant="ghost" size="icon" type="submit" disabled={!body.trim() || sending || !active} aria-label="Send"><Send size={17} /></Button>
+          <Button variant="ghost" size="icon" type="submit" disabled={(!body.trim() && !pending.length) || sending || !active} aria-label="Send"><Send size={17} /></Button>
         </form>
       </section>
     </div>
