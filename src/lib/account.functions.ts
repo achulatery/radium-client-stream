@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useSession } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { canChangePassword, canDeleteAccounts, canModerate, canPromote, canViewAccountHistory, canManageAccount, canRevokeTabs, REVOCABLE_TABS, roleRank, type AccountRole } from "./account-permissions";
+import type { ChatRank } from "./chat-ranks";
 
 type AccountSession = { userId?: string };
 const PROTECTED_ADMIN = "achulate";
@@ -116,7 +117,7 @@ export const getProfile = createServerFn({ method: "GET" })
       sb.from("app_extras").select("chat_rank").eq("user_id", u.id).maybeSingle(),
     ]);
     const role: AccountRole = roleRow?.role === "owner" || roleRow?.role === "admin" || roleRow?.role === "mod" ? roleRow.role : null;
-    return { id: u.id, username: u.username, avatar: u.avatar as string | null, bio: u.bio as string, createdAt: u.created_at, role, chatRank: (extra?.chat_rank ?? null) as string | null };
+    return { id: u.id, username: u.username, avatar: u.avatar as string | null, bio: u.bio as string, createdAt: u.created_at, role, chatRank: (extra?.chat_rank ?? null) as ChatRank };
   });
 
 export const signUp = createServerFn({ method: "POST" })
