@@ -67,7 +67,7 @@ export function EmbedPlayer({ videoId, title, hosts }: { videoId: string; title:
 }
 
 /** Old direct player: streams the video file through Radium, falling back to mirrors on failure. */
-export function DirectPlayer({ videoId, title, hosts, streams, poster }: { videoId: string; title: string; hosts: string[]; streams: { url: string; quality: string }[] | null; poster?: string | null }) {
+export function DirectPlayer({ videoId, title, hosts, streams, poster }: { videoId: string; title: string; hosts: string[]; streams: { url: string; quality: string }[] | null; poster?: string | null | undefined }) {
   const [i, setI] = useState(0);
   useEffect(() => setI(0), [videoId, streams]);
   if (streams === null) return <div className="flex w-full items-center justify-center rounded-md aspect-video animate-pulse font-mono text-[11px]" style={{ background: "var(--rd-surface)", color: "var(--rd-muted)" }}>Finding a stream…</div>;
@@ -82,7 +82,7 @@ export function DirectPlayer({ videoId, title, hosts, streams, poster }: { video
 export const PlayerModeContext = createContext<"mirror" | "direct">("mirror");
 
 /** Picks the owner-chosen player for everyone. */
-export function VideoPlayer({ videoId, title, hosts, poster }: { videoId: string; title: string; hosts: string[]; poster?: string | null }) {
+export function VideoPlayer({ videoId, title, hosts, poster }: { videoId: string; title: string; hosts: string[]; poster?: string | null | undefined }) {
   const mode = useContext(PlayerModeContext);
   const [streams, setStreams] = useState<{ url: string; quality: string }[] | null>(null);
   useEffect(() => {
