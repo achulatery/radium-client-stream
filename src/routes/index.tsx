@@ -588,47 +588,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
       <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
         {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : video ? (
           <div className="space-y-3">
-            {quality === EMBED ? (
-              <iframe
-                key={video.videoId}
-                src={`https://piped.video/embed/${video.videoId}?autoplay=1`}
-                title={video.title}
-                allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                allowFullScreen
-                referrerPolicy="strict-origin-when-cross-origin"
-                className={`w-full rounded-md border-0 aspect-video`}
-                style={{ background: "var(--rd-surface)" }}
-              />
-            ) : (
-              <video
-                key={quality}
-                src={quality ? `/api/stream?url=${encodeURIComponent(quality)}` : undefined}
-                preload="auto"
-                poster={video.thumbnail}
-                controls
-                autoPlay
-                playsInline
-                className={`w-full rounded-md aspect-video`}
-                style={{ background: "var(--rd-surface)" }}
-                onError={onStreamError}
-              />
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>QUALITY</span>
-              <select
-                value={quality}
-                onChange={(e) => setQuality(e.target.value)}
-                className="rounded px-2 py-1 text-xs"
-                style={{ ...btnStyle }}
-              >
-                {video.streams.map((s) => (
-                  <option key={s.url} value={s.url}>
-                    {s.quality}
-                  </option>
-                ))}
-                <option value={EMBED}>Backup player</option>
-              </select>
-            </div>
+            <EmbedPlayer videoId={video.videoId} title={video.title} hosts={PIPED_EMBEDS} />
             <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>{video.title}</h2>
             <p className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>
               {[video.author, formatViews(video.views), formatDuration(video.duration)].filter(Boolean).join(" · ")}
@@ -849,45 +809,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
       <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
         {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : selected ? (
           <div className="space-y-4">
-            {playMode === "stream" && streamUrl ? (
-              <video
-                key={streamUrl}
-                src={`/api/stream?url=${encodeURIComponent(streamUrl)}`}
-                poster={selected.thumbnail ?? undefined}
-                preload="auto"
-                controls
-                autoPlay
-                playsInline
-                className="w-full rounded-md aspect-video"
-                style={{ background: "var(--rd-surface)" }}
-                onLoadedData={() => { setPlayerState("ready"); setStatus(selected.title || "Playing through Radium"); }}
-                onError={() => { setStreamUrl(null); setPlayMode("embed"); setStatus(selected.title); }}
-              />
-            ) : playMode === "resolving" ? (
-              <div className="flex w-full items-center justify-center rounded-md aspect-video animate-pulse font-mono text-[11px]" style={{ background: "var(--rd-surface)", color: "var(--rd-muted)" }}>
-                Finding a stream through Radium…
-              </div>
-            ) : embed && (
-              <div className={`relative w-full overflow-hidden rounded-md aspect-video`} style={{ background: "var(--rd-surface)" }}>
-                <iframe
-                  key={embed}
-                  src={embed}
-                  title={selected.title}
-                  className="h-full w-full"
-                  style={{ border: "none" }}
-                  allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  onLoad={() => {
-                    setPlayerState("ready");
-                  }}
-                  onError={() => {
-                    setPlayerState("error");
-                    setStatus("The video player could not load. Try another video.");
-                  }}
-                />
-              </div>
-            )}
+            <EmbedPlayer videoId={selected.videoId} title={selected.title} hosts={INVIDIOUS_EMBEDS} />
             <div className="space-y-1">
               <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>
                 {selected.title}
