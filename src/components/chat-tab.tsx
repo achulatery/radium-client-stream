@@ -7,6 +7,7 @@ import { RankTag, StaffTag } from "@/components/rank-tag";
 import { useAccount } from "@/lib/account";
 import { canModerate } from "@/lib/account-permissions";
 import { formatBytes } from "@/lib/chat-ranks";
+import { CHAT_MEDIA_ACCEPT, prepareChatMedia } from "@/lib/chat-media";
 import { uploadFile } from "@/lib/upload-file";
 import { removeUpload } from "@/lib/uploads.functions";
 import { createRoom, deleteMessage, deleteRoom, editMessage, getMyMediaLimit, joinRoom, leaveRoom, listMessages, listRooms, sendMessage } from "@/lib/chat.functions";
@@ -58,9 +59,12 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
     setPending((list) => { for (const p of list) { if (p.preview) URL.revokeObjectURL(p.preview); void p.done.then((id) => { if (id) void removeUpload({ data: { id } }).catch(() => {}); }); } return []; });
   }, [active]);
 
-  const addFiles = (files: FileList | null) => {
+  const addFiles = async (files: FileList | null) => {
     if (!files || !active || !media) return;
-    const chosen = [...files].slice(0, MAX_FILES - pending.length);
+    let chosen: File[];
+    try { chosen = await Promise.all([...files].slice(0, MAX_FILES - pending.length).map(prepareChatMedia)); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not read image"); return; }
+    if (currentRoom.current !== active) return;
     const total = [...pending.map((p) => p.file), ...chosen].reduce((sum, f) => sum + f.size, 0);
     if (total > media.limit) { setError(`Your media limit is ${formatBytes(media.limit)} per message`); return; }
     setError("");
@@ -239,7 +243,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
         </div>)}</div>}
         {media && <p className="dc-limit">Media limit: {formatBytes(media.limit)} per message</p>}
         <form className={`dc-compose ${body ? "is-typing" : ""}`} onSubmit={(e) => { e.preventDefault(); void submitMessage(); }}>
-          <input ref={picker} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+          <input ref={picker} type="file" accept={CHAT_MEDIA_ACCEPT} multiple hidden onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
           <Button variant="ghost" size="icon" type="button" disabled={!active || !media || pending.length >= MAX_FILES} aria-label="Attach images" title="Attach images or videos" onClick={() => picker.current?.click()}><Paperclip size={17} /></Button>
           <input aria-label="Message" placeholder={`Message #${room?.name ?? ""}`} value={body} maxLength={2000} onChange={(e) => setBody(e.target.value)} />
           <Button variant="ghost" size="icon" type="submit" disabled={(!body.trim() && !pending.length) || sending || !active} aria-label="Send"><Send size={17} /></Button>

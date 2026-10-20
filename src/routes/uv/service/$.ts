@@ -2,9 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { uvDecodeUrl } from "@/lib/ultraviolet";
 
 /**
- * Reached only when the Ultraviolet service worker is not controlling the page
- * yet (first visit, worker still installing). Hand the site to the edge proxy
- * instead of letting the request fall through to a hosting error.
+ * A missing worker must never silently switch to the retired edge proxy.
  */
 function fallback(request: Request) {
   const url = new URL(request.url);
@@ -14,7 +12,7 @@ function fallback(request: Request) {
   try {
     const parsed = new URL(target);
     if (/^https?:$/.test(parsed.protocol)) {
-      return Response.redirect(new URL(`/api/public/p?u=${encodeURIComponent(parsed.href)}`, url).href, 302);
+      return new Response("Ultraviolet is not connected. Return to Radium and retry the connection.", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
     }
   } catch { /* fall through */ }
   return Response.redirect(new URL("/", url).href, 302);

@@ -38,7 +38,6 @@ import {
 import {
   getYouTubeVideoId,
   normalizeQuery,
-  proxyUrl,
   searchUrl,
   useRadium,
   videoPlayerUrl,
@@ -213,7 +212,7 @@ function BrowserTab() {
   const [status, setStatus] = useState("Ready");
   const [nonce, setNonce] = useState(0);
   const [savingSearch, setSavingSearch] = useState(false);
-  const [results, setResults] = useState<{ query: string; items: WebResult[] } | null>(null);
+  const [results, setResults] = useState<{ query: string; items: WebResult[]; error?: string } | null>(null);
   const [searching, setSearching] = useState(false);
   const [entries, setEntries] = useState<string[]>([]);
   const [cursor, setCursor] = useState(-1);
@@ -222,23 +221,25 @@ function BrowserTab() {
   const addressFocused = useRef(false);
   const videoId = target ? getYouTubeVideoId(target) : null;
   const [uvReady, setUvReady] = useState(false);
+  const [uvStarting, setUvStarting] = useState(true);
+  const [uvAttempt, setUvAttempt] = useState(0);
+  const searchVersion = useRef(0);
 
   // Ultraviolet proxies clicked sites inside the browser via a service worker;
-  // until it's ready (or if unavailable) the edge proxy is the fallback.
+  // Never load a website until the Ultraviolet transport is verified.
   useEffect(() => {
     let live = true;
+    setUvStarting(true);
     void setupUltraviolet(settings.wispServer).then((ok) => {
-      if (live) setUvReady(ok);
+      if (live) { setUvReady(ok); setUvStarting(false); }
     });
     return () => {
       live = false;
     };
-  }, [settings.wispServer]);
+  }, [settings.wispServer, uvAttempt]);
 
-  const frameSrc = target
-    ? videoId || !uvReady
-      ? proxyUrl(videoId ? videoPlayerUrl(videoId) : target, false)
-      : uvUrl(target)
+  const frameSrc = target && uvReady
+    ? uvUrl(videoId ? videoPlayerUrl(videoId) : target)
     : null;
 
   const remember = useCallback((url: string) => {
@@ -254,26 +255,24 @@ function BrowserTab() {
   // Search pages are never proxied: results load natively (no bot checks),
   // and only the site the user clicks goes through the proxy.
   const runSearch = useCallback(async (query: string) => {
+    const version = ++searchVersion.current;
     setResults({ query, items: [] });
     setSearching(true);
     setInput(query);
     setStatus("Searching");
     try {
       const items = await searchWeb({ data: { query } });
+      if (version !== searchVersion.current) return;
       setResults({ query, items });
       setStatus("Ready");
     } catch {
-      // Fall back to the proxied search page when native search fails.
-      setResults(null);
-      const url = applySearchPolicy(new URL(searchUrl(query)), safe).href;
-      remember(url);
-      setInput(cleanBrowserAddress(url));
-      setNonce((n) => n + 1);
-      setStatus("Loading page");
+      if (version !== searchVersion.current) return;
+      setResults({ query, items: [], error: "Search is unavailable right now. Please try again." });
+      setStatus("Search unavailable");
     } finally {
-      setSearching(false);
+      if (version === searchVersion.current) setSearching(false);
     }
-  }, [remember, safe]);
+  }, []);
 
   const open = useCallback((raw: string) => {
     const normalized = normalizeQuery(raw);
@@ -285,6 +284,8 @@ function BrowserTab() {
     }
     const destination = browserDestination(normalized);
     if (!destination) return;
+    ++searchVersion.current;
+    setSearching(false);
     setResults(null);
     const url = applySearchPolicy(new URL(destination), safe).href;
     remember(url);
@@ -296,6 +297,8 @@ function BrowserTab() {
   const travel = (next: number) => {
     const url = entries[next];
     if (!url) return;
+    ++searchVersion.current;
+    setResults(null); setSearching(false);
     current.current = url;
     setCursor(next); setTarget(url); setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1); setStatus("Loading page");
@@ -323,7 +326,7 @@ function BrowserTab() {
       </div>
       <form className="min-w-0 flex-1 basis-40" onSubmit={(e) => { e.preventDefault(); open(input); }}>
         <div className="flex h-9 items-center gap-2 rounded-sm border border-client-line bg-client-search px-2 text-client-search-text">
-          <Button variant="ghost" size="icon" type="button" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Home" title="Home" onClick={() => open(settings.homePage)}><Home size={14} /></Button>
+          <Button variant="ghost" size="icon" type="button" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Home" title="Home" onClick={() => { ++searchVersion.current; setResults(null); setSearching(false); setTarget(null); current.current = null; setInput(""); setStatus("Ready"); }}><Home size={14} /></Button>
           <input value={input} onChange={(e) => setInput(e.target.value)} onFocus={() => { addressFocused.current = true; }} onBlur={() => { addressFocused.current = false; }} placeholder="Search or enter a web address" aria-label="Address bar" autoComplete="off" className="min-w-0 w-full bg-transparent font-mono text-sm outline-none" />
           <Button variant="ghost" size="icon" type="submit" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Open address"><Search size={14} /></Button>
         </div>
@@ -334,8 +337,8 @@ function BrowserTab() {
     <span className="sr-only" aria-live="polite">{status}</span>
     <div className="relative min-h-0 flex-1">
       {results ? (
-        <SearchResults state={results} searching={searching} onOpen={open} />
-      ) : frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Reopening through Radium's backup proxy"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <StartScreen open={open} history={history} />}
+        <SearchResults state={results} searching={searching} onOpen={open} onRetry={() => void runSearch(results.query)} />
+      ) : frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Ultraviolet connection unavailable"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : target ? <div className="flex h-full flex-col items-center justify-center gap-4 text-client-muted"><ShieldCheck size={28} /><p>{uvStarting ? "Connecting…" : "Ultraviolet could not connect on this network."}</p>{!uvStarting && <Button variant="secondary" onClick={() => { setUvReady(false); setUvAttempt((n) => n + 1); }}><RefreshCw size={14} />Retry connection</Button>}</div> : <StartScreen open={open} history={history} />}
     </div>
   </div>;
 }
@@ -344,19 +347,23 @@ function SearchResults({
   state,
   searching,
   onOpen,
+  onRetry,
 }: {
-  state: { query: string; items: WebResult[] };
+  state: { query: string; items: WebResult[]; error?: string };
   searching: boolean;
   onOpen: (url: string) => void;
+  onRetry: () => void;
 }) {
   return (
     <div className="radium-grid h-full overflow-auto px-4 py-8">
       <div className="mx-auto max-w-[680px]">
         <p className="text-xs uppercase tracking-widest text-client-muted">
-          Results for “{state.query}” — loaded directly, nothing is proxied until you open a site
+          Results for “{state.query}”
         </p>
         {searching ? (
           <p className="mt-6 text-sm text-client-muted">Searching…</p>
+        ) : state.error ? (
+          <div className="mt-6 space-y-3"><p role="alert" className="text-sm text-client-muted">{state.error}</p><Button variant="secondary" onClick={onRetry}><RefreshCw size={14} />Retry search</Button></div>
         ) : state.items.length === 0 ? (
           <p className="mt-6 text-sm text-client-muted">No results found.</p>
         ) : (

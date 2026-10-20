@@ -47,8 +47,7 @@ let setupPromise: Promise<boolean> | null = null;
 
 /**
  * Registers the Ultraviolet service worker and connects it to the Wisp
- * server. Resolves false when service workers are unavailable, in which case
- * the caller falls back to the edge proxy.
+ * server. Resolves false when the connection is unavailable.
  */
 function wispReachable(server: string, timeoutMs = 4000): Promise<boolean> {
   return new Promise((resolve) => {
@@ -110,13 +109,13 @@ export function setupUltraviolet(wispServer: string): Promise<boolean> {
         });
       }
       // Only switch sites to Ultraviolet after it really loads a page; any
-      // failure keeps the reliable built-in proxy in charge.
+       // failure leaves websites closed until the user retries.
       return await probeUltraviolet();
     } catch {
       setupPromise = null;
       return false;
     }
-  })();
+  })().then((ok) => { if (!ok) setupPromise = null; return ok; });
   return setupPromise;
 }
 
@@ -127,7 +126,7 @@ export function isHostingErrorPage(text: string | null | undefined): boolean {
 
 /** Turn Ultraviolet off for this session and remove its worker. */
 export async function resetUltraviolet(): Promise<void> {
-  setupPromise = Promise.resolve(false);
+  setupPromise = null;
   try {
     for (const reg of await navigator.serviceWorker.getRegistrations()) {
       if (reg.scope.includes(UV_PREFIX)) await reg.unregister();

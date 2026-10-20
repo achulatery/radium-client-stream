@@ -84,6 +84,6 @@ function escapedNavigationTarget(request: Request): string | null {
 
 export const startInstance = createStart(() => ({
   functionMiddleware: [attachSupabaseAuth],
-  requestMiddleware: [errorMiddleware, csrfMiddleware, escapedNavMiddleware],
+  requestMiddleware: [errorMiddleware, csrfMiddleware],
 }));
 

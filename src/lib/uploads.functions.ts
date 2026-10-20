@@ -1,19 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { attachmentLimit, CHUNK_BYTES, KLEB_BYTES, type ChatRank } from "./chat-ranks";
+import { CHAT_IMAGE_TYPES, CHAT_VIDEO_TYPES, mediaMime } from "./chat-media";
 export const beginUpload = createServerFn({ method: "POST" })
   .validator((d: { kind: "chat" | "kleb"; roomId?: string; name: string; mime: string; size: number }) => z.object({ kind: z.enum(["chat", "kleb"]), roomId: z.string().uuid().optional(), name: z.string().min(1).max(255), mime: z.string().max(100), size: z.number().int().positive().max(15_000_000_000) }).parse(d))
   .handler(async ({ data }) => {
     const { uploadContext, cleanupAbandonedUploads } = await import("./uploads.server"); const { user, sb } = await uploadContext(data.kind, data.roomId);
     await cleanupAbandonedUploads(sb, user.id).catch(() => {});
     const { data: extra } = await sb.from("app_extras").select("chat_rank").eq("user_id", user.id).maybeSingle();
+    const mime = mediaMime(data.name, data.mime);
+    if (data.kind === "chat" && ![...CHAT_IMAGE_TYPES, ...CHAT_VIDEO_TYPES].some((type) => type === mime)) throw new Error("Choose a JPEG, PNG, WebP, GIF, AVIF, MP4 or WebM file.");
     const limit = data.kind === "kleb" ? KLEB_BYTES : attachmentLimit(user.role, (extra?.chat_rank ?? null) as ChatRank);
     if (data.size > limit) throw new Error("This file exceeds your upload allowance");
     if (data.kind === "kleb" && !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(data.mime)) throw new Error("Choose a JPEG, PNG, WebP or GIF picture");
     const id = crypto.randomUUID(); const chunks = Math.ceil(data.size / CHUNK_BYTES);
     // PostgreSQL accepts NULL for Kleb's room; generated RPC types omit argument nullability.
     const room = (data.roomId ?? null) as unknown as string;
-    const { error } = await sb.rpc("reserve_radium_upload", { p_id: id, p_user: user.id, p_room: room, p_kind: data.kind, p_name: data.name, p_mime: data.mime || "application/octet-stream", p_size: data.size, p_chunks: chunks });
+    const { error } = await sb.rpc("reserve_radium_upload", { p_id: id, p_user: user.id, p_room: room, p_kind: data.kind, p_name: data.name, p_mime: mime || "application/octet-stream", p_size: data.size, p_chunks: chunks });
     if (error) throw new Error(data.kind === "kleb" ? "Kleb picture allowance reached or upload unavailable" : "Could not start upload");
     return { id, chunks };
   });
