@@ -34,4 +34,16 @@ export async function verifyChunks(sb: Awaited<ReturnType<typeof db>>, row: { us
       if (file?.name !== index.toString().padStart(6, "0") || Number(file.metadata?.size) !== expected) throw new Error("Upload size does not match");
     }
   }
+}/** Remove storage pieces for an upload row; used by every cleanup path. */
+export async function removeChunks(sb: Awaited<ReturnType<typeof db>>, row: { user_id: string; id: string; chunk_count: number }) {
+  for (let i = 0; i < row.chunk_count; i += 100) {
+    const paths = Array.from({ length: Math.min(100, row.chunk_count - i) }, (_, n) => `${row.user_id}/${row.id}/${(i + n).toString().padStart(6, "0")}`);
+    await sb.storage.from("radium-files").remove(paths);
+  }
+}
+/** Chat files that were uploaded but never sent are freed after a few hours. */
+export async function cleanupAbandonedUploads(sb: Awaited<ReturnType<typeof db>>, userId: string) {
+  const cutoff = new Date(Date.now() - 6 * 3600_000).toISOString();
+  const { data: stale } = await sb.from("app_uploads").select("id, user_id, chunk_count").eq("user_id", userId).eq("kind", "chat").is("message_id", null).lt("created_at", cutoff).limit(20);
+  for (const row of stale ?? []) { await removeChunks(sb, row); await sb.from("app_uploads").delete().eq("id", row.id); }
 }
