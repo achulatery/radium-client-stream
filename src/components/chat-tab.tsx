@@ -49,6 +49,37 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
   currentRoom.current = active;
   const roomCache = useRef(new Map<string, Message[]>());
   const nearBottom = useRef(true);
+  const [pending, setPending] = useState<Pending[]>([]);
+  const [media, setMedia] = useState<{ chatRank: Message["chatRank"]; limit: number } | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  useEffect(() => { void getMyMediaLimit().then(setMedia).catch(() => {}); }, [user?.id]);
+  // Room changes drop unsent files so they can't be posted in the wrong room.
+  useEffect(() => () => {
+    setPending((list) => { for (const p of list) { if (p.preview) URL.revokeObjectURL(p.preview); void p.done.then((id) => id && removeUpload({ data: { id } }).catch(() => {})); } return []; });
+  }, [active]);
+
+  const addFiles = (files: FileList | null) => {
+    if (!files || !active || !media) return;
+    const chosen = [...files].slice(0, MAX_FILES - pending.length);
+    const total = [...pending.map((p) => p.file), ...chosen].reduce((sum, f) => sum + f.size, 0);
+    if (total > media.limit) { setError(`Your media limit is ${formatBytes(media.limit)} per message`); return; }
+    setError("");
+    const rid = active;
+    const added = chosen.map((file): Pending => {
+      const key = crypto.randomUUID();
+      const update = (patch: Partial<Pending>) => setPending((list) => list.map((p) => p.key === key ? { ...p, ...patch } : p));
+      const done = uploadFile(file, "chat", rid, (progress) => update({ progress }))
+        .then((r) => { update({ uploadId: r.id, progress: 100 }); return r.id; })
+        .catch((e: unknown) => { update({ error: e instanceof Error ? e.message : "Upload failed" }); return null; });
+      return { key, file, preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null, progress: 0, done };
+    });
+    setPending((list) => [...list, ...added]);
+  };
+  const dropPending = (item: Pending) => {
+    if (item.preview) URL.revokeObjectURL(item.preview);
+    setPending((list) => list.filter((p) => p.key !== item.key));
+    void item.done.then((id) => id && removeUpload({ data: { id } }).catch(() => {}));
+  };
 
   const loadRooms = useCallback(async () => {
     const r = await listRooms();
