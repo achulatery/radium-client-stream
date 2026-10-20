@@ -86,7 +86,7 @@ async function attemptSetup(wispServer: string): Promise<UvSetup> {
     if (!(await wispReachable(wispServer))) return { ok: false, reason: "relay" };
     const { BareMuxConnection } = await import("@mercuryworkshop/bare-mux");
     const connection = new BareMuxConnection("/baremux/worker.js");
-    await connection.setTransport("/libcurl/index.mjs", [{ wisp: wispServer }]).then(() => true, () => false).then((ok) => { if (!ok) throw new UvStepError("transport"); });
+    await connection.setTransport("/libcurl/index.mjs", [{ wisp: wispServer }]).catch(() => { throw new UvStepError("transport"); });
     // uv.sw.js is only the library; /uv/sw.js is the entry that wires it up.
     // Devices that visited older versions can still hold outdated workers;
     // drop anything that isn't the current entry and refresh the rest.
@@ -144,9 +144,9 @@ export function isHostingErrorPage(text: string | null | undefined): boolean {
   return /deployment storage temporarily unavailable/i.test(text ?? "");
 }
 
-/** Turn Ultraviolet off for this session and remove its worker. */
-export async function resetUltraviolet(): Promise<void> {
-  setupPromise = null;
+/** Turn Ultraviolet off and remove its worker. */
+export async function resetUltraviolet(clearSetup = true): Promise<void> {
+  if (clearSetup) setupPromise = null;
   try {
     for (const reg of await navigator.serviceWorker.getRegistrations()) {
       if (reg.scope.includes(UV_PREFIX)) await reg.unregister();
