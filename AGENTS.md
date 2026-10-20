@@ -25,7 +25,7 @@ Password changes and new signups use Worker-compatible PBKDF2 hashes, while logi
 
 Shared chat uses cookie-authenticated server functions and app_chat_messages with server-only table access; this keeps messages restricted to active Radium accounts.
 
-Account ranks are owner > admin > mod in app_account_roles (never app_users.is_admin); checks live in src/lib/account-permissions.ts and staff can never act on equal or higher ranks.
+Account ranks are owner > contributor > admin > mod in app_account_roles (never app_users.is_admin); checks live in src/lib/account-permissions.ts and staff can never act on equal or higher ranks.
 
 Chat rooms are joined by code and membership persists in app_room_members; deleted messages are soft-deleted with the deleter's rank so staff can still review them.
 Public visibility lives on app_chat_rooms.is_public and is checked in room lists and message access; creation authorization reuses shared server rank permissions, while code-only creation remains available to members.

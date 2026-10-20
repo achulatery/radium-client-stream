@@ -1,3 +1,4 @@
+import type { AccountRole } from "./account-permissions";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { getMe, heartbeat, signOut as signOutFn } from "./account.functions";
 
@@ -5,7 +6,7 @@ export type AccountUser = {
   id: string;
   username: string;
   isAdmin: boolean;
-  role: "owner" | "admin" | "mod" | null;
+  role: AccountRole;
   settings: Record<string, unknown>;
   avatar: string | null;
   bio: string;

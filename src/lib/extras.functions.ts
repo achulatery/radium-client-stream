@@ -51,7 +51,7 @@ export const getKlebPage = createServerFn({ method: "GET" }).handler(async () =>
   const { requireUser, db } = await helpers();
   const user = await requireUser();
   const sb = await db();
-  const staff = user.role === "owner" || user.role === "admin" || user.role === "mod";
+  const staff = user.role === "owner" || user.role === "contributor" || user.role === "admin" || user.role === "mod";
   const { data: own } = await sb.from("app_extras").select("kleb_enabled").eq("user_id", user.id).maybeSingle();
   if (!staff && !own?.kleb_enabled) throw new Error("Kleb access has not been granted");
   const { data: holder } = await sb.from("app_extras").select("user_id, kleb_title, kleb_body, kleb_layout").eq("kleb_enabled", true).limit(1).maybeSingle();
