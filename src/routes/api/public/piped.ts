@@ -69,6 +69,31 @@ async function fetchPiped(path: string) {
   }
 }
 
+/**
+ * YouTube's oEmbed endpoint answers 401 for age-restricted / sign-in-required (and
+ * non-embeddable) videos and 200 for normally playable ones, so it is a cheap way to
+ * drop videos that would only fail at playback time. Network errors fail open so a
+ * YouTube outage can never blank the whole result list.
+ */
+const playableCache = new Map<string, boolean>();
+
+export async function playableWithoutLogin(id: string): Promise<boolean> {
+  const cached = playableCache.get(id);
+  if (cached !== undefined) return cached;
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}&format=json`,
+      { headers: { accept: "application/json", "user-agent": "RadiumClient/1.0" }, signal: AbortSignal.timeout(2_500) },
+    );
+    const ok = res.ok;
+    if (playableCache.size > 5_000) playableCache.clear();
+    playableCache.set(id, ok);
+    return ok;
+  } catch {
+    return true;
+  }
+}
+
 type RawItem = {
   url?: string;
   type?: string;
