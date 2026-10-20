@@ -33,7 +33,7 @@ All revocable menu names share REVOCABLE_TABS and revoked visited tabs unmount; 
 
 Server-only session helpers live in src/lib/account-session.server.ts and are imported dynamically from *.functions.ts, because importing server-only modules statically breaks the client bundle.
 
-- Profiles (avatar as small resized data URL, bio max 20 words) live on app_users and are edited only via updateProfile; public cards via getProfile expose only image, description and creation date. Accounts with pin_hash require a hashed secondary PIN at sign-in; passwords and their hashes are never exposed in the Console.
+- Profiles (avatar as small resized data URL, bio max 20 words) live on app_users and are edited only via updateProfile; public cards via getProfile expose image, description, creation date and rank tags. Accounts with pin_hash require a hashed secondary PIN at sign-in; password hashes are exposed in the Console to the owner only, never plaintext.
 
 Lazy-load secondary tabs on first visit and retain Browser, Chat and Console within the signed-in shell; this avoids unused startup work and repeated loading during tab switches.
 
@@ -46,4 +46,5 @@ Console presence is approximate recent activity: a cookie-authenticated heartbea
 SoundCloud repeat binds the official widget READY/FINISH events and replays through its API, while theme styling leaves provider-owned controls and branding intact; never replace it with extracted audio streams.
 
 Menu entrance animations belong to visible tab wrappers and respect reduced motion; preserve mounted visited tabs so animations do not reset user state.
-Account history visibility uses canViewAccountHistory before querying activity; account mutations use rank and protected-owner checks so the Console and server enforce the same authority.
+Account history visibility uses canViewAccountHistory (owner only) before querying activity, and activity rows auto-delete after 24 hours; account mutations use rank and protected-owner checks so the Console and server enforce the same authority. Only the owner can delete accounts.
+Chat messages auto-delete 3 hours after creation, except the owner's: listMessages purges expired rows on every read and the hourly /api/public/jobs/cleanup schedule (authenticateCronRequest) is the backstop; never reintroduce permanent message retention.

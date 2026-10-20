@@ -55,3 +55,6 @@
 - [x] Replace the "web, uncontained" start page with a direct Google search box (native, unproxied)
 - [x] Retry the SoundCloud player when the widget never loads
 - [x] Remove activity history from the Console for everyone, including the owner
+- [x] Auto-delete chat messages after 3 hours (owner exempt), wipe existing messages, and auto-delete activity after 24 hours
+- [x] Restore owner-only history viewing and owner-only hashed password display in Console; admins can no longer delete accounts
+- [x] Show rank tags in the Console Rank menu and on profiles; hide tags from the chat identity bar
