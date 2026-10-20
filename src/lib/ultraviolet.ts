@@ -50,11 +50,25 @@ let setupPromise: Promise<boolean> | null = null;
  * server. Resolves false when service workers are unavailable, in which case
  * the caller falls back to the edge proxy.
  */
+function wispReachable(server: string, timeoutMs = 4000): Promise<boolean> {
+  return new Promise((resolve) => {
+    let socket: WebSocket;
+    try { socket = new WebSocket(server); } catch { resolve(false); return; }
+    const done = (ok: boolean) => { clearTimeout(timer); try { socket.close(); } catch { /* already closed */ } resolve(ok); };
+    const timer = setTimeout(() => done(false), timeoutMs);
+    socket.onopen = () => done(true);
+    socket.onerror = () => done(false);
+  });
+}
+
 export function setupUltraviolet(wispServer: string): Promise<boolean> {
   if (setupPromise) return setupPromise;
   setupPromise = (async () => {
     try {
       if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+      // Ultraviolet depends on an outside Wisp relay; when it is down every
+      // site fails, so only use Ultraviolet when the relay actually answers.
+      if (!(await wispReachable(wispServer))) return false;
       const { BareMuxConnection } = await import("@mercuryworkshop/bare-mux");
       const connection = new BareMuxConnection("/baremux/worker.js");
       await connection.setTransport("/libcurl/index.mjs", [{ wisp: wispServer }]);
