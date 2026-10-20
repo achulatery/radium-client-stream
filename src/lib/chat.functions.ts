@@ -169,6 +169,12 @@ export const deleteMessage = createServerFn({ method: "POST" })
     // there; only the owner can do this.
     if (data.hard) {
       if (user.role !== "owner") throw new Error("Only the owner can completely delete messages");
+      // Free the stored file pieces too, so fully deleted media never lingers.
+      const { data: files } = await sb.from("app_uploads").select("id, user_id, chunk_count").eq("message_id", data.id);
+      for (const f of files ?? []) {
+        const paths = Array.from({ length: f.chunk_count }, (_, n) => `${f.user_id}/${f.id}/${n.toString().padStart(6, "0")}`);
+        for (let i = 0; i < paths.length; i += 100) await sb.storage.from("radium-files").remove(paths.slice(i, i + 100));
+      }
       await sb.from("app_chat_messages").delete().eq("id", data.id);
       return { ok: true };
     }

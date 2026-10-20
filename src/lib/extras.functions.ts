@@ -15,6 +15,17 @@ export const ownerSetExtras = createServerFn({ method: "POST" })
     if (error) throw new Error("Could not save access or rank");
     return { ok: true };
   });
+/** Owner-only read of a user's chat rank and Kleb grant for the Console. */
+export const ownerGetExtras = createServerFn({ method: "GET" })
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { requireUser, db } = await helpers();
+    const user = await requireUser();
+    if (user.role !== "owner") throw new Error("Only the owner can view chat ranks");
+    const sb = await db();
+    const { data: row } = await sb.from("app_extras").select("chat_rank, kleb_enabled").eq("user_id", data.id).maybeSingle();
+    return { chatRank: (row?.chat_rank ?? null) as (typeof CHAT_RANKS)[number] | null, klebEnabled: Boolean(row?.kleb_enabled) };
+  });
 export const getKleb = createServerFn({ method: "GET" }).handler(async () => {
   const { requireUser, db } = await helpers(); const user = await requireUser(); const sb = await db();
   const { data } = await sb.from("app_extras").select("*").eq("user_id", user.id).maybeSingle();
