@@ -10,7 +10,9 @@ export const beginUpload = createServerFn({ method: "POST" })
     if (data.size > limit) throw new Error("This file exceeds your upload allowance");
     if (data.kind === "kleb" && !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(data.mime)) throw new Error("Choose a JPEG, PNG, WebP or GIF picture");
     const id = crypto.randomUUID(); const chunks = Math.ceil(data.size / CHUNK_BYTES);
-    const { error } = await sb.rpc("reserve_radium_upload", { p_id: id, p_user: user.id, p_room: data.roomId ?? null, p_kind: data.kind, p_name: data.name, p_mime: data.mime || "application/octet-stream", p_size: data.size, p_chunks: chunks });
+    // PostgreSQL accepts NULL for Kleb's room; generated RPC types omit argument nullability.
+    const room = (data.roomId ?? null) as unknown as string;
+    const { error } = await sb.rpc("reserve_radium_upload", { p_id: id, p_user: user.id, p_room: room, p_kind: data.kind, p_name: data.name, p_mime: data.mime || "application/octet-stream", p_size: data.size, p_chunks: chunks });
     if (error) throw new Error(data.kind === "kleb" ? "Kleb picture allowance reached or upload unavailable" : "Could not start upload");
     return { id, chunks };
   });
@@ -23,7 +25,7 @@ export const getUploadChunk = createServerFn({ method: "POST" })
     const { data: signed, error } = await sb.storage.from("radium-files").createSignedUploadUrl(path);
     if (error || !signed) throw new Error("Could not prepare upload");
     // Use the browser-facing host; server-local storage addresses are not browser reachable.
-    const url = new URL(signed.signedUrl); const browser = new URL(import.meta.env.VITE_SUPABASE_URL);
+    const url = new URL(signed.signedUrl); const browser = new URL(import.meta.env['VITE_SUPABASE_URL']);
     url.protocol = browser.protocol; url.host = browser.host;
     return { url: url.toString() };
   });
