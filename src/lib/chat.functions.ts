@@ -184,3 +184,12 @@ export const deleteMessage = createServerFn({ method: "POST" })
     await sb.from("app_chat_messages").update({ deleted_at: new Date().toISOString(), deleted_by_role: by }).eq("id", data.id);
     return { ok: true };
   });
+
+/** The signed-in user's chat rank and per-message media allowance. */
+export const getMyMediaLimit = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await requireUser();
+  const sb = await db();
+  const { data: extra } = await sb.from("app_extras").select("chat_rank").eq("user_id", user.id).maybeSingle();
+  const chatRank = (extra?.chat_rank ?? null) as ChatRank;
+  return { chatRank, limit: attachmentLimit(user.role, chatRank) };
+});
