@@ -525,3 +525,6 @@
 .dc-pending-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dc-pending-file progress { width: 48px; height: 4px; accent-color: var(--rd-accent); }
 .dc-limit { padding: 4px 12px 0; font-size: 11px; color: var(--rd-muted); }
+.rd-rank { text-shadow: 0 0 6px color-mix(in oklab, var(--rank-color) 70%, transparent); }
+/* Deep colours read best as a solid glowing chip. */
+.rd-rank-staff, .rd-rank-mythic { background: var(--rank-color); color: var(--rd-text); text-shadow: 0 0 4px color-mix(in oklab, var(--rd-text) 60%, transparent); box-shadow: 0 0 8px var(--rank-color), 0 0 16px color-mix(in oklab, var(--rank-color) 55%, transparent); }
