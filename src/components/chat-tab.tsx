@@ -167,6 +167,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
 
   const run = async (fn: () => Promise<unknown>) => { setError(""); try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong"); } };
   const room = rooms.find((r) => r.id === active);
+  const channel = channelOf(active);
 
   return (
     <div className="dc-shell">
@@ -211,6 +212,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
       </aside>
 
       <section className="dc-main">
+        {channel ? <PostsTab kind={channel.kind} /> : <>
         <header className="dc-head">
           <div><Hash size={18} /><strong>{room?.name ?? "…"}</strong>{room && <span>code: {room.code}</span>}</div>
           <div className="flex gap-1">
@@ -266,6 +268,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
           <input aria-label="Message" placeholder={`Message #${room?.name ?? ""}`} value={body} maxLength={2000} onChange={(e) => setBody(e.target.value)} />
           <Button variant="ghost" size="icon" type="submit" disabled={(!body.trim() && !pending.length) || sending || !active} aria-label="Send"><Send size={17} /></Button>
         </form>
+        </>}
       </section>
     </div>
   );
