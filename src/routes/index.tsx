@@ -218,7 +218,7 @@ function BrowserTab() {
   const [uvReady, setUvReady] = useState(false);
   const [uvStarting, setUvStarting] = useState(true);
   const [uvAttempt, setUvAttempt] = useState(0);
-  const searchVersion = useRef(0);
+  const visitedHome = useRef(false);
 
   // Ultraviolet proxies clicked sites inside the browser via a service worker;
   // Never load a website until the Ultraviolet transport is verified.
@@ -247,53 +247,37 @@ function BrowserTab() {
     pushHistory(url);
   }, [cursor, pushHistory]);
 
-  // Search pages are never proxied: results load natively (no bot checks),
-  // and only the site the user clicks goes through the proxy.
-  const runSearch = useCallback(async (query: string) => {
-    const version = ++searchVersion.current;
-    setResults({ query, items: [] });
-    setSearching(true);
-    setInput(query);
-    setStatus("Searching");
-    try {
-      const items = await searchWeb({ data: { query } });
-      if (version !== searchVersion.current) return;
-      setResults({ query, items });
-      setStatus("Ready");
-    } catch {
-      if (version !== searchVersion.current) return;
-      setResults({ query, items: [], error: "Search is unavailable right now. Please try again." });
-      setStatus("Search unavailable");
-    } finally {
-      if (version === searchVersion.current) setSearching(false);
-    }
-  }, []);
+  // Radium visits DuckDuckGo itself: the home page and every search load
+  // through Ultraviolet like any other site, so results and clicks stay
+  // inside the same proxied session.
+  const home = applySearchPolicy(new URL("https://duckduckgo.com/"), safe).href;
 
   const open = useCallback((raw: string) => {
     const normalized = normalizeQuery(raw);
     if (!normalized) return;
     const query = searchQueryOf(normalized);
-    if (query) {
-      void runSearch(query);
-      return;
-    }
-    const destination = browserDestination(normalized);
+    const destination = query
+      ? `https://duckduckgo.com/?q=${encodeURIComponent(query)}`
+      : browserDestination(normalized);
     if (!destination) return;
-    ++searchVersion.current;
-    setSearching(false);
-    setResults(null);
     const url = applySearchPolicy(new URL(destination), safe).href;
     remember(url);
     setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1);
     setStatus("Loading page");
-  }, [remember, safe, runSearch]);
+  }, [remember, safe]);
+
+  // The Browser starts by visiting DuckDuckGo.
+  useEffect(() => {
+    if (visitedHome.current) return;
+    visitedHome.current = true;
+    open(home);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const travel = (next: number) => {
     const url = entries[next];
     if (!url) return;
-    ++searchVersion.current;
-    setResults(null); setSearching(false);
     current.current = url;
     setCursor(next); setTarget(url); setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1); setStatus("Loading page");
