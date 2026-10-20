@@ -60,12 +60,12 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Search with Google, browse sites through Ultraviolet, chat with friends and play music in one themeable client.",
+          "Search with DuckDuckGo, browse sites through Ultraviolet, chat with friends and play music in one themeable client.",
       },
       { property: "og:title", content: "Radium Client" },
       {
         property: "og:description",
-        content: "Search with Google, browse sites through Ultraviolet, chat with friends and play music in one themeable client.",
+        content: "Search with DuckDuckGo, browse sites through Ultraviolet, chat with friends and play music in one themeable client.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -407,8 +407,8 @@ function StartScreen({
           <Search size={18} className="shrink-0 text-client-muted" />
           <input
             name="q"
-            aria-label="Search Google"
-            placeholder="Search Google or enter a web address"
+            aria-label="Search DuckDuckGo"
+            placeholder="Search DuckDuckGo or enter a web address"
             autoComplete="off"
             autoFocus
             className="min-w-0 w-full bg-transparent text-sm outline-none"

@@ -69,7 +69,7 @@ async function searchGoogle(query: string, safe: boolean): Promise<WebResult[]> 
 }
 
 async function searchDuckDuckGo(query: string, safe: boolean): Promise<WebResult[]> {
-  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&kp=${safe ? "1" : "-2"}`;
+  const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}&kp=${safe ? "1" : "-2"}`;
   const res = await fetch(url, {
     headers: {
       "user-agent": BROWSER_UA,
@@ -102,8 +102,8 @@ async function searchDuckDuckGo(query: string, safe: boolean): Promise<WebResult
  * Native web search: the search page itself is never proxied or framed, so
  * search engines see an ordinary server request instead of a proxied browser,
  * which avoids the bot checks proxied search pages trigger. Only the site the
- * user actually opens goes through the proxy. Google is primary; DuckDuckGo
- * HTML is the fallback when Google declines the request.
+ * user actually opens goes through the proxy. DuckDuckGo is primary; Google
+ * is the fallback when DuckDuckGo declines the request.
  */
 export const searchWeb = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ query: z.string().trim().min(1).max(200) }).parse(d))
@@ -111,9 +111,9 @@ export const searchWeb = createServerFn({ method: "GET" })
     const user = await requireUser();
     const settings = (user.settings ?? null) as { duckduckgoSafeSearch?: boolean } | null;
     const safe = safeSearchEnabled(user.role, settings?.duckduckgoSafeSearch);
-    const google = await searchGoogle(data.query, safe).catch(() => []);
-    if (google.length > 0) return google;
     const ddg = await searchDuckDuckGo(data.query, safe).catch(() => []);
     if (ddg.length > 0) return ddg;
+    const google = await searchGoogle(data.query, safe).catch(() => []);
+    if (google.length > 0) return google;
     throw new Error("Search is unavailable right now");
   });
