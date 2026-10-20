@@ -1,11 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { attachmentLimit, CHUNK_BYTES, KLEB_BYTES, type ChatRank } from "./chat-ranks";
-const helpers = () => import("./uploads.server");
 export const beginUpload = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ kind: z.enum(["chat", "kleb"]), roomId: z.string().uuid().optional(), name: z.string().min(1).max(255), mime: z.string().max(100), size: z.number().int().positive().max(15_000_000_000) }).parse(d))
+  .validator((d: { kind: "chat" | "kleb"; roomId?: string; name: string; mime: string; size: number }) => z.object({ kind: z.enum(["chat", "kleb"]), roomId: z.string().uuid().optional(), name: z.string().min(1).max(255), mime: z.string().max(100), size: z.number().int().positive().max(15_000_000_000) }).parse(d))
   .handler(async ({ data }) => {
-    const { uploadContext } = await helpers(); const { user, sb } = await uploadContext(data.kind, data.roomId);
+    const { uploadContext } = await import("./uploads.server"); const { user, sb } = await uploadContext(data.kind, data.roomId);
     const { data: extra } = await sb.from("app_extras").select("chat_rank").eq("user_id", user.id).maybeSingle();
     const limit = data.kind === "kleb" ? KLEB_BYTES : attachmentLimit(user.role, (extra?.chat_rank ?? null) as ChatRank);
     if (data.size > limit) throw new Error("This file exceeds your upload allowance");
@@ -16,9 +15,9 @@ export const beginUpload = createServerFn({ method: "POST" })
     return { id, chunks };
   });
 export const getUploadChunk = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ id: z.string().uuid(), index: z.number().int().min(0) }).parse(d))
+  .validator((d: { id: string; index: number }) => z.object({ id: z.string().uuid(), index: z.number().int().min(0) }).parse(d))
   .handler(async ({ data }) => {
-    const { ownedUpload } = await helpers(); const { sb, row } = await ownedUpload(data.id);
+    const { ownedUpload } = await import("./uploads.server"); const { sb, row } = await ownedUpload(data.id);
     if (row.complete || data.index >= row.chunk_count) throw new Error("Invalid upload chunk");
     const path = `${row.user_id}/${row.id}/${data.index.toString().padStart(6, "0")}`;
     const { data: signed, error } = await sb.storage.from("radium-files").createSignedUploadUrl(path);
@@ -29,17 +28,17 @@ export const getUploadChunk = createServerFn({ method: "POST" })
     return { url: url.toString() };
   });
 export const finishUpload = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
-    const { ownedUpload, verifyChunks } = await helpers(); const { sb, row } = await ownedUpload(data.id);
+    const { ownedUpload, verifyChunks } = await import("./uploads.server"); const { sb, row } = await ownedUpload(data.id);
     await verifyChunks(sb, row);
     const { error } = await sb.from("app_uploads").update({ complete: true }).eq("id", row.id);
     if (error) throw new Error("Could not finish upload"); return { id: row.id, name: row.name, mime: row.mime, size: row.size_bytes };
   });
 export const removeUpload = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
-    const { ownedUpload } = await helpers(); const { sb, row } = await ownedUpload(data.id);
+    const { ownedUpload } = await import("./uploads.server"); const { sb, row } = await ownedUpload(data.id);
     if (row.message_id) throw new Error("Delete the chat message instead");
     for (let i = 0; i < row.chunk_count; i += 100) {
       const paths = Array.from({ length: Math.min(100, row.chunk_count - i) }, (_, n) => `${row.user_id}/${row.id}/${(i + n).toString().padStart(6, "0")}`);
