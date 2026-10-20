@@ -125,16 +125,21 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
 
   const submitMessage = async () => {
     const text = body.trim();
-    if (!text || !active || !user || sendingRef.current) return;
+    const files = pending;
+    if ((!text && !files.length) || !active || !user || sendingRef.current) return;
+    if (files.some((p) => p.error)) { setError("Remove the files that failed to upload first"); return; }
     const rid = active;
     sendingRef.current = true; setSending(true); ++requestVersion.current;
     setBody(""); setError(""); nearBottom.current = true;
     const temporaryId = `pending-${crypto.randomUUID()}`;
-    const optimistic: Message = { id: temporaryId, userId: user.id, username: user.username, avatar: user.avatar, authorRole: user.role, body: text, createdAt: new Date().toISOString(), editedAt: null, deleted: false, deletedBy: null, sending: true };
+    const optimistic: Message = { id: temporaryId, userId: user.id, username: user.username, avatar: user.avatar, authorRole: user.role, chatRank: media?.chatRank ?? null, accent: null, body: text, attachments: [], createdAt: new Date().toISOString(), editedAt: null, deleted: false, deletedBy: null, sending: true };
     const next = [...(roomCache.current.get(rid) ?? messages), optimistic];
     roomCache.current.set(rid, next); setMessages(next);
     try {
-      const saved = await sendMessage({ data: { roomId: rid, body: text } });
+      const uploadIds = (await Promise.all(files.map((p) => p.done))).filter((id): id is string => Boolean(id));
+      if (uploadIds.length !== files.length) throw new Error("A file failed to upload");
+      const saved = await sendMessage({ data: { roomId: rid, body: text, uploadIds } });
+      setPending((list) => { for (const p of list) if (p.preview && files.includes(p)) URL.revokeObjectURL(p.preview); return list.filter((p) => !files.includes(p)); });
       ++requestVersion.current;
       const confirmed = (roomCache.current.get(rid) ?? []).map((m) => m.id === temporaryId ? { ...m, id: saved.id, createdAt: saved.createdAt, sending: false } : m);
       roomCache.current.set(rid, confirmed);
@@ -145,6 +150,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
       if (currentRoom.current === rid) { setMessages(remaining); setBody((draft) => draft || text); }
       setError(e instanceof Error ? e.message : "Could not send message");
     } finally { sendingRef.current = false; setSending(false); }
+    if (files.length) void loadMessages();
   };
 
   const run = async (fn: () => Promise<unknown>) => { setError(""); try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong"); } };
