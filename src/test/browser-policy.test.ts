@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applySearchPolicy, safeSearchEnabled, cleanBrowserAddress, browserDestination, searchQueryOf } from "@/lib/browser-policy";
+import { uvUrl } from "@/lib/ultraviolet";
 
 describe("browser policy", () => {
   it("forces strict Safe Search for members even with a disabled preference", () => { expect(safeSearchEnabled(null, false)).toBe(true); expect(applySearchPolicy(new URL("https://duckduckgo.com/?q=cats&kp=-2"), safeSearchEnabled(null, false)).searchParams.get("kp")).toBe("1"); });
@@ -8,4 +9,10 @@ describe("browser policy", () => {
   it("applies strict policy to DuckDuckGo image search but not lookalike hosts", () => { expect(applySearchPolicy(new URL("https://duckduckgo.com/i.js?kp=-2"), true).searchParams.get("kp")).toBe("1"); expect(applySearchPolicy(new URL("https://duckduckgo.com.evil.test/?kp=-2"), true).searchParams.get("kp")).toBe("-2"); });
   it("shows upstream addresses and unwraps DuckDuckGo result redirects", () => { expect(cleanBrowserAddress("https://app.test/api/public/p?u=https%3A%2F%2Fexample.com%2Farticle%3Ftracking%3D1")).toBe("example.com/article"); expect(browserDestination("https://duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2F")).toBe("https://example.com/"); });
   it("detects search pages so they load natively, never proxied", () => { expect(searchQueryOf("https://duckduckgo.com/?q=cats")).toBe("cats"); expect(searchQueryOf("https://example.com/?q=cats")).toBeNull(); expect(searchQueryOf("https://duckduckgo.com/")).toBeNull(); expect(searchQueryOf("not a url")).toBeNull(); });
+  it("unwraps Ultraviolet addresses instead of proxying them again", () => {
+    const once = `http://localhost:8080${uvUrl("https://example.com/page")}`;
+    expect(browserDestination(once)).toBe("https://example.com/page");
+    expect(browserDestination(`http://localhost:8080${uvUrl(once)}`)).toBe("https://example.com/page");
+    expect(cleanBrowserAddress(once)).toBe("example.com/page");
+  });
 });
