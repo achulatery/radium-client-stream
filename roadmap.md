@@ -1,60 +1,7 @@
-- [x] Fix image format mismatches and verify real chat images (PNG and missing-type image rendered; HEIC conversion depends on device decoding)
-- [x] Keep Browser searches native, remove HTML error fallback and explanatory loading copy (results loaded without a frame)
-- [x] Use Ultraviolet exclusively for Browser websites with an explicit retry when unavailable (example.com loaded via /uv/service, no backup requests)
-- [x] Combine staff and chat ranks in Console Rank; retain menu access controls
-- [x] Fix upload compilation errors and verify Radium loads (clean compilation; opening page and three tests verified)
-- [x] Diagnose reported deployment/storage failure (caused by the browser re-wrapping proxied addresses endlessly; fixed)
-- [ ] Add owner-granted personal Kleb pages with 5 GB picture allowance
-- [x] Add owner-assigned neon chat ranks without staff privileges (Console Chat rank menu)
-- [x] Add private chunked rank-limited attachments and verify signed-in flows
-- [x] Make YouTube playback immediate and independent of Invidious metadata/comments
-- [ ] Enforce history visibility and owner account protection
-- [ ] Enforce role-aware DuckDuckGo Safe Search and improve image loading
-- [ ] Wire browser navigation and clean address display; verify signed-in flows
-- [x] Fail Invidious lookups quickly without an endless loading state
-- [x] Restyle Settings to match the attached lightweight row layout
-- [x] Verify video failure handling and Settings in the browser
-- [x] Handle Piped API responses safely when launched from the Home Screen
-- [x] Add a stable Home Screen launch URL and prevent stale Piped API responses
-- [x] Restore Invidious result thumbnails when public image links fail
-- [x] Replace Music with real SoundCloud discovery, search and on-demand playback
-- [x] Verify Music controls, appearance and failure states
-- [x] Restore YouTube's Invidious/Piped search with a browser-style opening screen
-- [x] Remove provider connection messages and accelerate video/thumbnail preloading
-- [ ] Verify YouTube search and video opening with a responding external provider
-- [x] Replace SoundCloud with Spotify and match the supplied music layout
-- [x] Verify Spotify playlist selection, saved library and link embedding
-- [x] Retire Spotify playback verification — music reverted to SoundCloud
-- [x] Restore unbranded SoundCloud and remove Spotify logins (official widget retains its required branding)
-- [x] Add own-password settings and owner-only password resets
-- [x] Rename promoted accounts to mods with server-enforced permissions
-- [x] Add shared Chat between Browser and YouTube
-- [x] Verify new account, password and chat flows
-- [x] Show outgoing chat messages instantly without duplicate submissions
-- [x] Consolidate staff access controls into one Radium-style menu
-- [ ] Verify instant chat delivery and the access menu
-- [x] Revamp Console with searchable users, compact actions and contained history
-- [x] Reduce initial loading and preserve visited Browser, Chat and Console views
-- [ ] Verify smoother Radium navigation and Console layout
-- [x] Add smooth client/menu entrance and chat input animations without Sending labels
-- [x] Show Console profile images, profile cards and online/offline indicators
-- [x] Theme SoundCloud playback, remove its sign-in action and add repeat
-- [x] Verify the new menu, profile, presence, chat and music controls (signed-in Console/profile, one message after double Enter, repeat toggle, reduced motion; full-track repeat playback not observed)
-- [x] Improve browser compatibility without promising removal of website bot checks (live upstream page and direct-opening control verified)
-- [x] Add staff-only public chat creation while preserving code-only rooms (owner creation and member read verified)
-- [x] Include Music in menu revocation and verify chat/access rules (saved revocation and member reload verified; 11 tests passed)
-- [x] Add owner-only complete message deletion alongside soft "deleted by owner"
-- [x] Load search results natively and proxy only clicked sites
-- [ ] Verify owner delete options and native search in the browser
-- [x] Search natively through Google (DuckDuckGo fallback) and proxy clicked sites with Ultraviolet
-- [x] Verify Google search results and Ultraviolet site loading in the browser (site loading verified)
-- [x] Fix "Deployment storage temporarily unavailable" when opening any website in Browser (endless proxy-address loop fixed; example.com verified through Ultraviolet)
-- [x] Neon rank tag colours in chat: VIP #55FF55, MVP #55FFFF, MYTHIC #A000FF, LEGEND #FFAA00, RADIUM = user's accent, owner/admin #AA0000
-- [x] Let chat users send images within their rank's per-message media limit (owner image send + delete-forever verified)
-- [x] Merge Console Rank into one ungrouped rank list with tags beside staff names
-- [x] Replace the "web, uncontained" start page with a direct Google search box (native, unproxied)
-- [x] Retry the SoundCloud player when the widget never loads
-- [x] Remove activity history from the Console for everyone, including the owner
-- [x] Auto-delete chat messages after 3 hours (owner exempt), wipe existing messages, and auto-delete activity after 24 hours
-- [x] Restore owner-only history viewing and owner-only hashed password display in Console; admins can no longer delete accounts
-- [x] Show rank tags in the Console Rank menu and on profiles; hide tags from the chat identity bar
+# Roadmap
+
+- [ ] Browser: native unproxied DuckDuckGo search; only clicked sites load through Ultraviolet
+- [ ] Updates + Announcements menus (all users view; mods/admins/owner edit; Announcements on top, Updates below)
+- [ ] Permissions: owner-only history (verify), mods revoke-only (no ban), admins ban + revoke
+- [ ] Kleb menu: staff + one owner-granted person; owner grants/revokes single holder; default no access
+- [ ] Kleb pages (deferred from earlier)
