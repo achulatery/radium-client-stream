@@ -189,7 +189,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
             <Button type="submit" size="sm">{panel === "create" ? "Create room" : "Join room"}</Button>
           </form>
         )}
-        <button type="button" className="dc-user" onClick={() => user && setProfileId(user.id)} title="Your profile"><Avatar src={user?.avatar} name={user?.username ?? "?"} size={32} /><span>{user?.username}</span><StaffTag role={user?.role} />{user?.role === "mod" && <b>MOD</b>}<RankTag rank={media?.chatRank ?? null} /></button>
+        <button type="button" className="dc-user" onClick={() => user && setProfileId(user.id)} title="Your profile"><Avatar src={user?.avatar} name={user?.username ?? "?"} size={32} /><span>{user?.username}</span></button>
       </aside>
 
       <section className="dc-main">
