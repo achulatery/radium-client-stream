@@ -1,4 +1,6 @@
-import { EmbedPlayer, INVIDIOUS_EMBEDS, PIPED_EMBEDS } from "@/components/embed-player";
+import { PlayerModeContext, VideoPlayer, INVIDIOUS_EMBEDS, PIPED_EMBEDS } from "@/components/embed-player";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getYouTubeSettings, setYouTubeSettings } from "@/lib/youtube-settings.functions";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -571,7 +573,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
       <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
         {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : video ? (
           <div className="space-y-3">
-            <EmbedPlayer videoId={video.videoId} title={video.title} hosts={PIPED_EMBEDS} />
+            <VideoPlayer videoId={video.videoId} title={video.title} hosts={PIPED_EMBEDS} poster={video.thumbnail} />
             <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>{video.title}</h2>
             <p className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>
               {[video.author, formatViews(video.views), formatDuration(video.duration)].filter(Boolean).join(" · ")}
@@ -782,7 +784,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
       <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
         {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : selected ? (
           <div className="space-y-4">
-            <EmbedPlayer videoId={selected.videoId ?? ""} title={selected.title} hosts={INVIDIOUS_EMBEDS} />
+            <VideoPlayer videoId={selected.videoId ?? ""} title={selected.title} hosts={INVIDIOUS_EMBEDS} poster={selected.thumbnail} />
             <div className="space-y-1">
               <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>
                 {selected.title}

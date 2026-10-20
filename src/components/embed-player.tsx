@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { preloadVideo } from "@/lib/video-loading";
 import { setupUltraviolet, uvUrl } from "@/lib/ultraviolet";
 import { useRadium } from "@/lib/radium";
 
@@ -76,4 +77,21 @@ export function DirectPlayer({ videoId, title, hosts, streams, poster }: { video
     <video key={s.url} src={`/api/stream?url=${encodeURIComponent(s.url)}`} poster={poster ?? undefined} controls autoPlay playsInline preload="auto"
       className="w-full rounded-md aspect-video" style={{ background: "var(--rd-surface)" }} onError={() => setI((n) => n + 1)} />
   );
+}
+
+export const PlayerModeContext = createContext<"mirror" | "direct">("mirror");
+
+/** Picks the owner-chosen player for everyone. */
+export function VideoPlayer({ videoId, title, hosts, poster }: { videoId: string; title: string; hosts: string[]; poster?: string | null }) {
+  const mode = useContext(PlayerModeContext);
+  const [streams, setStreams] = useState<{ url: string; quality: string }[] | null>(null);
+  useEffect(() => {
+    if (mode !== "direct" || !videoId) return;
+    let live = true;
+    setStreams(null);
+    void preloadVideo(videoId).then((s) => { if (live) setStreams(s ?? []); });
+    return () => { live = false; };
+  }, [mode, videoId]);
+  if (mode === "direct") return <DirectPlayer videoId={videoId} title={title} hosts={hosts} streams={streams} poster={poster} />;
+  return <EmbedPlayer videoId={videoId} title={title} hosts={hosts} />;
 }
