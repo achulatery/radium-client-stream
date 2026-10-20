@@ -43,6 +43,13 @@
       "when": 1792462619974,
       "tag": "0005_chat_attachment_only_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792471593105,
+      "tag": "0006_allow_contributor_chat_rank",
+      "breakpoints": true
     }
   ]
 }
