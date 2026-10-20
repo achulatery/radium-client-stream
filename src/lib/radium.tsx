@@ -255,5 +255,5 @@ export function getYouTubeVideoId(raw: string): string | null {
  */
 export function videoPlayerUrl(videoId: string) {
   const id = encodeURIComponent(videoId);
-  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&hl=en&gl=SG&vq=tiny&playsinline=1`;
+  return `https://yewtu.be/embed/${id}?autoplay=1`;
 }
