@@ -1,3 +1,4 @@
+import { EmbedPlayer, INVIDIOUS_EMBEDS, PIPED_EMBEDS } from "@/components/embed-player";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowLeft,
