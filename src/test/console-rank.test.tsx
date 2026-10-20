@@ -16,7 +16,7 @@ vi.mock("@/lib/account.functions", () => ({
 describe("Console rank assignment", () => {
   it("saves a VIP assignment through the combined Rank menu", async () => {
     render(<ConsoleTab visible={false} />);
-    fireEvent.click(await screen.findByRole("button", { name: "TestMember Member" }));
+    fireEvent.click(await screen.findByRole("button", { name: /TestMember.*Member/ }));
     const trigger = await screen.findByRole("button", { name: "Rank" });
     fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
     fireEvent.keyDown(trigger, { key: "Enter" });

@@ -1,7 +1,7 @@
-- [ ] Fix reported image sending/loading and verify a real chat image
-- [ ] Keep Browser searches native, remove HTML error fallback and explanatory loading copy
-- [ ] Use Ultraviolet exclusively for Browser websites with an explicit retry when unavailable
-- [ ] Combine staff and chat ranks in Console Rank; retain menu access controls
+- [x] Fix image format mismatches and verify real chat images (PNG and missing-type image rendered; HEIC conversion depends on device decoding)
+- [x] Keep Browser searches native, remove HTML error fallback and explanatory loading copy (results loaded without a frame)
+- [x] Use Ultraviolet exclusively for Browser websites with an explicit retry when unavailable (example.com loaded via /uv/service, no backup requests)
+- [x] Combine staff and chat ranks in Console Rank; retain menu access controls
 - [x] Fix upload compilation errors and verify Radium loads (clean compilation; opening page and three tests verified)
 - [x] Diagnose reported deployment/storage failure (caused by the browser re-wrapping proxied addresses endlessly; fixed)
 - [ ] Add owner-granted personal Kleb pages with 5 GB picture allowance
