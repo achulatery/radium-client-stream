@@ -36,9 +36,9 @@ export const searchWeb = createServerFn({ method: "GET" })
     const snippets = [...html.matchAll(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)];
     const results: WebResult[] = [];
     for (const [i, link] of links.entries()) {
-      const url = unwrap(decodeEntities(link[1]));
+      const url = unwrap(decodeEntities(link[1] ?? ""));
       if (!url || !/^https?:$/.test(new URL(url).protocol)) continue;
-      results.push({ title: stripTags(link[2]) || url, url, snippet: snippets[i] ? stripTags(snippets[i][1]) : "" });
+      results.push({ title: stripTags(link[2] ?? "") || url, url, snippet: snippets[i] ? stripTags(snippets[i]?.[1] ?? "") : "" });
       if (results.length >= 15) break;
     }
     return results;
