@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowLeft,
   ArrowRight,
-  Code2,
   ExternalLink,
   Home,
   LockKeyhole,
@@ -38,7 +37,6 @@ import {
 import {
   getYouTubeVideoId,
   normalizeQuery,
-  searchUrl,
   useRadium,
   videoPlayerUrl,
 } from "@/lib/radium";
@@ -58,16 +56,16 @@ const ConsoleTab = lazy(() => import("@/components/console-tab").then((m) => ({ 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Radium Client — The web, uncontained" },
+      { title: "Radium Client" },
       {
         name: "description",
         content:
-          "Radium Client is a themeable web proxy window with live latency, media streaming support and Singapore-first routing.",
+          "Search with Google, browse sites through Ultraviolet, chat with friends and play music in one themeable client.",
       },
-      { property: "og:title", content: "Radium Client — The web, uncontained" },
+      { property: "og:title", content: "Radium Client" },
       {
         property: "og:description",
-        content: "Browse, test and theme the web through Radium Client's encrypted transport.",
+        content: "Search with Google, browse sites through Ultraviolet, chat with friends and play music in one themeable client.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -396,79 +394,41 @@ function StartScreen({
   history: { url: string; at: number }[];
 }) {
   return (
-      <div
-        className="radium-grid h-full overflow-auto px-4 py-10"
-      style={{
-        backgroundImage:
-          "linear-gradient(var(--rd-line) 1px, transparent 1px), linear-gradient(90deg, var(--rd-line) 1px, transparent 1px)",
-        backgroundSize: "72px 72px",
-      }}
-    >
-        <div className="relative mx-auto max-w-[680px] pt-[2vh] sm:pt-[4vh]">
-        <div
-          className="absolute inset-0 translate-x-3 translate-y-3 rounded-sm"
-          style={{ border: "2px solid var(--rd-accent)" }}
-          aria-hidden
-        />
-        <div
-            className="relative px-6 py-10 text-center sm:px-12 sm:py-12"
-          style={{ background: "var(--rd-surface)", border: "1px solid var(--rd-line)" }}
-        >
-          <div className="mb-6 flex justify-center">
-            <span
-              className="flex h-16 w-16 items-center justify-center rounded-md text-3xl font-bold"
-              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
-            >
-              R
-            </span>
-          </div>
-          <p
-            className="font-mono text-xs tracking-[0.35em]"
-            style={{ color: "var(--rd-muted)" }}
-          >
-            RADIUM CLIENT · READY
-          </p>
-          <h1 className="mx-auto mt-4 max-w-xl text-4xl font-bold leading-[1.02] sm:text-6xl">
-            The web,
-            <br />
-            uncontained.
-          </h1>
-          <p className="mx-auto mt-6 max-w-md text-sm" style={{ color: "var(--rd-muted)" }}>
-            Enter an address above or launch a site through Radium's accelerated encrypted
-            transport.
-          </p>
-          <div className="mt-8 grid gap-2 sm:grid-cols-2">
-            <button
-              onClick={() => open(searchUrl("radium client"))}
-              className="flex items-center justify-center gap-2 rounded-sm px-8 py-3 text-sm font-semibold"
-              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)", border: "1px solid var(--rd-accent)" }}
-            >
-              <Search size={15} /> Search
-            </button>
-            <button
-              onClick={() => open("https://github.com/")}
-              className="flex items-center justify-center gap-2 rounded-sm px-8 py-3 text-sm"
-              style={{ background: "var(--rd-button)", color: "var(--rd-button-text)", border: "1px solid var(--rd-line)" }}
-            >
-              <Code2 size={15} className="text-client-signal" /> GitHub
-            </button>
-          </div>
-          {history.length > 0 && (
-            <div className="mt-10 flex flex-wrap justify-center gap-2">
-              {history.slice(0, 6).map((h) => (
-                <button
-                  key={h.url}
-                  onClick={() => open(h.url)}
-                  className="max-w-full truncate rounded-full px-3 py-1.5 font-mono text-[11px]"
-                  style={{ background: "var(--rd-button)", color: "var(--rd-muted)" }}
-                >
-                  {h.url.replace(/^https?:\/\//, "")}
-                </button>
-              ))}
-            </div>
-          )}
+    <div className="radium-grid flex h-full flex-col items-center justify-center gap-8 overflow-auto px-4">
+      <form
+        className="w-full max-w-[560px]"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const value = new FormData(event.currentTarget).get("q");
+          if (typeof value === "string" && value.trim()) open(value);
+        }}
+      >
+        <div className="flex h-12 items-center gap-3 rounded-full border border-client-line bg-client-search px-5 text-client-search-text">
+          <Search size={18} className="shrink-0 text-client-muted" />
+          <input
+            name="q"
+            aria-label="Search Google"
+            placeholder="Search Google or enter a web address"
+            autoComplete="off"
+            autoFocus
+            className="min-w-0 w-full bg-transparent text-sm outline-none"
+          />
         </div>
-      </div>
+      </form>
+      {history.length > 0 && (
+        <div className="flex max-w-[680px] flex-wrap justify-center gap-2">
+          {history.slice(0, 6).map((h) => (
+            <button
+              key={h.url}
+              onClick={() => open(h.url)}
+              className="max-w-full truncate rounded-full px-3 py-1.5 font-mono text-[11px]"
+              style={{ background: "var(--rd-button)", color: "var(--rd-muted)" }}
+            >
+              {h.url.replace(/^https?:\/\//, "")}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

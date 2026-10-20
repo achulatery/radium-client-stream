@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ExternalLink, Heart, Home, Library, Menu, Music2, Play, Repeat1, Search } from "lucide-react";
+import { ArrowRight, ExternalLink, Heart, Home, Library, Menu, Music2, Play, RefreshCw, Repeat1, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/lib/account";
 import { track } from "@/lib/track";
@@ -23,29 +23,37 @@ export function MusicTab() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [liked, setLiked] = useState<Track[]>([]);
   const [current, setCurrent] = useState(initial);
+  const [playerNonce, setPlayerNonce] = useState(0);
+  const [playerFailed, setPlayerFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
+    let ready = false;
     const iframe = player.current;
     let widget: SoundCloudWidget | undefined;
     let readyEvent = "";
     let finishEvent = "";
     setPlayerReady(false);
+    setPlayerFailed(false);
+    // Some networks drop the widget script or the frame; surface a retry instead
+    // of leaving the player silently unloaded.
+    const timeout = setTimeout(() => { if (!cancelled && !ready) setPlayerFailed(true); }, 12000);
     void loadSoundCloudWidget().then((factory) => {
       if (cancelled || !player.current) return;
       widget = factory(player.current);
       readyEvent = factory.Events.READY; finishEvent = factory.Events.FINISH;
-      widget.bind(readyEvent, () => { if (!cancelled) setPlayerReady(true); });
+      widget.bind(readyEvent, () => { ready = true; if (!cancelled) { setPlayerReady(true); setPlayerFailed(false); } });
       widget.bind(finishEvent, () => { if (!cancelled && repeatRef.current) { widget?.seekTo(0); widget?.play(); } });
-    }).catch(() => { if (!cancelled) setPlayerReady(false); });
+    }).catch(() => { if (!cancelled) { setPlayerReady(false); setPlayerFailed(true); } });
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
       // The provider posts to contentWindow when unbinding; detached frames have none.
       if (iframe?.contentWindow) {
         try { widget?.unbind(readyEvent); widget?.unbind(finishEvent); }
         catch { /* A navigating provider frame may already have been disposed. */ }
       }
     };
-  }, [current.url]);
+  }, [current.url, playerNonce]);
   const [view, setView] = useState<"home" | "liked">("home");
   const [collapsed, setCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -86,6 +94,6 @@ export function MusicTab() {
       <section className="spotify-shelf"><h2>{view === "liked" ? "Your collection" : query ? "Tracks" : "Popular now"}</h2>{loading && view === "home" ? <p className="spotify-empty">Loading music…</p> : <div className="spotify-cards">{(view === "liked" ? liked : tracks).map((item) => <Button variant="ghost" className="spotify-card" key={item.url} onClick={() => pick(item)} aria-label={`Play ${item.title}`}><div className="spotify-card-art">{art(item)}<span className="spotify-play"><Play fill="currentColor" size={22} /></span></div><strong>{item.title}</strong><span>{item.artist}</span></Button>)}</div>}{view === "liked" && !liked.length && <p className="spotify-empty">No saved music yet.</p>}</section>
     </div></main>
     <aside className="spotify-now"><div className="spotify-now-heading"><strong>Now playing</strong></div>{art(current, "spotify-now-art")}<div className="spotify-now-title"><div><h2>{current.title}</h2><p>{current.artist}</p></div><Button variant="ghost" size="icon" onClick={toggleLike} aria-label="Save music" aria-pressed={isLiked} className={isLiked ? "spotify-saved" : ""}><Heart fill={isLiked ? "currentColor" : "none"} /></Button></div><a href={current.url} target="_blank" rel="noopener noreferrer">Open original <ExternalLink size={14} /></a></aside>
-    <footer className="spotify-player"><div className="spotify-player-summary">{art(current)}<div><strong>{current.title}</strong><small>{current.artist}</small></div></div><div className="spotify-embed-wrap"><iframe ref={player} title="Music player" key={current.url} allow="autoplay; encrypted-media" src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(current.url)}&auto_play=false&visual=false&show_comments=false&show_user=false&show_reposts=false&buying=false&sharing=false&download=false`} /></div><Button variant="ghost" size="icon" disabled={!playerReady} onClick={() => setRepeat(!repeat)} aria-label="Repeat track" title={playerReady ? (repeat ? "Repeat on" : "Repeat off") : "Repeat unavailable until player loads"} aria-pressed={repeat} className={repeat ? "spotify-saved" : ""}><Repeat1 size={18} /></Button><Button variant="ghost" size="icon" onClick={toggleLike} aria-label="Save current music" aria-pressed={isLiked} className={isLiked ? "spotify-saved" : ""}><Heart fill={isLiked ? "currentColor" : "none"} /></Button></footer>
+    <footer className="spotify-player"><div className="spotify-player-summary">{art(current)}<div><strong>{current.title}</strong><small>{current.artist}</small></div></div><div className="spotify-embed-wrap"><iframe ref={player} title="Music player" key={`${current.url}:${playerNonce}`} allow="autoplay; encrypted-media" src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(current.url)}&auto_play=false&visual=false&show_comments=false&show_user=false&show_reposts=false&buying=false&sharing=false&download=false`} /></div>{playerFailed && <Button variant="ghost" size="icon" onClick={() => setPlayerNonce((n) => n + 1)} aria-label="Reload music player" title="The player didn't load — retry"><RefreshCw size={16} /></Button>}<Button variant="ghost" size="icon" disabled={!playerReady} onClick={() => setRepeat(!repeat)} aria-label="Repeat track" title={playerReady ? (repeat ? "Repeat on" : "Repeat off") : "Repeat unavailable until player loads"} aria-pressed={repeat} className={repeat ? "spotify-saved" : ""}><Repeat1 size={18} /></Button><Button variant="ghost" size="icon" onClick={toggleLike} aria-label="Save current music" aria-pressed={isLiked} className={isLiked ? "spotify-saved" : ""}><Heart fill={isLiked ? "currentColor" : "none"} /></Button></footer>
   </div>;
 }

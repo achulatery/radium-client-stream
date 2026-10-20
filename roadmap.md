@@ -51,3 +51,7 @@
 - [x] Fix "Deployment storage temporarily unavailable" when opening any website in Browser (endless proxy-address loop fixed; example.com verified through Ultraviolet)
 - [x] Neon rank tag colours in chat: VIP #55FF55, MVP #55FFFF, MYTHIC #A000FF, LEGEND #FFAA00, RADIUM = user's accent, owner/admin #AA0000
 - [x] Let chat users send images within their rank's per-message media limit (owner image send + delete-forever verified)
+- [x] Merge Console Rank into one ungrouped rank list with tags beside staff names
+- [x] Replace the "web, uncontained" start page with a direct Google search box (native, unproxied)
+- [x] Retry the SoundCloud player when the widget never loads
+- [x] Remove activity history from the Console for everyone, including the owner
