@@ -6,6 +6,7 @@ describe("per-message media limits", () => {
   it("MVP 300 MB", () => expect(attachmentLimit(null, "mvp")).toBe(300_000_000));
   it("MYTHIC 3 GB", () => expect(attachmentLimit(null, "mythic")).toBe(3_000_000_000));
   it("LEGEND 10 GB", () => expect(attachmentLimit(null, "legend")).toBe(10_000_000_000));
+  it("CONTRIBUTOR is tag-only and keeps the 10 MB member limit", () => expect(attachmentLimit(null, "contributor")).toBe(10_000_000));
   it("RADIUM, admin and owner unlimited", () => {
     expect(attachmentLimit(null, "radium")).toBe(UNLIMITED_BYTES);
     expect(attachmentLimit("admin", null)).toBe(UNLIMITED_BYTES);

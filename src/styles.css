@@ -516,6 +516,7 @@
 .rd-rank-mvp { --rank-color: #55ffff; }
 .rd-rank-mythic { --rank-color: #a000ff; }
 .rd-rank-legend { --rank-color: #ffaa00; }
+.rd-rank-contributor { --rank-color: #ff8800; }
 .rd-rank-staff { --rank-color: #aa0000; text-shadow: 0 0 4px #ff2a2a, 0 0 10px #aa0000; }
 .dc-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .dc-attachments img, .dc-attachments video { max-width: min(360px, 100%); max-height: 320px; border-radius: 6px; border: 1px solid var(--rd-line); background: var(--rd-surface); object-fit: contain; }
