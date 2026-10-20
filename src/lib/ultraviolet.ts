@@ -88,10 +88,14 @@ export function setupUltraviolet(wispServer: string): Promise<boolean> {
       const connection = new BareMuxConnection("/baremux/worker.js");
       await connection.setTransport("/libcurl/index.mjs", [{ wisp: wispServer }]);
       // uv.sw.js is only the library; /uv/sw.js is the entry that wires it up.
+      // Devices that visited older versions can still hold outdated workers;
+      // drop anything that isn't the current entry and refresh the rest.
       for (const old of await navigator.serviceWorker.getRegistrations()) {
-        if (old.active?.scriptURL.endsWith("/uv/uv.sw.js")) await old.unregister();
+        const script = (old.active ?? old.waiting ?? old.installing)?.scriptURL ?? "";
+        if (!script.endsWith("/uv/sw.js")) await old.unregister();
       }
-      const reg = await navigator.serviceWorker.register("/uv/sw.js", { scope: UV_PREFIX });
+      const reg = await navigator.serviceWorker.register("/uv/sw.js", { scope: UV_PREFIX, updateViaCache: "none" });
+      await reg.update().catch(() => {});
       // The Radium page sits outside the worker's scope, so serviceWorker.ready
       // never resolves here; wait for this registration to activate instead.
       const worker = reg.active ?? reg.installing ?? reg.waiting;
@@ -114,4 +118,19 @@ export function setupUltraviolet(wispServer: string): Promise<boolean> {
     }
   })();
   return setupPromise;
+}
+
+/** Pages served by hosting instead of the proxied site (stale worker or cache). */
+export function isHostingErrorPage(text: string | null | undefined): boolean {
+  return /deployment storage temporarily unavailable/i.test(text ?? "");
+}
+
+/** Turn Ultraviolet off for this session and remove its worker. */
+export async function resetUltraviolet(): Promise<void> {
+  setupPromise = Promise.resolve(false);
+  try {
+    for (const reg of await navigator.serviceWorker.getRegistrations()) {
+      if (reg.scope.includes(UV_PREFIX)) await reg.unregister();
+    }
+  } catch { /* nothing to remove */ }
 }
