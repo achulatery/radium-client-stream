@@ -131,6 +131,7 @@ export type Database = {
           id: string
           is_public: boolean
           name: string
+          read_only: boolean
         }
         Insert: {
           code: string
@@ -139,6 +140,7 @@ export type Database = {
           id?: string
           is_public?: boolean
           name: string
+          read_only?: boolean
         }
         Update: {
           code?: string
@@ -147,6 +149,7 @@ export type Database = {
           id?: string
           is_public?: boolean
           name?: string
+          read_only?: boolean
         }
         Relationships: [
           {

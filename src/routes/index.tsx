@@ -228,12 +228,24 @@ function uvFailureMessage(reason: UvFailure | null) {
   return reason ? UV_FAILURE_HINTS[reason] : "Ultraviolet could not connect on this device.";
 }
 
+/** New Reddit flags proxied visitors as bots; old.reddit.com serves plain pages that load reliably. */
+function redditFriendly(url: string) {
+  try {
+    const u = new URL(url);
+    if (/^(www\.|new\.|m\.)?reddit\.com$/i.test(u.hostname)) { u.hostname = "old.reddit.com"; return u.href; }
+  } catch { /* not a URL */ }
+  return url;
+}
+
 function BrowserTab() {
   const { settings, theme, updateSettings, pushHistory } = useRadium();
   const { user } = useAccount();
   const safe = safeSearchEnabled(user?.role ?? null, settings.duckduckgoSafeSearch);
   const [input, setInput] = useState("");
   const [target, setTarget] = useState<string | null>(null);
+  // What the frame loads; only explicit navigation changes it, so in-page
+  // navigation reports never reload the page a second time.
+  const [loadUrl, setLoadUrl] = useState<string | null>(null);
   const [status, setStatus] = useState("Ready");
   const [nonce, setNonce] = useState(0);
   const [savingSearch, setSavingSearch] = useState(false);
@@ -242,7 +254,7 @@ function BrowserTab() {
   const frame = useRef<HTMLIFrameElement>(null);
   const current = useRef<string | null>(null);
   const addressFocused = useRef(false);
-  const videoId = target ? getYouTubeVideoId(target) : null;
+  const videoId = loadUrl ? getYouTubeVideoId(loadUrl) : null;
   const [uvReady, setUvReady] = useState(false);
   const [uvStarting, setUvStarting] = useState(true);
   const [uvReason, setUvReason] = useState<UvFailure | null>(null);
@@ -261,8 +273,8 @@ function BrowserTab() {
     };
   }, [settings.wispServer, uvAttempt]);
 
-  const frameSrc = target && uvReady
-    ? uvUrl(videoId ? videoPlayerUrl(videoId) : target)
+  const frameSrc = loadUrl && uvReady
+    ? uvUrl(videoId ? videoPlayerUrl(videoId) : loadUrl)
     : null;
 
   const remember = useCallback((url: string) => {
@@ -285,8 +297,9 @@ function BrowserTab() {
     const query = searchQueryOf(normalized);
     const destination = query ? `https://duckduckgo.com/?q=${encodeURIComponent(query)}` : browserDestination(normalized);
     if (!destination) return;
-    const url = applySearchPolicy(new URL(destination), safe).href;
+    const url = applySearchPolicy(new URL(redditFriendly(destination)), safe).href;
     remember(url);
+    setLoadUrl(url);
     setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1);
     setStatus("Loading page");
@@ -304,7 +317,7 @@ function BrowserTab() {
     const url = entries[next];
     if (!url) return;
     current.current = url;
-    setCursor(next); setTarget(url); setInput(cleanBrowserAddress(url));
+    setCursor(next); setTarget(url); setLoadUrl(url); setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1); setStatus("Loading page");
   };
 
@@ -326,7 +339,7 @@ function BrowserTab() {
       <div className="flex shrink-0 items-center gap-1">
         <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Back" title="Back" disabled={cursor <= 0} onClick={() => travel(cursor - 1)}><ArrowLeft size={15} /></Button>
         <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Forward" title="Forward" disabled={cursor >= entries.length - 1} onClick={() => travel(cursor + 1)}><ArrowRight size={15} /></Button>
-        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Refresh" title="Refresh" disabled={!target} onClick={() => { setNonce((n) => n + 1); setStatus("Loading page"); }}><RefreshCw size={15} /></Button>
+        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Refresh" title="Refresh" disabled={!target} onClick={() => { setLoadUrl(target); setNonce((n) => n + 1); setStatus("Loading page"); }}><RefreshCw size={15} /></Button>
       </div>
       <form className="min-w-0 flex-1 basis-40" onSubmit={(e) => { e.preventDefault(); open(input); }}>
         <div className="flex h-9 items-center gap-2 rounded-sm border border-client-line bg-client-search px-2 text-client-search-text">
@@ -335,7 +348,7 @@ function BrowserTab() {
           <Button variant="ghost" size="icon" type="submit" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Open address"><Search size={14} /></Button>
         </div>
       </form>
-      <label className="flex shrink-0 items-center gap-2 text-xs text-client-muted"><ShieldCheck size={14} />Safe Search<Switch aria-label="DuckDuckGo Safe Search" checked={safe} disabled={savingSearch || !canToggleSafeSearch(user?.role ?? null)} onCheckedChange={(value) => { setSavingSearch(true); void saveSettings({ data: { settings: { ...settings, duckduckgoSafeSearch: value }, theme } }).then(() => { updateSettings({ duckduckgoSafeSearch: value }); if (target && new URL(target).hostname.endsWith("duckduckgo.com")) { const next = applySearchPolicy(new URL(target), value).href; current.current = next; setTarget(next); setInput(cleanBrowserAddress(next)); setNonce((n) => n + 1); } }).catch(() => setStatus("Could not save Safe Search preference")).finally(() => setSavingSearch(false)); }} /></label>
+      <label className="flex shrink-0 items-center gap-2 text-xs text-client-muted"><ShieldCheck size={14} />Safe Search<Switch aria-label="DuckDuckGo Safe Search" checked={safe} disabled={savingSearch || !canToggleSafeSearch(user?.role ?? null)} onCheckedChange={(value) => { setSavingSearch(true); void saveSettings({ data: { settings: { ...settings, duckduckgoSafeSearch: value }, theme } }).then(() => { updateSettings({ duckduckgoSafeSearch: value }); if (target && new URL(target).hostname.endsWith("duckduckgo.com")) { const next = applySearchPolicy(new URL(target), value).href; current.current = next; setTarget(next); setLoadUrl(next); setInput(cleanBrowserAddress(next)); setNonce((n) => n + 1); } }).catch(() => setStatus("Could not save Safe Search preference")).finally(() => setSavingSearch(false)); }} /></label>
       {target && <Button variant="ghost" size="icon" aria-label="Open in browser" title="Open in browser" onClick={() => window.open(target, "_blank", "noopener,noreferrer")}><ExternalLink size={15} /></Button>}
     </div>
     <span className="sr-only" aria-live="polite">{status}</span>

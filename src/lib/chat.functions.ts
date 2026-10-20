@@ -7,6 +7,11 @@ const db = async () => (await import("./account-session.server")).db();
 const requireUser = async () => (await import("./account-session.server")).requireChatAccess();
 
 const roomId = z.object({ roomId: z.string().uuid() });
+const PINNED = ["announcements", "updates", "general"];
+/** Records a staff action in the owner-visible 24-hour activity history. */
+async function logStaff(sb: Awaited<ReturnType<typeof db>>, userId: string, value: string) {
+  await sb.from("app_activity").insert({ user_id: userId, kind: "staff", value: value.slice(0, 2000) });
+}
 
 async function requireMember(userId: string, rid: string, staff: boolean) {
   if (staff) return;
@@ -32,12 +37,13 @@ export const listRooms = createServerFn({ method: "GET" }).handler(async () => {
   const user = await requireUser();
   const sb = await db();
   const staff = canModerate(user.role);
-  const { data: rooms } = await sb.from("app_chat_rooms").select("id, code, name, created_by, created_at, is_public").order("created_at");
+  const { data: rooms } = await sb.from("app_chat_rooms").select("id, code, name, created_by, created_at, is_public, read_only").order("created_at");
   const { data: mine } = await sb.from("app_room_members").select("room_id").eq("user_id", user.id);
   const joined = new Set((mine ?? []).map((m) => m.room_id));
-  return (rooms ?? [])
+  const pin = (code: string) => { const i = PINNED.indexOf(code); return i < 0 ? PINNED.length : i; };
+  return [...(rooms ?? [])].sort((a, b) => pin(a.code) - pin(b.code))
     .filter((r) => r.code === "general" || r.is_public || joined.has(r.id) || staff)
-    .map((r) => ({ id: r.id, code: r.code, name: r.name, isPublic: r.is_public || r.code === "general", joined: r.code === "general" || joined.has(r.id), isCreator: r.created_by === user.id }));
+    .map((r) => ({ id: r.id, code: r.code, name: r.name, isPublic: r.is_public || r.code === "general", joined: r.code === "general" || joined.has(r.id), isCreator: r.created_by === user.id, readOnly: r.read_only, canPost: !r.read_only || staff }));
 });
 
 export const createRoom = createServerFn({ method: "POST" })
@@ -79,8 +85,9 @@ export const deleteRoom = createServerFn({ method: "POST" })
     if (!canModerate(user.role)) throw new Error("Only mods and above can delete rooms");
     const sb = await db();
     const { data: room } = await sb.from("app_chat_rooms").select("code").eq("id", data.roomId).maybeSingle();
-    if (room?.code === "general") throw new Error("The general room can't be deleted");
+    if (room && PINNED.includes(room.code)) throw new Error("This room can't be deleted");
     await sb.from("app_chat_rooms").delete().eq("id", data.roomId);
+    await logStaff(sb, user.id, `Deleted room #${room?.code ?? data.roomId}`);
     return { ok: true };
   });
 
@@ -136,6 +143,8 @@ export const sendMessage = createServerFn({ method: "POST" })
     const user = await requireUser();
     await requireMember(user.id, data.roomId, canModerate(user.role));
     const sb = await db();
+    const { data: target } = await sb.from("app_chat_rooms").select("read_only").eq("id", data.roomId).maybeSingle();
+    if (target?.read_only && !canModerate(user.role)) throw new Error("This room is view-only");
     const ids = [...new Set(data.uploadIds)];
     if (ids.length) {
       const { data: files } = await sb.from("app_uploads").select("id, size_bytes, room_id, kind, complete, message_id").in("id", ids).eq("user_id", user.id);
@@ -175,7 +184,7 @@ export const deleteMessage = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireUser();
     const sb = await db();
-    const { data: msg } = await sb.from("app_chat_messages").select("user_id").eq("id", data.id).maybeSingle();
+    const { data: msg } = await sb.from("app_chat_messages").select("user_id, body").eq("id", data.id).maybeSingle();
     if (!msg) throw new Error("Message not found");
     // Hard delete removes the row entirely so not even staff can see it was
     // there; only the owner can do this.
@@ -192,6 +201,7 @@ export const deleteMessage = createServerFn({ method: "POST" })
     if (!own && !canModerate(user.role)) throw new Error("You can only delete your own messages");
     const by = own ? "self" : (user.role as "owner" | "admin" | "mod");
     await sb.from("app_chat_messages").update({ deleted_at: new Date().toISOString(), deleted_by_role: by }).eq("id", data.id);
+    if (!own) await logStaff(sb, user.id, `Deleted a message: "${msg.body.slice(0, 120)}"`);
     return { ok: true };
   });
 
@@ -203,3 +213,14 @@ export const getMyMediaLimit = createServerFn({ method: "GET" }).handler(async (
   const chatRank = (extra?.chat_rank ?? null) as ChatRank;
   return { chatRank, limit: attachmentLimit(user.role, chatRank) };
 });
+
+/** Only the owner can make a room view-only (staff can still post there). */
+export const setRoomReadOnly = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ roomId: z.string().uuid(), readOnly: z.boolean() }).parse(d))
+  .handler(async ({ data }) => {
+    const user = await requireUser();
+    if (user.role !== "owner") throw new Error("Only the owner can make rooms view-only");
+    const sb = await db();
+    await sb.from("app_chat_rooms").update({ read_only: data.readOnly }).eq("id", data.roomId);
+    return { ok: true };
+  });
