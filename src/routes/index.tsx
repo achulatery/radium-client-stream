@@ -363,9 +363,31 @@ function BrowserTab() {
 
 type Provider = "invidious" | "piped";
 function YouTubeTab() {
-  const [provider, setProvider] = useState<Provider>("invidious");
-  const options = <OptionsMenu provider={provider} onPick={setProvider} />;
-  return provider === "piped" ? <PipedView options={options} /> : <InvidiousView options={options} />;
+  const { user } = useAccount();
+  const qc = useQueryClient();
+  const { data: yt } = useQuery({ queryKey: ["youtube-settings"], queryFn: () => getYouTubeSettings(), staleTime: 30_000, refetchInterval: 60_000 });
+  const provider: Provider = yt?.provider ?? "invidious";
+  const player = yt?.player ?? "mirror";
+  const isOwner = user?.role === "owner";
+  const save = (next: { provider: Provider; player: "mirror" | "direct" }) => {
+    qc.setQueryData(["youtube-settings"], next);
+    void setYouTubeSettings({ data: next }).catch(() => void qc.invalidateQueries({ queryKey: ["youtube-settings"] }));
+  };
+  const options = isOwner ? (
+    <div className="flex flex-wrap gap-2">
+      <OptionsMenu provider={provider} onPick={(p) => save({ provider: p, player })} />
+      <select aria-label="Player for everyone" value={player} onChange={(e) => save({ provider, player: e.target.value as "mirror" | "direct" })}
+        className="video-provider h-9 max-w-full rounded-sm px-2 font-mono text-xs">
+        <option value="mirror">Mirror player (proxied)</option>
+        <option value="direct">Direct player</option>
+      </select>
+    </div>
+  ) : null;
+  return (
+    <PlayerModeContext.Provider value={player}>
+      {provider === "piped" ? <PipedView key="piped" options={options} /> : <InvidiousView key="inv" options={options} />}
+    </PlayerModeContext.Provider>
+  );
 }
 
 function VideoStartScreen({ onSearch }: { onSearch: () => void }) {
