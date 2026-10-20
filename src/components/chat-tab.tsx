@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileIcon, Hash, LogOut, Paperclip, Pencil, Plus, Send, Trash, Trash2, X } from "lucide-react";
+import { FileIcon, Hash, LogOut, Megaphone, Newspaper, Paperclip, Pencil, Plus, Send, Trash, Trash2, X } from "lucide-react";
+import { PostsTab } from "@/components/posts-tab";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, ProfileDialog } from "@/components/profile";
@@ -17,6 +18,12 @@ type Message = Awaited<ReturnType<typeof listMessages>>[number] & { sending?: bo
 type Pending = { key: string; file: File; preview: string | null; progress: number; uploadId?: string; error?: string; done: Promise<string | null> };
 const LAST = "radium-chat-room";
 const MAX_FILES = 10;
+/** Read-only staff channels pinned above the rooms; everyone reads, staff post. */
+const CHANNELS = [
+  { id: "channel:announcement", label: "Announcements", kind: "announcement" as const, Icon: Megaphone },
+  { id: "channel:update", label: "Updates", kind: "update" as const, Icon: Newspaper },
+];
+const channelOf = (id: string | null) => CHANNELS.find((c) => c.id === id) ?? null;
 const deletedLabel = (by: string | null) =>
   by === "self" || !by ? "Message deleted" : `Message deleted by ${by === "mod" ? "moderator" : by}`;
 const fileUrl = (id: string) => `/api/public/attachment?id=${id}`;
@@ -89,13 +96,14 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
     const r = await listRooms();
     setRooms(r);
     setActive((cur) => {
-      if (cur && r.some((x) => x.id === cur)) return cur;
+      if (cur && (channelOf(cur) || r.some((x) => x.id === cur))) return cur;
       const saved = localStorage.getItem(LAST);
+      if (channelOf(saved)) return saved;
       return r.find((x) => x.id === saved)?.id ?? r[0]?.id ?? null;
     });
   }, []);
   const loadMessages = useCallback(async () => {
-    if (!active || sendingRef.current) return;
+    if (!active || channelOf(active) || sendingRef.current) return;
     const version = ++requestVersion.current;
     try {
       const rows = await listMessages({ data: { roomId: active } });
@@ -164,6 +172,16 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
     <div className="dc-shell">
       {profileId && <ProfileDialog userId={profileId} editable={profileId === user?.id} onClose={() => { setProfileId(null); void loadMessages(); }} />}
       <aside className="dc-rooms">
+        <div className="dc-rooms-head">CHANNELS</div>
+        <ul>
+          {CHANNELS.map((c) => (
+            <li key={c.id}>
+              <button className={c.id === active ? "dc-room active" : "dc-room"} onClick={() => setActive(c.id)}>
+                <c.Icon size={15} /><span>{c.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
         <div className="dc-rooms-head">ROOMS</div>
         <ul>
           {rooms.map((r) => (
