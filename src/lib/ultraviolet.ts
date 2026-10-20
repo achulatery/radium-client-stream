@@ -43,11 +43,14 @@ export function uvTargetOf(raw: string): string | null {
   }
 }
 
-let setupPromise: Promise<boolean> | null = null;
+export type UvFailure = "private-mode" | "relay" | "transport" | "register" | "activate" | "probe";
+export type UvSetup = { ok: boolean; reason?: UvFailure };
+
+let setupPromise: Promise<UvSetup> | null = null;
 
 /**
  * Registers the Ultraviolet service worker and connects it to the Wisp
- * server. Resolves false when the connection is unavailable.
+ * server. Resolves ok:false with the failing step when unavailable.
  */
 function wispReachable(server: string, timeoutMs = 4000): Promise<boolean> {
   return new Promise((resolve) => {
