@@ -1,3 +1,4 @@
+- [x] Fix upload compilation errors and verify Radium loads (clean compilation; opening page and three tests verified)
 - [ ] Add owner-granted personal Kleb pages with 5 GB picture allowance
 - [ ] Add owner-assigned neon chat ranks without staff privileges
 - [ ] Add private chunked rank-limited attachments and verify signed-in flows
