@@ -61,6 +61,21 @@ function wispReachable(server: string, timeoutMs = 4000): Promise<boolean> {
   });
 }
 
+function probeUltraviolet(timeoutMs = 12000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const frame = document.createElement("iframe");
+    frame.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px";
+    frame.setAttribute("aria-hidden", "true");
+    const finish = (ok: boolean) => { clearTimeout(timer); frame.remove(); resolve(ok); };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    frame.onload = () => {
+      try { finish(/example domain/i.test(frame.contentDocument?.title ?? "")); } catch { finish(false); }
+    };
+    frame.src = uvUrl("https://example.com/");
+    document.body.appendChild(frame);
+  });
+}
+
 export function setupUltraviolet(wispServer: string): Promise<boolean> {
   if (setupPromise) return setupPromise;
   setupPromise = (async () => {
@@ -90,7 +105,9 @@ export function setupUltraviolet(wispServer: string): Promise<boolean> {
           });
         });
       }
-      return true;
+      // Only switch sites to Ultraviolet after it really loads a page; any
+      // failure keeps the reliable built-in proxy in charge.
+      return await probeUltraviolet();
     } catch {
       setupPromise = null;
       return false;
