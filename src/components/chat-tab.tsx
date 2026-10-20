@@ -55,7 +55,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
   useEffect(() => { void getMyMediaLimit().then(setMedia).catch(() => {}); }, [user?.id]);
   // Room changes drop unsent files so they can't be posted in the wrong room.
   useEffect(() => () => {
-    setPending((list) => { for (const p of list) { if (p.preview) URL.revokeObjectURL(p.preview); void p.done.then((id) => id && removeUpload({ data: { id } }).catch(() => {})); } return []; });
+    setPending((list) => { for (const p of list) { if (p.preview) URL.revokeObjectURL(p.preview); void p.done.then((id) => { if (id) void removeUpload({ data: { id } }).catch(() => {}); }); } return []; });
   }, [active]);
 
   const addFiles = (files: FileList | null) => {
@@ -78,7 +78,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
   const dropPending = (item: Pending) => {
     if (item.preview) URL.revokeObjectURL(item.preview);
     setPending((list) => list.filter((p) => p.key !== item.key));
-    void item.done.then((id) => id && removeUpload({ data: { id } }).catch(() => {}));
+    void item.done.then((id) => { if (id) void removeUpload({ data: { id } }).catch(() => {}); });
   };
 
   const loadRooms = useCallback(async () => {
