@@ -782,7 +782,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
       <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
         {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : selected ? (
           <div className="space-y-4">
-            <EmbedPlayer videoId={selected.videoId} title={selected.title} hosts={INVIDIOUS_EMBEDS} />
+            <EmbedPlayer videoId={selected.videoId ?? ""} title={selected.title} hosts={INVIDIOUS_EMBEDS} />
             <div className="space-y-1">
               <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>
                 {selected.title}
