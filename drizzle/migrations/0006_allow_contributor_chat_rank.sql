@@ -1,0 +1,2 @@
+ALTER TABLE public.app_extras DROP CONSTRAINT app_extras_chat_rank_check;
+ALTER TABLE public.app_extras ADD CONSTRAINT app_extras_chat_rank_check CHECK (chat_rank = ANY (ARRAY['vip'::text, 'mvp'::text, 'mythic'::text, 'legend'::text, 'radium'::text, 'contributor'::text]));
