@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { canToggleSafeSearch } from "@/lib/account-permissions";
 import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled, searchQueryOf } from "@/lib/browser-policy";
-import { searchWeb, type WebResult } from "@/lib/search.functions";
 import { isHostingErrorPage, resetUltraviolet, setupUltraviolet, uvTargetOf, uvUrl } from "@/lib/ultraviolet";
 import {
   formatDuration,
@@ -202,7 +201,7 @@ function ClientShell() {
 }
 
 function BrowserTab() {
-  const { settings, theme, updateSettings, pushHistory, history } = useRadium();
+  const { settings, theme, updateSettings, pushHistory } = useRadium();
   const { user } = useAccount();
   const safe = safeSearchEnabled(user?.role ?? null, settings.duckduckgoSafeSearch);
   const [input, setInput] = useState("");
@@ -210,8 +209,6 @@ function BrowserTab() {
   const [status, setStatus] = useState("Ready");
   const [nonce, setNonce] = useState(0);
   const [savingSearch, setSavingSearch] = useState(false);
-  const [results, setResults] = useState<{ query: string; items: WebResult[]; error?: string } | null>(null);
-  const [searching, setSearching] = useState(false);
   const [entries, setEntries] = useState<string[]>([]);
   const [cursor, setCursor] = useState(-1);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -221,7 +218,7 @@ function BrowserTab() {
   const [uvReady, setUvReady] = useState(false);
   const [uvStarting, setUvStarting] = useState(true);
   const [uvAttempt, setUvAttempt] = useState(0);
-  const searchVersion = useRef(0);
+  const visitedHome = useRef(false);
 
   // Ultraviolet proxies clicked sites inside the browser via a service worker;
   // Never load a website until the Ultraviolet transport is verified.
@@ -250,53 +247,37 @@ function BrowserTab() {
     pushHistory(url);
   }, [cursor, pushHistory]);
 
-  // Search pages are never proxied: results load natively (no bot checks),
-  // and only the site the user clicks goes through the proxy.
-  const runSearch = useCallback(async (query: string) => {
-    const version = ++searchVersion.current;
-    setResults({ query, items: [] });
-    setSearching(true);
-    setInput(query);
-    setStatus("Searching");
-    try {
-      const items = await searchWeb({ data: { query } });
-      if (version !== searchVersion.current) return;
-      setResults({ query, items });
-      setStatus("Ready");
-    } catch {
-      if (version !== searchVersion.current) return;
-      setResults({ query, items: [], error: "Search is unavailable right now. Please try again." });
-      setStatus("Search unavailable");
-    } finally {
-      if (version === searchVersion.current) setSearching(false);
-    }
-  }, []);
+  // Radium visits DuckDuckGo itself: the home page and every search load
+  // through Ultraviolet like any other site, so results and clicks stay
+  // inside the same proxied session.
+  const home = applySearchPolicy(new URL("https://duckduckgo.com/"), safe).href;
 
   const open = useCallback((raw: string) => {
     const normalized = normalizeQuery(raw);
     if (!normalized) return;
     const query = searchQueryOf(normalized);
-    if (query) {
-      void runSearch(query);
-      return;
-    }
-    const destination = browserDestination(normalized);
+    const destination = query
+      ? `https://duckduckgo.com/?q=${encodeURIComponent(query)}`
+      : browserDestination(normalized);
     if (!destination) return;
-    ++searchVersion.current;
-    setSearching(false);
-    setResults(null);
     const url = applySearchPolicy(new URL(destination), safe).href;
     remember(url);
     setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1);
     setStatus("Loading page");
-  }, [remember, safe, runSearch]);
+  }, [remember, safe]);
+
+  // The Browser starts by visiting DuckDuckGo.
+  useEffect(() => {
+    if (visitedHome.current) return;
+    visitedHome.current = true;
+    open(home);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const travel = (next: number) => {
     const url = entries[next];
     if (!url) return;
-    ++searchVersion.current;
-    setResults(null); setSearching(false);
     current.current = url;
     setCursor(next); setTarget(url); setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1); setStatus("Loading page");
@@ -318,13 +299,13 @@ function BrowserTab() {
   return <div className="flex h-full flex-col">
     <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 py-2">
       <div className="flex shrink-0 items-center gap-1">
-        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Back" title="Back" disabled={!results && cursor <= 0} onClick={() => { if (results) setResults(null); else travel(cursor - 1); }}><ArrowLeft size={15} /></Button>
+        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Back" title="Back" disabled={cursor <= 0} onClick={() => travel(cursor - 1)}><ArrowLeft size={15} /></Button>
         <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Forward" title="Forward" disabled={cursor >= entries.length - 1} onClick={() => travel(cursor + 1)}><ArrowRight size={15} /></Button>
         <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Refresh" title="Refresh" disabled={!target} onClick={() => { setNonce((n) => n + 1); setStatus("Loading page"); }}><RefreshCw size={15} /></Button>
       </div>
       <form className="min-w-0 flex-1 basis-40" onSubmit={(e) => { e.preventDefault(); open(input); }}>
         <div className="flex h-9 items-center gap-2 rounded-sm border border-client-line bg-client-search px-2 text-client-search-text">
-          <Button variant="ghost" size="icon" type="button" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Home" title="Home" onClick={() => { ++searchVersion.current; setResults(null); setSearching(false); setTarget(null); current.current = null; setInput(""); setStatus("Ready"); }}><Home size={14} /></Button>
+          <Button variant="ghost" size="icon" type="button" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Home" title="Home" onClick={() => open(home)}><Home size={14} /></Button>
           <input value={input} onChange={(e) => setInput(e.target.value)} onFocus={() => { addressFocused.current = true; }} onBlur={() => { addressFocused.current = false; }} placeholder="Search or enter a web address" aria-label="Address bar" autoComplete="off" className="min-w-0 w-full bg-transparent font-mono text-sm outline-none" />
           <Button variant="ghost" size="icon" type="submit" className="h-6 w-6 shrink-0 text-client-signal" aria-label="Open address"><Search size={14} /></Button>
         </div>
@@ -334,103 +315,9 @@ function BrowserTab() {
     </div>
     <span className="sr-only" aria-live="polite">{status}</span>
     <div className="relative min-h-0 flex-1">
-      {results ? (
-        <SearchResults state={results} searching={searching} onOpen={open} onRetry={() => void runSearch(results.query)} />
-      ) : frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Ultraviolet connection unavailable"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : target ? <div className="flex h-full flex-col items-center justify-center gap-4 text-client-muted"><ShieldCheck size={28} /><p>{uvStarting ? "Connecting…" : "Ultraviolet could not connect on this network."}</p>{!uvStarting && <Button variant="secondary" onClick={() => { setUvReady(false); setUvAttempt((n) => n + 1); }}><RefreshCw size={14} />Retry connection</Button>}</div> : <StartScreen open={open} history={history} />}
+      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Ultraviolet connection unavailable"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : target ? <div className="flex h-full flex-col items-center justify-center gap-4 text-client-muted"><ShieldCheck size={28} /><p>{uvStarting ? "Connecting…" : "Ultraviolet could not connect on this network."}</p>{!uvStarting && <Button variant="secondary" onClick={() => { setUvReady(false); setUvAttempt((n) => n + 1); }}><RefreshCw size={14} />Retry connection</Button>}</div> : <div className="flex h-full items-center justify-center text-sm text-client-muted">Connecting…</div>}
     </div>
   </div>;
-}
-
-function SearchResults({
-  state,
-  searching,
-  onOpen,
-  onRetry,
-}: {
-  state: { query: string; items: WebResult[]; error?: string };
-  searching: boolean;
-  onOpen: (url: string) => void;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="radium-grid h-full overflow-auto px-4 py-8">
-      <div className="mx-auto max-w-[680px]">
-        <p className="text-xs uppercase tracking-widest text-client-muted">
-          Results for “{state.query}”
-        </p>
-        {searching ? (
-          <p className="mt-6 text-sm text-client-muted">Searching…</p>
-        ) : state.error ? (
-          <div className="mt-6 space-y-3"><p role="alert" className="text-sm text-client-muted">{state.error}</p><Button variant="secondary" onClick={onRetry}><RefreshCw size={14} />Retry search</Button></div>
-        ) : state.items.length === 0 ? (
-          <p className="mt-6 text-sm text-client-muted">No results found.</p>
-        ) : (
-          <ul className="mt-4 space-y-3">
-            {state.items.map((r) => (
-              <li key={r.url}>
-                <button
-                  type="button"
-                  onClick={() => onOpen(r.url)}
-                  className="block w-full rounded-sm border border-client-line bg-client-search/40 p-3 text-left transition-colors hover:border-client-signal"
-                >
-                  <span className="text-client-signal">{r.title || r.url}</span>
-                  <span className="block truncate font-mono text-xs text-client-muted">{cleanBrowserAddress(r.url)}</span>
-                  {r.snippet && <span className="mt-1 block text-sm text-client-muted">{r.snippet}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function StartScreen({
-  open,
-  history,
-}: {
-  open: (url: string) => void;
-  history: { url: string; at: number }[];
-}) {
-  return (
-    <div className="radium-grid flex h-full flex-col items-center justify-center gap-8 overflow-auto px-4">
-      <form
-        className="w-full max-w-[560px]"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const value = new FormData(event.currentTarget).get("q");
-          if (typeof value === "string" && value.trim()) open(value);
-        }}
-      >
-        <div className="flex h-12 items-center gap-3 rounded-full border border-client-line bg-client-search px-5 text-client-search-text">
-          <Search size={18} className="shrink-0 text-client-muted" />
-          <input
-            name="q"
-            aria-label="Search DuckDuckGo"
-            placeholder="Search DuckDuckGo or enter a web address"
-            autoComplete="off"
-            autoFocus
-            className="min-w-0 w-full bg-transparent text-sm outline-none"
-          />
-        </div>
-      </form>
-      {history.length > 0 && (
-        <div className="flex max-w-[680px] flex-wrap justify-center gap-2">
-          {history.slice(0, 6).map((h) => (
-            <button
-              key={h.url}
-              onClick={() => open(h.url)}
-              className="max-w-full truncate rounded-full px-3 py-1.5 font-mono text-[11px]"
-              style={{ background: "var(--rd-button)", color: "var(--rd-muted)" }}
-            >
-              {h.url.replace(/^https?:\/\//, "")}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 type Provider = "invidious" | "piped";
