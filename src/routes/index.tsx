@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { canToggleSafeSearch } from "@/lib/account-permissions";
 import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled, searchQueryOf } from "@/lib/browser-policy";
-import { isHostingErrorPage, resetUltraviolet, setupUltraviolet, uvTargetOf, uvUrl } from "@/lib/ultraviolet";
+import { isHostingErrorPage, resetUltraviolet, setupUltraviolet, uvTargetOf, uvUrl, type UvFailure } from "@/lib/ultraviolet";
 import {
   formatDuration,
   formatViews,
@@ -217,6 +217,7 @@ function BrowserTab() {
   const videoId = target ? getYouTubeVideoId(target) : null;
   const [uvReady, setUvReady] = useState(false);
   const [uvStarting, setUvStarting] = useState(true);
+  const [uvReason, setUvReason] = useState<UvFailure | null>(null);
   const [uvAttempt, setUvAttempt] = useState(0);
   const visitedHome = useRef(false);
 
@@ -225,8 +226,8 @@ function BrowserTab() {
   useEffect(() => {
     let live = true;
     setUvStarting(true);
-    void setupUltraviolet(settings.wispServer).then((ok) => {
-      if (live) { setUvReady(ok); setUvStarting(false); }
+    void setupUltraviolet(settings.wispServer).then((result) => {
+      if (live) { setUvReady(result.ok); setUvReason(result.ok ? null : (result.reason ?? null)); setUvStarting(false); }
     });
     return () => {
       live = false;
