@@ -43,7 +43,7 @@ import {
 } from "@/lib/radium";
 import { pipedMore, pipedSearch, pipedStreams, type PipedItem, type PipedVideo } from "@/lib/piped";
 import { track } from "@/lib/track";
-import { firstUsable, preloadVideo } from "@/lib/video-loading";
+import { firstUsable } from "@/lib/video-loading";
 import { useAccount } from "@/lib/account";
 import { AuthScreen } from "@/components/auth-screen";
 import { Avatar, ProfileDialog } from "@/components/profile";
@@ -446,7 +446,6 @@ function PipedView({ options }: { options: React.ReactNode }) {
   const activeId = useRef<string | null>(null);
   const [results, setResults] = useState<PipedItem[]>([]);
   const [video, setVideo] = useState<PipedVideo | null>(null);
-  const [quality, setQuality] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [term, setTerm] = useState("gaming");
   const [page, setPage] = useState(1);
@@ -514,22 +513,9 @@ function PipedView({ options }: { options: React.ReactNode }) {
     setStarted(true);
     activeId.current = id;
     setVideo(fallback);
-    setQuality(EMBED);
     setStatus(fallback.title);
   };
 
-  const onStreamError = () => {
-    if (!video) return;
-    const i = video.streams.findIndex((s) => s.url === quality);
-    const next = video.streams[i + 1];
-    if (next) {
-      setQuality(next.url);
-      setStatus(`Stream failed — trying ${next.quality}`);
-    } else {
-      setQuality(EMBED);
-      setStatus(video.title);
-    }
-  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -595,8 +581,6 @@ function PipedView({ options }: { options: React.ReactNode }) {
             {results.map((v, index) => (
               <button
                 key={v.videoId}
-                onPointerEnter={() => void preloadVideo(v.videoId)}
-                onFocus={() => void preloadVideo(v.videoId)}
                 onClick={() => void open(v.videoId)}
                 className="overflow-hidden rounded-lg text-left"
                 style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
@@ -847,8 +831,6 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
             {results.map((v, index) => (
               <button
                 key={v.videoId}
-                onPointerEnter={() => { if (v.videoId) void preloadVideo(v.videoId); }}
-                onFocus={() => { if (v.videoId) void preloadVideo(v.videoId); }}
                 onClick={() => openVideo(v)}
                 className="overflow-hidden rounded-lg text-left"
                 style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
