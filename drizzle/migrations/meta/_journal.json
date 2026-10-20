@@ -57,6 +57,13 @@
       "when": 1792471855063,
       "tag": "0007_create_app_posts",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792472355828,
+      "tag": "0008_add_contributor_role",
+      "breakpoints": true
     }
   ]
 }
