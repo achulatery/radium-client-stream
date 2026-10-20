@@ -274,15 +274,26 @@ function rewriteHtml(html: string, base: string, stealth: boolean) {
 
 async function handle(request: Request) {
   const url = new URL(request.url);
-  const target = url.searchParams.get("u");
+  let target = url.searchParams.get("u");
   const stealth = url.searchParams.get("stealth") === "1";
-  if (!target) return new Response("Missing ?u= target URL", { status: 400 });
+  // Pages sometimes drop the ?u= (relative form actions, stripped links):
+  // rebuild the target from the proxied page that sent the request.
+  if (!target) {
+    const from = upstreamReferer(request.headers.get("referer"));
+    if (from) target = new URL(url.search || "/", from).href;
+  }
+  if (!target) return Response.redirect(new URL("/", url).href, 302);
 
   let targetUrl: URL;
   try {
     targetUrl = new URL(target);
   } catch {
     return new Response("Invalid target URL", { status: 400 });
+  }
+  // DuckDuckGo result links are redirect wrappers; jump straight to the site.
+  if (isDuckDuckGo(targetUrl) && targetUrl.pathname.startsWith("/l/")) {
+    const real = targetUrl.searchParams.get("uddg");
+    if (real) { try { const next = new URL(real); if (/^https?:$/.test(next.protocol)) return Response.redirect(new URL(proxyPath(next.href, stealth), url).href, 302); } catch { /* fall through */ } }
   }
   if (!/^https?:$/.test(targetUrl.protocol)) {
     return new Response("Only http/https targets are supported", { status: 400 });
