@@ -58,7 +58,24 @@ export function setupUltraviolet(wispServer: string): Promise<boolean> {
       const { BareMuxConnection } = await import("@mercuryworkshop/bare-mux");
       const connection = new BareMuxConnection("/baremux/worker.js");
       await connection.setTransport("/libcurl/index.mjs", [{ wisp: wispServer }]);
-      await navigator.serviceWorker.register("/uv/uv.sw.js", { scope: UV_PREFIX });
+      // uv.sw.js is only the library; /uv/sw.js is the entry that wires it up.
+      for (const old of await navigator.serviceWorker.getRegistrations()) {
+        if (old.active?.scriptURL.endsWith("/uv/uv.sw.js")) await old.unregister();
+      }
+      const reg = await navigator.serviceWorker.register("/uv/sw.js", { scope: UV_PREFIX });
+      // The Radium page sits outside the worker's scope, so serviceWorker.ready
+      // never resolves here; wait for this registration to activate instead.
+      const worker = reg.active ?? reg.installing ?? reg.waiting;
+      if (!worker) return false;
+      if (worker.state !== "activated") {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("Ultraviolet worker timed out")), 10000);
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "activated") { clearTimeout(timer); resolve(); }
+            if (worker.state === "redundant") { clearTimeout(timer); reject(new Error("Ultraviolet worker failed")); }
+          });
+        });
+      }
       return true;
     } catch {
       setupPromise = null;
