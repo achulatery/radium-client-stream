@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { canChangePassword, canModerate, canPromote, canCreatePublicRoom, canRevokeTabs, canViewAccountHistory, canManageAccount, REVOCABLE_TABS } from "@/lib/account-permissions";
 describe("account permissions", () => {
-  it("allows admins to read other histories but never the owner's", () => { expect(canViewAccountHistory("admin", null)).toBe(true); expect(canViewAccountHistory("admin", "admin")).toBe(true); expect(canViewAccountHistory("admin", "owner")).toBe(false); });
-  it("blocks members and mods from reading other histories", () => { expect(canViewAccountHistory(null, null)).toBe(false); expect(canViewAccountHistory("mod", null)).toBe(false); });
-  it("lets the owner read all account histories", () => { for (const role of [null, "mod", "admin", "owner"] as const) expect(canViewAccountHistory("owner", role)).toBe(true); });
+  it("removes history access for every role, including the owner", () => { for (const caller of [null, "mod", "admin", "owner"] as const) for (const target of [null, "mod", "admin", "owner"] as const) expect(canViewAccountHistory(caller, target)).toBe(false); });
   it("prevents every other rank from altering an owner account", () => { for (const role of [null, "mod", "admin", "owner"] as const) expect(canManageAccount(role, "owner")).toBe(false); });
   it("lets users change their own passwords", () => { expect(canChangePassword(null, "user", "user")).toBe(true); expect(canChangePassword(null, "user", "other")).toBe(false); });
   it("prevents mods changing someone else's password", () => { expect(canChangePassword("mod", "mod", "other")).toBe(false); });

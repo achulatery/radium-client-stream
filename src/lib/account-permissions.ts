@@ -7,8 +7,9 @@ export function canChangePassword(role: AccountRole, callerId: string, targetId:
 export function canPromote(role: AccountRole) { return role === "owner"; }
 /** Owner and admins can view user history. */
 export function canViewLogs(role: AccountRole) { return role === "owner" || role === "admin"; }
-export function canViewAccountHistory(caller: AccountRole, target: AccountRole) {
-  return caller === "owner" || (caller === "admin" && target !== "owner");
+/** History viewing is removed for everyone, including the owner. */
+export function canViewAccountHistory(_caller: AccountRole, _target: AccountRole) {
+  return false;
 }
 export function canManageAccount(caller: AccountRole, target: AccountRole) {
   return target !== "owner" && roleRank(caller) > roleRank(target);
