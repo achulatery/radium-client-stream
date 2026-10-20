@@ -18,7 +18,6 @@ describe("Console rank assignment", () => {
     render(<ConsoleTab visible={false} />);
     fireEvent.click(await screen.findByRole("button", { name: /TestMember.*Member/ }));
     const trigger = await screen.findByRole("button", { name: "Rank" });
-    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
     fireEvent.keyDown(trigger, { key: "Enter" });
     const vip = await screen.findByRole("menuitemradio", { name: /VIP/ });
     fireEvent.click(vip);
