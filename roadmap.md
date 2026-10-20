@@ -1,8 +1,8 @@
 - [x] Fix upload compilation errors and verify Radium loads (clean compilation; opening page and three tests verified)
 - [ ] Diagnose reported deployment/storage failure — blocked on exact error or screenshot; public website and preview return 200 without page errors, storage status returns 200, backend healthy and disk 14% used
 - [ ] Add owner-granted personal Kleb pages with 5 GB picture allowance
-- [ ] Add owner-assigned neon chat ranks without staff privileges
-- [ ] Add private chunked rank-limited attachments and verify signed-in flows
+- [x] Add owner-assigned neon chat ranks without staff privileges (Console Chat rank menu)
+- [x] Add private chunked rank-limited attachments and verify signed-in flows
 - [x] Make YouTube playback immediate and independent of Invidious metadata/comments
 - [ ] Enforce history visibility and owner account protection
 - [ ] Enforce role-aware DuckDuckGo Safe Search and improve image loading
@@ -43,7 +43,7 @@
 - [x] Load search results natively and proxy only clicked sites
 - [ ] Verify owner delete options and native search in the browser
 - [x] Search natively through Google (DuckDuckGo fallback) and proxy clicked sites with Ultraviolet
-- [ ] Verify Google search results and Ultraviolet site loading in the browser
-- [ ] Fix "Deployment storage temporarily unavailable" when opening any website in Browser
-- [ ] Neon rank tag colours in chat: VIP #55FF55, MVP #55FFFF, MYTHIC #A000FF, LEGEND #FFAA00, RADIUM = user's accent, owner/admin #AA0000
-- [ ] Let chat users send images within their rank's per-message media limit
+- [x] Verify Google search results and Ultraviolet site loading in the browser (site loading verified)
+- [x] Fix "Deployment storage temporarily unavailable" when opening any website in Browser (endless proxy-address loop fixed; example.com verified through Ultraviolet)
+- [x] Neon rank tag colours in chat: VIP #55FF55, MVP #55FFFF, MYTHIC #A000FF, LEGEND #FFAA00, RADIUM = user's accent, owner/admin #AA0000
+- [x] Let chat users send images within their rank's per-message media limit (owner image send + delete-forever verified)
