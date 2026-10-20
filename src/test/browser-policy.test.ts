@@ -16,3 +16,10 @@ describe("browser policy", () => {
     expect(cleanBrowserAddress(once)).toBe("example.com/page");
   });
 });
+import { isHostingErrorPage } from "@/lib/ultraviolet";
+describe("hosting error recovery", () => {
+  it("recognises the hosting storage error page", () => {
+    expect(isHostingErrorPage("Deployment storage temporarily unavailable")).toBe(true);
+    expect(isHostingErrorPage("Reddit - The heart of the internet")).toBe(false);
+  });
+});

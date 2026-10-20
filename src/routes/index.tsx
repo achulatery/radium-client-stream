@@ -24,7 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { canToggleSafeSearch } from "@/lib/account-permissions";
 import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled, searchQueryOf } from "@/lib/browser-policy";
 import { searchWeb, type WebResult } from "@/lib/search.functions";
-import { setupUltraviolet, uvTargetOf, uvUrl } from "@/lib/ultraviolet";
+import { isHostingErrorPage, resetUltraviolet, setupUltraviolet, uvTargetOf, uvUrl } from "@/lib/ultraviolet";
 import {
   formatDuration,
   formatViews,
@@ -335,7 +335,7 @@ function BrowserTab() {
     <div className="relative min-h-0 flex-1">
       {results ? (
         <SearchResults state={results} searching={searching} onOpen={open} />
-      ) : frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <StartScreen open={open} history={history} />}
+      ) : frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Reopening through Radium's backup proxy"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <StartScreen open={open} history={history} />}
     </div>
   </div>;
 }
