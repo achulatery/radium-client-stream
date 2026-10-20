@@ -298,13 +298,12 @@ function BrowserTab() {
     const destination = query ? `https://duckduckgo.com/?q=${encodeURIComponent(query)}` : browserDestination(normalized);
     if (!destination) return;
     const url = applySearchPolicy(new URL(redditFriendly(destination)), safe).href;
-    if (url === current.current && url === loadUrl) return;
     remember(url);
     setLoadUrl(url);
     setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1);
     setStatus("Loading page");
-  }, [remember, safe, loadUrl]);
+  }, [remember, safe]);
 
   useEffect(() => {
     if (visitedHome.current) return;
@@ -340,7 +339,7 @@ function BrowserTab() {
       <div className="flex shrink-0 items-center gap-1">
         <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Back" title="Back" disabled={cursor <= 0} onClick={() => travel(cursor - 1)}><ArrowLeft size={15} /></Button>
         <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Forward" title="Forward" disabled={cursor >= entries.length - 1} onClick={() => travel(cursor + 1)}><ArrowRight size={15} /></Button>
-        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Refresh" title="Refresh" disabled={!target} onClick={() => { setNonce((n) => n + 1); setStatus("Loading page"); }}><RefreshCw size={15} /></Button>
+        <Button variant="ghost" size="icon" className="toolbar-icon" aria-label="Refresh" title="Refresh" disabled={!target} onClick={() => { setLoadUrl(target); setNonce((n) => n + 1); setStatus("Loading page"); }}><RefreshCw size={15} /></Button>
       </div>
       <form className="min-w-0 flex-1 basis-40" onSubmit={(e) => { e.preventDefault(); open(input); }}>
         <div className="flex h-9 items-center gap-2 rounded-sm border border-client-line bg-client-search px-2 text-client-search-text">
