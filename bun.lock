@@ -7,6 +7,7 @@
       "dependencies": {
         "@hookform/resolvers": "^5.9.1",
         "@mercuryworkshop/bare-mux": "^2.1.9",
+        "@mercuryworkshop/epoxy-transport": "2.1.28",
         "@mercuryworkshop/libcurl-transport": "1.5.2",
         "@radix-ui/react-accordion": "^1.2.21",
         "@radix-ui/react-alert-dialog": "^1.1.24",
@@ -273,6 +274,10 @@
     "@lovable.dev/vite-tanstack-config": ["@lovable.dev/vite-tanstack-config@2.26.5", "", { "dependencies": { "@tanstack/devtools-vite": "^0.8.1", "lightningcss": "^1.30.0" }, "peerDependencies": { "@tailwindcss/vite": ">=4.0.0", "@tanstack/react-start": ">=1.100.0", "@vitejs/plugin-react": ">=4.0.0", "nitro": ">=3.0.260603-beta", "vite": ">=5.0.0 <9.0.0", "vite-tsconfig-paths": ">=6.0.0" }, "optionalPeers": ["nitro"] }, "sha512-nRaztSS5BDM/d6oW/h2ev9l7RcjULxvWZtmrAwvI7rVQ9dPfNCBjNGmtiy8/THyYfFlcq+R2oLb4yaUBfneB6w=="],
 
     "@mercuryworkshop/bare-mux": ["@mercuryworkshop/bare-mux@2.1.9", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@mercuryworkshop/bare-mux/-/bare-mux-2.1.9.tgz", {}, "sha512-fiOqWm3VP0Bl8T+0l+qnb7ab9zO+PpKVbtJvOnMsefUv6kWIaoDtqyr9hd/t4gA8oBwgtyZVqIwO2J9nKY9ylw=="],
+
+    "@mercuryworkshop/epoxy-tls": ["@mercuryworkshop/epoxy-tls@2.1.18-1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@mercuryworkshop/epoxy-tls/-/epoxy-tls-2.1.18-1.tgz", {}, "sha512-2N1BYn/+FJxIbRw+sipbl3mQPinRflqQDB9HGAXJEVj4Ok4FIlTlS4fO2cpXKEq5yoD3oaKb8GyNaQfndNui9w=="],
+
+    "@mercuryworkshop/epoxy-transport": ["@mercuryworkshop/epoxy-transport@2.1.28", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@mercuryworkshop/epoxy-transport/-/epoxy-transport-2.1.28.tgz", { "dependencies": { "@mercuryworkshop/epoxy-tls": "2.1.18-1" } }, "sha512-lv/Kfdn37y8ZCXQaIT3Ebj4OSztBqeXdbR9rchbHQBKIw/fNSQJLGNBHV5ScXSzqt7NCwv8ZiZx7urRyk7Ua/Q=="],
 
     "@mercuryworkshop/libcurl-transport": ["@mercuryworkshop/libcurl-transport@1.5.2", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@mercuryworkshop/libcurl-transport/-/libcurl-transport-1.5.2.tgz", { "dependencies": { "libcurl.js": "^0.7.4" } }, "sha512-E0tD/3W6HE99ypc7CStpchU6xs+TP5u2vms/9q/46BShblB2pbRCNeXHBlvXqdz97nh2Xh4A68DryDt5CM29Dg=="],
 
