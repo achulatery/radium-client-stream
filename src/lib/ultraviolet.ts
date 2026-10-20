@@ -78,47 +78,64 @@ function probeUltraviolet(timeoutMs = 12000): Promise<boolean> {
   });
 }
 
-export function setupUltraviolet(wispServer: string): Promise<boolean> {
+async function attemptSetup(wispServer: string): Promise<UvSetup> {
+  try {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return { ok: false, reason: "private-mode" };
+    // Ultraviolet depends on an outside Wisp relay; when it is unreachable
+    // every site fails, so only use Ultraviolet when the relay answers.
+    if (!(await wispReachable(wispServer))) return { ok: false, reason: "relay" };
+    const { BareMuxConnection } = await import("@mercuryworkshop/bare-mux");
+    const connection = new BareMuxConnection("/baremux/worker.js");
+    await connection.setTransport("/libcurl/index.mjs", [{ wisp: wispServer }]).then(() => true, () => false).then((ok) => { if (!ok) throw new UvStepError("transport"); });
+    // uv.sw.js is only the library; /uv/sw.js is the entry that wires it up.
+    // Devices that visited older versions can still hold outdated workers;
+    // drop anything that isn't the current entry and refresh the rest.
+    for (const old of await navigator.serviceWorker.getRegistrations()) {
+      const script = (old.active ?? old.waiting ?? old.installing)?.scriptURL ?? "";
+      if (!script.endsWith("/uv/sw.js")) await old.unregister();
+    }
+    const reg = await navigator.serviceWorker.register("/uv/sw.js", { scope: UV_PREFIX, updateViaCache: "none" }).catch(() => null);
+    if (!reg) return { ok: false, reason: "register" };
+    await reg.update().catch(() => {});
+    // The Radium page sits outside the worker's scope, so serviceWorker.ready
+    // never resolves here; wait for this registration to activate instead.
+    const worker = reg.active ?? reg.installing ?? reg.waiting;
+    if (!worker) return { ok: false, reason: "activate" };
+    if (worker.state !== "activated") {
+      const activated = await new Promise<boolean>((resolve) => {
+        const timer = setTimeout(() => resolve(false), 10000);
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "activated") { clearTimeout(timer); resolve(true); }
+          if (worker.state === "redundant") { clearTimeout(timer); resolve(false); }
+        });
+      });
+      if (!activated) return { ok: false, reason: "activate" };
+    }
+    // Only switch sites to Ultraviolet after it really loads a page; any
+    // failure leaves websites closed until the user retries.
+    return (await probeUltraviolet()) ? { ok: true } : { ok: false, reason: "probe" };
+  } catch (error) {
+    return { ok: false, reason: error instanceof UvStepError ? error.step : "register" };
+  }
+}
+
+class UvStepError extends Error {
+  constructor(public step: UvFailure) { super(step); }
+}
+
+export function setupUltraviolet(wispServer: string): Promise<UvSetup> {
   if (setupPromise) return setupPromise;
   setupPromise = (async () => {
-    try {
-      if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
-      // Ultraviolet depends on an outside Wisp relay; when it is down every
-      // site fails, so only use Ultraviolet when the relay actually answers.
-      if (!(await wispReachable(wispServer))) return false;
-      const { BareMuxConnection } = await import("@mercuryworkshop/bare-mux");
-      const connection = new BareMuxConnection("/baremux/worker.js");
-      await connection.setTransport("/libcurl/index.mjs", [{ wisp: wispServer }]);
-      // uv.sw.js is only the library; /uv/sw.js is the entry that wires it up.
-      // Devices that visited older versions can still hold outdated workers;
-      // drop anything that isn't the current entry and refresh the rest.
-      for (const old of await navigator.serviceWorker.getRegistrations()) {
-        const script = (old.active ?? old.waiting ?? old.installing)?.scriptURL ?? "";
-        if (!script.endsWith("/uv/sw.js")) await old.unregister();
-      }
-      const reg = await navigator.serviceWorker.register("/uv/sw.js", { scope: UV_PREFIX, updateViaCache: "none" });
-      await reg.update().catch(() => {});
-      // The Radium page sits outside the worker's scope, so serviceWorker.ready
-      // never resolves here; wait for this registration to activate instead.
-      const worker = reg.active ?? reg.installing ?? reg.waiting;
-      if (!worker) return false;
-      if (worker.state !== "activated") {
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(() => reject(new Error("Ultraviolet worker timed out")), 10000);
-          worker.addEventListener("statechange", () => {
-            if (worker.state === "activated") { clearTimeout(timer); resolve(); }
-            if (worker.state === "redundant") { clearTimeout(timer); reject(new Error("Ultraviolet worker failed")); }
-          });
-        });
-      }
-      // Only switch sites to Ultraviolet after it really loads a page; any
-       // failure leaves websites closed until the user retries.
-      return await probeUltraviolet();
-    } catch {
-      setupPromise = null;
-      return false;
+    const first = await attemptSetup(wispServer);
+    if (first.ok) return first;
+    // A stuck or stale worker is the usual device-specific failure (seen on
+    // iPad Home Screen apps): wipe it once and try again from scratch.
+    if (first.reason === "probe" || first.reason === "activate" || first.reason === "register") {
+      await resetUltraviolet(false);
+      return attemptSetup(wispServer);
     }
-  })().then((ok) => { if (!ok) setupPromise = null; return ok; });
+    return first;
+  })().then((result) => { if (!result.ok) setupPromise = null; return result; });
   return setupPromise;
 }
 
