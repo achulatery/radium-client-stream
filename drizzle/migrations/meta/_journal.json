@@ -36,6 +36,13 @@
       "when": 1792455993882,
       "tag": "0004_kleb_chat_ranks_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792462619974,
+      "tag": "0005_chat_attachment_only_messages",
+      "breakpoints": true
     }
   ]
 }
