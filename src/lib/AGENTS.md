@@ -4,3 +4,4 @@ Proxy compatibility preserves incoming browser identity, translates upstream ref
 DuckDuckGo policy is rechecked against the cookie-authenticated account on the server, including image requests and upstream preference cookies; client controls cannot grant permission to disable Safe Search.
 The Browser owns its navigation stack and accepts only same-origin messages from its current iframe; resource property setters and mutation handling keep dynamic images inside the proxy.
 Chat media is chunk-uploaded before sending and linked in sendMessage, which re-checks the per-message rank allowance on the server; storage chunks are freed through removeChunks on owner hard delete, manual removal and abandoned-upload cleanup.
+Chat upload validation and inline serving share chat-media's MIME policy; infer missing file types and convert decodable HEIC photos to JPEG before upload so accepted images can render in browsers.

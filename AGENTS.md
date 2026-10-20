@@ -39,7 +39,7 @@ Lazy-load secondary tabs on first visit and retain Browser, Chat and Console wit
 
 Outgoing chat uses an immediate optimistic row reconciled by the saved message ID, a synchronous send lock and versioned reads; this prevents duplicate submissions and stale polling from replacing pending messages.
 
-Console controls reuse shared rank permissions and accessible themed dropdowns; this preserves server authority while containing access actions and history within the workspace.
+Console controls reuse shared rank permissions and one Rank dropdown with separate account-role and chat-rank groups; this preserves separate server authority while keeping access actions available.
 
 Console presence is approximate recent activity: a cookie-authenticated heartbeat updates last_seen every 30 seconds while the page is visible and Console refreshes its roster, with a 90-second expiry; this avoids exposing sessions or adding public table access.
 

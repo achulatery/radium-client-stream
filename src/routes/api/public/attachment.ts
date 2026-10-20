@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CHUNK_BYTES } from "@/lib/chat-ranks";
+import { canPreviewMedia, mediaMime } from "@/lib/chat-media";
 export const Route = createFileRoute("/api/public/attachment")({ server: { handlers: { GET: async ({ request }) => {
   try {
     const id = new URL(request.url).searchParams.get("id");
@@ -29,9 +30,10 @@ export const Route = createFileRoute("/api/public/attachment")({ server: { handl
       const { data: blob, error } = await sb.storage.from("radium-files").download(`${row.user_id}/${row.id}/${index.toString().padStart(6, "0")}`);
       if (error || !blob) { controller.error(new Error("File unavailable")); return; }
       const offset = cursor % CHUNK_BYTES; const length = Math.min(blob.size - offset, end - cursor + 1);
+      if (length <= 0) { controller.error(new Error("File chunk is incomplete")); return; }
       controller.enqueue(new Uint8Array(await blob.slice(offset, offset + length).arrayBuffer())); cursor += length;
     } });
-    const preview = ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "audio/mpeg", "audio/ogg"].includes(row.mime);
-    return new Response(stream, { status: range ? 206 : 200, headers: { "Content-Type": preview ? row.mime : "application/octet-stream", "Content-Length": String(end - start + 1), "Accept-Ranges": "bytes", ...(range ? { "Content-Range": `bytes ${start}-${end}/${row.size_bytes}` } : {}), "Content-Disposition": `${preview && !new URL(request.url).searchParams.has("download") ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(row.name)}`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+    const mime = mediaMime(row.name, row.mime); const preview = canPreviewMedia(mime);
+    return new Response(stream, { status: range ? 206 : 200, headers: { "Content-Type": preview ? mime : "application/octet-stream", "Content-Length": String(end - start + 1), "Accept-Ranges": "bytes", ...(range ? { "Content-Range": `bytes ${start}-${end}/${row.size_bytes}` } : {}), "Content-Disposition": `${preview && !new URL(request.url).searchParams.has("download") ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(row.name)}`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
   } catch { return new Response("File unavailable", { status: 403 }); }
 } } } });
