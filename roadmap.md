@@ -1,5 +1,5 @@
 - [x] Fix upload compilation errors and verify Radium loads (clean compilation; opening page and three tests verified)
-- [ ] Diagnose reported deployment/storage failure — blocked on exact error or screenshot; public website and preview return 200 without page errors, storage status returns 200, backend healthy and disk 14% used
+- [x] Diagnose reported deployment/storage failure (caused by the browser re-wrapping proxied addresses endlessly; fixed)
 - [ ] Add owner-granted personal Kleb pages with 5 GB picture allowance
 - [x] Add owner-assigned neon chat ranks without staff privileges (Console Chat rank menu)
 - [x] Add private chunked rank-limited attachments and verify signed-in flows
