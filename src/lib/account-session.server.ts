@@ -24,7 +24,7 @@ async function currentUser() {
   const { data } = await sb.from("app_users").select("*").eq("id", id).maybeSingle();
   if (!data) return null;
   const { data: roleRow } = await sb.from("app_account_roles").select("role").eq("user_id", id).maybeSingle();
-  const role: AccountRole = roleRow?.role === "owner" || roleRow?.role === "admin" || roleRow?.role === "mod" ? roleRow.role : null;
+  const role: AccountRole = roleRow?.role === "owner" || roleRow?.role === "contributor" || roleRow?.role === "admin" || roleRow?.role === "mod" ? roleRow.role : null;
   return { ...data, role };
 }
 
