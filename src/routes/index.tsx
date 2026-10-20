@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { canToggleSafeSearch } from "@/lib/account-permissions";
 import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled, searchQueryOf } from "@/lib/browser-policy";
-import { isHostingErrorPage, resetUltraviolet, setupUltraviolet, uvTargetOf, uvUrl } from "@/lib/ultraviolet";
+import { isHostingErrorPage, resetUltraviolet, setupUltraviolet, uvTargetOf, uvUrl, type UvFailure } from "@/lib/ultraviolet";
 import {
   formatDuration,
   formatViews,
@@ -200,6 +200,19 @@ function ClientShell() {
   );
 }
 
+const UV_FAILURE_HINTS: Record<UvFailure, string> = {
+  "private-mode": "This browsing mode blocks Radium's page loader. If you're in Private Browsing, open Radium in a normal tab instead.",
+  relay: "The connection server didn't answer. Check your internet and try again.",
+  transport: "The page loader couldn't start on this device. Fully close Radium and open it again.",
+  register: "The page loader couldn't start on this device. Fully close Radium and open it again.",
+  activate: "The page loader couldn't finish starting. Fully close Radium and open it again.",
+  probe: "The page loader started but a test page didn't load. Tap retry.",
+};
+
+function uvFailureMessage(reason: UvFailure | null) {
+  return reason ? UV_FAILURE_HINTS[reason] : "Ultraviolet could not connect on this device.";
+}
+
 function BrowserTab() {
   const { settings, theme, updateSettings, pushHistory } = useRadium();
   const { user } = useAccount();
@@ -217,6 +230,7 @@ function BrowserTab() {
   const videoId = target ? getYouTubeVideoId(target) : null;
   const [uvReady, setUvReady] = useState(false);
   const [uvStarting, setUvStarting] = useState(true);
+  const [uvReason, setUvReason] = useState<UvFailure | null>(null);
   const [uvAttempt, setUvAttempt] = useState(0);
   const visitedHome = useRef(false);
 
@@ -225,8 +239,8 @@ function BrowserTab() {
   useEffect(() => {
     let live = true;
     setUvStarting(true);
-    void setupUltraviolet(settings.wispServer).then((ok) => {
-      if (live) { setUvReady(ok); setUvStarting(false); }
+    void setupUltraviolet(settings.wispServer).then((result) => {
+      if (live) { setUvReady(result.ok); setUvReason(result.ok ? null : (result.reason ?? null)); setUvStarting(false); }
     });
     return () => {
       live = false;
@@ -315,7 +329,7 @@ function BrowserTab() {
     </div>
     <span className="sr-only" aria-live="polite">{status}</span>
     <div className="relative min-h-0 flex-1">
-      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Ultraviolet connection unavailable"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : target ? <div className="flex h-full flex-col items-center justify-center gap-4 text-client-muted"><ShieldCheck size={28} /><p>{uvStarting ? "Connecting…" : "Ultraviolet could not connect on this network."}</p>{!uvStarting && <Button variant="secondary" onClick={() => { setUvReady(false); setUvAttempt((n) => n + 1); }}><RefreshCw size={14} />Retry connection</Button>}</div> : <div className="flex h-full items-center justify-center text-sm text-client-muted">Connecting…</div>}
+      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Ultraviolet connection unavailable"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : target ? <div className="flex h-full flex-col items-center justify-center gap-4 text-client-muted"><ShieldCheck size={28} /><p className="max-w-sm text-center">{uvStarting ? "Connecting…" : uvFailureMessage(uvReason)}</p>{!uvStarting && <Button variant="secondary" onClick={() => { setUvReady(false); setUvAttempt((n) => n + 1); }}><RefreshCw size={14} />Retry connection</Button>}</div> : <div className="flex h-full items-center justify-center text-sm text-client-muted">Connecting…</div>}
     </div>
   </div>;
 }
