@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as ApiStreamRouteImport } from './routes/api/stream'
+import { Route as ApiPublicAttachmentRouteImport } from './routes/api/public/attachment'
 import { Route as ApiPublicInvidiousRouteImport } from './routes/api/public/invidious'
 import { Route as ApiPublicPRouteImport } from './routes/api/public/p'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
@@ -32,6 +33,11 @@ const SplatRoute = SplatRouteImport.update({
 const ApiStreamRoute = ApiStreamRouteImport.update({
   id: '/api/stream',
   path: '/api/stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAttachmentRoute = ApiPublicAttachmentRouteImport.update({
+  id: '/api/public/attachment',
+  path: '/api/public/attachment',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicInvidiousRoute = ApiPublicInvidiousRouteImport.update({
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/api/stream': typeof ApiStreamRoute
+  '/api/public/attachment': typeof ApiPublicAttachmentRoute
   '/api/public/invidious': typeof ApiPublicInvidiousRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/api/stream': typeof ApiStreamRoute
+  '/api/public/attachment': typeof ApiPublicAttachmentRoute
   '/api/public/invidious': typeof ApiPublicInvidiousRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/api/stream': typeof ApiStreamRoute
+  '/api/public/attachment': typeof ApiPublicAttachmentRoute
   '/api/public/invidious': typeof ApiPublicInvidiousRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/api/stream'
+    | '/api/public/attachment'
     | '/api/public/invidious'
     | '/api/public/p'
     | '/api/public/ping'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/api/stream'
+    | '/api/public/attachment'
     | '/api/public/invidious'
     | '/api/public/p'
     | '/api/public/ping'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/api/stream'
+    | '/api/public/attachment'
     | '/api/public/invidious'
     | '/api/public/p'
     | '/api/public/ping'
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   ApiStreamRoute: typeof ApiStreamRoute
+  ApiPublicAttachmentRoute: typeof ApiPublicAttachmentRoute
   ApiPublicInvidiousRoute: typeof ApiPublicInvidiousRoute
   ApiPublicPRoute: typeof ApiPublicPRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/api/stream'
       fullPath: '/api/stream'
       preLoaderRoute: typeof ApiStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/attachment': {
+      id: '/api/public/attachment'
+      path: '/api/public/attachment'
+      fullPath: '/api/public/attachment'
+      preLoaderRoute: typeof ApiPublicAttachmentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/invidious': {
@@ -219,6 +239,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   ApiStreamRoute: ApiStreamRoute,
+  ApiPublicAttachmentRoute: ApiPublicAttachmentRoute,
   ApiPublicInvidiousRoute: ApiPublicInvidiousRoute,
   ApiPublicPRoute: ApiPublicPRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
