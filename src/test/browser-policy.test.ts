@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applySearchPolicy, safeSearchEnabled, cleanBrowserAddress, browserDestination, searchQueryOf } from "@/lib/browser-policy";
-import { uvUrl } from "@/lib/ultraviolet";
+import { isHostingErrorPage, uvUrl } from "@/lib/ultraviolet";
 
 describe("browser policy", () => {
   it("forces strict Safe Search for members even with a disabled preference", () => { expect(safeSearchEnabled(null, false)).toBe(true); expect(applySearchPolicy(new URL("https://duckduckgo.com/?q=cats&kp=-2"), safeSearchEnabled(null, false)).searchParams.get("kp")).toBe("1"); });
@@ -16,7 +16,6 @@ describe("browser policy", () => {
     expect(cleanBrowserAddress(once)).toBe("example.com/page");
   });
 });
-import { isHostingErrorPage } from "@/lib/ultraviolet";
 describe("hosting error recovery", () => {
   it("recognises the hosting storage error page", () => {
     expect(isHostingErrorPage("Deployment storage temporarily unavailable")).toBe(true);
