@@ -69,6 +69,31 @@ async function fetchPiped(path: string) {
   }
 }
 
+/**
+ * YouTube's oEmbed endpoint answers 401 for age-restricted / sign-in-required (and
+ * non-embeddable) videos and 200 for normally playable ones, so it is a cheap way to
+ * drop videos that would only fail at playback time. Network errors fail open so a
+ * YouTube outage can never blank the whole result list.
+ */
+const playableCache = new Map<string, boolean>();
+
+export async function playableWithoutLogin(id: string): Promise<boolean> {
+  const cached = playableCache.get(id);
+  if (cached !== undefined) return cached;
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}&format=json`,
+      { headers: { accept: "application/json", "user-agent": "RadiumClient/1.0" }, signal: AbortSignal.timeout(2_500) },
+    );
+    const ok = res.ok;
+    if (playableCache.size > 5_000) playableCache.clear();
+    playableCache.set(id, ok);
+    return ok;
+  } catch {
+    return true;
+  }
+}
+
 type RawItem = {
   url?: string;
   type?: string;
@@ -171,10 +196,14 @@ async function handle(request: Request): Promise<Response> {
         const list = Array.isArray(data)
           ? (data as RawItem[])
           : ((data as { items?: RawItem[] }).items ?? []);
+        const shaped = list.filter((v) => (v.type ?? "stream") === "stream").map(shapeItem).filter((v) => v.videoId);
+        const results = (
+          await Promise.all(shaped.map(async (v) => ((await playableWithoutLogin(v.videoId!)) ? v : null)))
+        ).filter((v) => v !== null);
         return json({
           success: true,
           instance,
           nextpage: Array.isArray(data) ? null : ((data as { nextpage?: string | null }).nextpage ?? null),
-          results: list.filter((v) => (v.type ?? "stream") === "stream").map(shapeItem).filter((v) => v.videoId),
+          results,
         });
 }
