@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { canToggleSafeSearch } from "@/lib/account-permissions";
 import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled, searchQueryOf } from "@/lib/browser-policy";
-import { searchWeb, type WebResult } from "@/lib/search.functions";
 import { isHostingErrorPage, resetUltraviolet, setupUltraviolet, uvTargetOf, uvUrl } from "@/lib/ultraviolet";
 import {
   formatDuration,
@@ -202,7 +201,7 @@ function ClientShell() {
 }
 
 function BrowserTab() {
-  const { settings, theme, updateSettings, pushHistory, history } = useRadium();
+  const { settings, theme, updateSettings, pushHistory } = useRadium();
   const { user } = useAccount();
   const safe = safeSearchEnabled(user?.role ?? null, settings.duckduckgoSafeSearch);
   const [input, setInput] = useState("");
@@ -210,8 +209,6 @@ function BrowserTab() {
   const [status, setStatus] = useState("Ready");
   const [nonce, setNonce] = useState(0);
   const [savingSearch, setSavingSearch] = useState(false);
-  const [results, setResults] = useState<{ query: string; items: WebResult[]; error?: string } | null>(null);
-  const [searching, setSearching] = useState(false);
   const [entries, setEntries] = useState<string[]>([]);
   const [cursor, setCursor] = useState(-1);
   const frame = useRef<HTMLIFrameElement>(null);
