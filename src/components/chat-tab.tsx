@@ -1,18 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Hash, LogOut, Pencil, Plus, Send, Trash, Trash2, X } from "lucide-react";
+import { FileIcon, Hash, LogOut, Paperclip, Pencil, Plus, Send, Trash, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, ProfileDialog } from "@/components/profile";
+import { RankTag, StaffTag } from "@/components/rank-tag";
 import { useAccount } from "@/lib/account";
 import { canModerate } from "@/lib/account-permissions";
-import { createRoom, deleteMessage, deleteRoom, editMessage, joinRoom, leaveRoom, listMessages, listRooms, sendMessage } from "@/lib/chat.functions";
+import { formatBytes } from "@/lib/chat-ranks";
+import { uploadFile } from "@/lib/upload-file";
+import { removeUpload } from "@/lib/uploads.functions";
+import { createRoom, deleteMessage, deleteRoom, editMessage, getMyMediaLimit, joinRoom, leaveRoom, listMessages, listRooms, sendMessage } from "@/lib/chat.functions";
 
 type Room = Awaited<ReturnType<typeof listRooms>>[number];
 type Message = Awaited<ReturnType<typeof listMessages>>[number] & { sending?: boolean };
+type Pending = { key: string; file: File; preview: string | null; progress: number; uploadId?: string; error?: string; done: Promise<string | null> };
 const LAST = "radium-chat-room";
-const roleLabel: Record<string, string> = { owner: "OWNER", admin: "ADMIN", mod: "MOD" };
+const MAX_FILES = 10;
 const deletedLabel = (by: string | null) =>
   by === "self" || !by ? "Message deleted" : `Message deleted by ${by === "mod" ? "moderator" : by}`;
+const fileUrl = (id: string) => `/api/public/attachment?id=${id}`;
+
+function Attachments({ items }: { items: Message["attachments"] }) {
+  if (!items.length) return null;
+  return <div className="dc-attachments">{items.map((a) => a.mime.startsWith("image/")
+    ? <a key={a.id} href={fileUrl(a.id)} target="_blank" rel="noreferrer"><img src={fileUrl(a.id)} alt={a.name} loading="lazy" decoding="async" /></a>
+    : a.mime.startsWith("video/")
+      ? <video key={a.id} src={fileUrl(a.id)} controls preload="metadata" />
+      : <a key={a.id} className="dc-file" href={`${fileUrl(a.id)}&download=1`}><FileIcon size={14} />{a.name}<small>{formatBytes(a.size)}</small></a>)}</div>;
+}
 
 export function ChatTab({ visible = true }: { visible?: boolean }) {
   const { user } = useAccount();
