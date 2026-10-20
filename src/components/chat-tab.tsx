@@ -185,7 +185,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
             <Button type="submit" size="sm">{panel === "create" ? "Create room" : "Join room"}</Button>
           </form>
         )}
-        <button type="button" className="dc-user" onClick={() => user && setProfileId(user.id)} title="Your profile"><Avatar src={user?.avatar} name={user?.username ?? "?"} size={32} /><span>{user?.username}</span>{user?.role && <b>{roleLabel[user.role]}</b>}</button>
+        <button type="button" className="dc-user" onClick={() => user && setProfileId(user.id)} title="Your profile"><Avatar src={user?.avatar} name={user?.username ?? "?"} size={32} /><span>{user?.username}</span><StaffTag role={user?.role} />{user?.role === "mod" && <b>MOD</b>}<RankTag rank={media?.chatRank ?? null} /></button>
       </aside>
 
       <section className="dc-main">
@@ -207,7 +207,7 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
               <article key={m.id} className={grouped ? "dc-msg grouped" : "dc-msg"}>
                 {!grouped && <button type="button" className="dc-avatar-btn" onClick={() => setProfileId(m.userId)} aria-label={`View ${m.username}'s profile`}><Avatar src={m.avatar} name={m.username} size={40} /></button>}
                 <div className="dc-msg-body">
-                  {!grouped && <div className="dc-msg-meta"><strong role="button" tabIndex={0} className="cursor-pointer hover:underline" onClick={() => setProfileId(m.userId)}>{m.username}</strong>{m.authorRole && <b>{roleLabel[m.authorRole]}</b>}<time>{new Date(m.createdAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" })}</time></div>}
+                  {!grouped && <div className="dc-msg-meta"><strong role="button" tabIndex={0} className="cursor-pointer hover:underline" onClick={() => setProfileId(m.userId)}>{m.username}</strong><StaffTag role={m.authorRole} />{m.authorRole === "mod" && <b>MOD</b>}<RankTag rank={m.chatRank} accent={m.accent} /><time>{new Date(m.createdAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" })}</time></div>}
                   {editing?.id === m.id ? (
                     <form className="dc-edit" onSubmit={(e) => { e.preventDefault(); void run(async () => { await editMessage({ data: editing }); setEditing(null); await loadMessages(); }); }}>
                       <input autoFocus value={editing.body} maxLength={2000} onChange={(e) => setEditing({ ...editing, body: e.target.value })} onKeyDown={(e) => e.key === "Escape" && setEditing(null)} />
