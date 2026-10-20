@@ -16,6 +16,17 @@ async function requireMember(userId: string, rid: string, staff: boolean) {
   if (!data && room?.code !== "general" && !room?.is_public) throw new Error("Join this room first");
 }
 
+/** Messages self-destruct after 3 hours; the owner's messages never expire. */
+export const MESSAGE_TTL_MS = 3 * 60 * 60 * 1000;
+async function purgeExpiredMessages(sb: Awaited<ReturnType<typeof db>>, rid: string) {
+  const cutoff = new Date(Date.now() - MESSAGE_TTL_MS).toISOString();
+  const { data: owners } = await sb.from("app_account_roles").select("user_id").eq("role", "owner");
+  const ids = (owners ?? []).map((o) => o.user_id);
+  let query = sb.from("app_chat_messages").delete().eq("room_id", rid).lt("created_at", cutoff);
+  if (ids.length) query = query.not("user_id", "in", `(${ids.join(",")})`);
+  await query;
+}
+
 /** Rooms the user has joined (kept across sign-ins). Staff see every room. */
 export const listRooms = createServerFn({ method: "GET" }).handler(async () => {
   const user = await requireUser();
@@ -80,6 +91,7 @@ export const listMessages = createServerFn({ method: "GET" })
     const staff = canModerate(user.role);
     await requireMember(user.id, data.roomId, staff);
     const sb = await db();
+    await purgeExpiredMessages(sb, data.roomId);
     const { data: rows, error } = await sb
       .from("app_chat_messages")
       .select("id, user_id, body, created_at, edited_at, deleted_at, deleted_by_role, app_users(username, avatar, settings)")

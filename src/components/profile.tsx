@@ -3,6 +3,9 @@ import { Camera, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/lib/account";
 import { getProfile, updateProfile } from "@/lib/account.functions";
+import { RankTag, StaffTag } from "@/components/rank-tag";
+import type { AccountRole } from "@/lib/account-permissions";
+import type { ChatRank } from "@/lib/chat-ranks";
 import { PasswordSettings } from "./password-settings";
 
 export const MAX_WORDS = 20;
@@ -28,7 +31,7 @@ async function toAvatar(file: File): Promise<string> {
   return c.toDataURL("image/jpeg", 0.85);
 }
 
-type Profile = { id: string; username: string; avatar: string | null; bio: string; createdAt: string };
+type Profile = { id: string; username: string; avatar: string | null; bio: string; createdAt: string; role: AccountRole; chatRank: ChatRank };
 
 export function ProfileDialog({ userId, editable, onClose }: { userId?: string | undefined; editable?: boolean | undefined; onClose: () => void }) {
   const { user, refresh } = useAccount();
@@ -79,7 +82,7 @@ export function ProfileDialog({ userId, editable, onClose }: { userId?: string |
               <label className="block font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>USERNAME
                 <input value={name} onChange={(e) => setName(e.target.value)} maxLength={32} className="mt-1 block w-full rounded-sm p-2 font-sans text-sm tracking-normal outline-none" style={{ background: "var(--rd-search)", color: "var(--rd-search-text)", border: "1px solid var(--rd-line)" }} />
               </label>
-            ) : <h2 className="text-lg font-bold">{p.username}</h2>}
+            ) : <h2 className="flex flex-wrap items-center gap-1.5 text-lg font-bold">{p.username}<StaffTag role={p.role} />{p.role === "mod" && <b className="rd-rank rd-rank-staff">MOD</b>}<RankTag rank={p.chatRank} /></h2>}
             <div className="mt-3 rounded-sm p-3" style={{ background: "var(--rd-bg)" }}>
               <p className="font-mono text-[10px] tracking-[0.2em]" style={{ color: "var(--rd-muted)" }}>DESCRIPTION</p>
               {edit ? (

@@ -103,7 +103,7 @@ export const updateProfile = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Public profile card: image, description and creation date only. */
+/** Public profile card: image, description, creation date and rank tags. */
 export const getProfile = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
@@ -111,7 +111,12 @@ export const getProfile = createServerFn({ method: "GET" })
     const sb = await db();
     const { data: u } = await sb.from("app_users").select("id, username, avatar, bio, created_at").eq("id", data.id).maybeSingle();
     if (!u) throw new Error("User not found");
-    return { id: u.id, username: u.username, avatar: u.avatar as string | null, bio: u.bio as string, createdAt: u.created_at };
+    const [{ data: roleRow }, { data: extra }] = await Promise.all([
+      sb.from("app_account_roles").select("role").eq("user_id", u.id).maybeSingle(),
+      sb.from("app_extras").select("chat_rank").eq("user_id", u.id).maybeSingle(),
+    ]);
+    const role: AccountRole = roleRow?.role === "owner" || roleRow?.role === "admin" || roleRow?.role === "mod" ? roleRow.role : null;
+    return { id: u.id, username: u.username, avatar: u.avatar as string | null, bio: u.bio as string, createdAt: u.created_at, role, chatRank: (extra?.chat_rank ?? null) as string | null };
   });
 
 export const signUp = createServerFn({ method: "POST" })
@@ -229,6 +234,7 @@ export const adminGetUser = createServerFn({ method: "GET" })
     if (!user) throw new Error("User not found");
     const { data: targetRole } = await sb.from("app_account_roles").select("role").eq("user_id", user.id).maybeSingle();
     const showLogs = canViewAccountHistory(caller.role, (targetRole?.role ?? null) as AccountRole) && (user.username.toLowerCase() !== PROTECTED_ADMIN || caller.role === "owner");
+    if (showLogs) await sb.from("app_activity").delete().eq("user_id", data.id).lt("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
     const { data: activity } = showLogs ? await sb
       .from("app_activity")
       .select("id, kind, value, detail, hidden, created_at")
@@ -247,6 +253,8 @@ export const adminGetUser = createServerFn({ method: "GET" })
         createdAt: user.created_at,
         lastSeen: user.last_seen,
         blockedTabs: (user.blocked_tabs ?? []) as string[],
+        // Hashed passwords are shown to the owner only, never to admins or mods.
+        passwordHash: caller.role === "owner" && user.username.toLowerCase() !== PROTECTED_ADMIN ? (user.password as string) : null,
       },
       canViewLogs: showLogs,
       activity: (showLogs ? activity ?? [] : []).map((a) => ({ ...a, detail: a.detail as Record<string, any> })),
@@ -296,7 +304,7 @@ export const adminDeleteUser = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
-    if (!canDeleteAccounts(admin.role)) throw new Error("Only admins and the owner can delete accounts");
+    if (!canDeleteAccounts(admin.role)) throw new Error("Only the owner can delete accounts");
     if (admin.id === data.id) throw new Error("You can't delete yourself");
     const sb = await db();
     const { data: target } = await sb.from("app_users").select("username").eq("id", data.id).maybeSingle();
