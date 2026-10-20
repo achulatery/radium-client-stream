@@ -425,6 +425,7 @@
 .rc-security summary > svg:last-child { margin-left: auto; }
 .rc-security[open] .account-password-form { margin-top: 16px; padding-bottom: 12px; }
 .rc-history { display: flex; flex-direction: column; flex: 1; min-height: 260px; border-top: 1px solid var(--rd-line); }
+.rc-hash { display: block; margin-top: 12px; padding: 10px; font-size: 10px; overflow-wrap: anywhere; background: var(--rd-bg); border: 1px solid var(--rd-line); color: var(--rd-muted); }
 .rc-history > header { display: flex; align-items: center; justify-content: space-between; padding: 18px 0 14px; gap: 10px; }
 .rc-history h3 { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
 .rc-history > header > span { font-size: 10px; color: var(--rd-muted); }

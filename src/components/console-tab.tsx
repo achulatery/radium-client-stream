@@ -123,7 +123,7 @@ export function ConsoleTab({ visible = true }: { visible?: boolean }) {
           </div>
            {me?.role === "owner" && (own || canAct) && <details className="rc-security"><summary><KeyRound size={14} />Password reset<ChevronDown size={12} /></summary><PasswordSettings key={detail.user.id} targetId={detail.user.id} /></details>}
            {me?.role === "owner" && detail.user.passwordHash && <details className="rc-security"><summary><KeyRound size={14} />Password hash<ChevronDown size={12} /></summary><code className="rc-hash">{detail.user.passwordHash}</code><p className="rc-muted">One-way hash — the real password can't be recovered.</p></details>}
-           {detail.canViewLogs && <div className="rc-history"><h3>ACTIVITY · LAST 24 HOURS</h3><ul className="rc-history-list">{detail.activity.length === 0 && <li className="rc-muted">No recent activity.</li>}{detail.activity.map((a) => <li key={a.id}><small>{fmt(a.created_at)}</small><b>{a.kind.toUpperCase()}</b><span>{a.value}</span></li>)}</ul></div>}
+           {detail.canViewLogs && <div className="rc-history"><header><h3>ACTIVITY · LAST 24 HOURS</h3><span>{detail.activity.length} events</span></header><ul className="rc-history-scroll">{detail.activity.length === 0 && <li><span className="rc-muted">No recent activity.</span></li>}{detail.activity.map((a) => <li key={a.id}><span>{a.value}<small>{a.kind.toUpperCase()}</small></span><time>{fmt(a.created_at)}</time></li>)}</ul></div>}
         </>}
       </section>
     </div>
