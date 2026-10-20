@@ -214,9 +214,9 @@ export function ChatTab({ visible = true }: { visible?: boolean }) {
                       <Button type="submit" size="sm">Save</Button><Button type="button" variant="ghost" size="icon" onClick={() => setEditing(null)}><X size={14} /></Button>
                     </form>
                   ) : m.deleted ? (
-                    <p className="dc-deleted">{deletedLabel(m.deletedBy)}{staff && m.body && <span className="dc-mod-view"> — {m.body}</span>}</p>
+                    <><p className="dc-deleted">{deletedLabel(m.deletedBy)}{staff && m.body && <span className="dc-mod-view"> — {m.body}</span>}</p>{staff && <Attachments items={m.attachments} />}</>
                   ) : (
-                    <p>{m.body}{m.editedAt && <small> (edited)</small>}</p>
+                    <>{(m.body || m.editedAt) && <p>{m.body}{m.editedAt && <small> (edited)</small>}</p>}<Attachments items={m.attachments} /></>
                   )}
                 </div>
                 {!m.deleted && !m.sending && editing?.id !== m.id && (own || staff) && (
