@@ -11,9 +11,9 @@
 
 Subdirectories have their own AGENTS.md (src/lib holds browser, proxy and chat-media rules); read it before changing files there.
 
-Radium's Home Screen entry is rooted at `/` through the web manifest, and Piped API calls must bypass caches and validate JSON responses; this prevents stale or HTML responses from masquerading as video data.
+Radium's Home Screen entry is rooted at `/` through the web manifest. YouTube uses direct Invidious JSON, thumbnails and embeds from the configured instance, never Piped or Radium's stream relay; validate JSON and preserve server-side eligibility checks without proxying instance content.
 
-Use the shared VideoThumbnail for both video result grids; viewport-aware preloading keeps scrolling smooth without fetching every result at once.
+Use the shared VideoThumbnail for video results; viewport-aware preloading keeps scrolling smooth without fetching every result at once.
 
 Client colour swatches update both accent roles together, and both interface-mode controls use the provider's toggleMode to preserve the chosen signal colours while changing surfaces.
 
