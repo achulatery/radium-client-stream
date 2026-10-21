@@ -11,14 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
-import { Route as ApiStreamRouteImport } from './routes/api/stream'
 import { Route as ApiPublicAttachmentRouteImport } from './routes/api/public/attachment'
 import { Route as ApiPublicInvidiousRouteImport } from './routes/api/public/invidious'
 import { Route as ApiPublicPRouteImport } from './routes/api/public/p'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
-import { Route as ApiPublicPipedRouteImport } from './routes/api/public/piped'
 import { Route as ApiPublicSoundcloudRouteImport } from './routes/api/public/soundcloud'
-import { Route as ApiPublicThumbRouteImport } from './routes/api/public/thumb'
 import { Route as UvServiceSplatRouteImport } from './routes/uv/service/$'
 import { Route as ApiPublicJobsCleanupRouteImport } from './routes/api/public/jobs/cleanup'
 
@@ -30,11 +27,6 @@ const IndexRoute = IndexRouteImport.update({
 const SplatRoute = SplatRouteImport.update({
   id: '/$',
   path: '/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiStreamRoute = ApiStreamRouteImport.update({
-  id: '/api/stream',
-  path: '/api/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicAttachmentRoute = ApiPublicAttachmentRouteImport.update({
@@ -57,19 +49,9 @@ const ApiPublicPingRoute = ApiPublicPingRouteImport.update({
   path: '/api/public/ping',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicPipedRoute = ApiPublicPipedRouteImport.update({
-  id: '/api/public/piped',
-  path: '/api/public/piped',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicSoundcloudRoute = ApiPublicSoundcloudRouteImport.update({
   id: '/api/public/soundcloud',
   path: '/api/public/soundcloud',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicThumbRoute = ApiPublicThumbRouteImport.update({
-  id: '/api/public/thumb',
-  path: '/api/public/thumb',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UvServiceSplatRoute = UvServiceSplatRouteImport.update({
@@ -86,28 +68,22 @@ const ApiPublicJobsCleanupRoute = ApiPublicJobsCleanupRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
-  '/api/stream': typeof ApiStreamRoute
   '/api/public/attachment': typeof ApiPublicAttachmentRoute
   '/api/public/invidious': typeof ApiPublicInvidiousRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
-  '/api/public/piped': typeof ApiPublicPipedRoute
   '/api/public/soundcloud': typeof ApiPublicSoundcloudRoute
-  '/api/public/thumb': typeof ApiPublicThumbRoute
   '/uv/service/$': typeof UvServiceSplatRoute
   '/api/public/jobs/cleanup': typeof ApiPublicJobsCleanupRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
-  '/api/stream': typeof ApiStreamRoute
   '/api/public/attachment': typeof ApiPublicAttachmentRoute
   '/api/public/invidious': typeof ApiPublicInvidiousRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
-  '/api/public/piped': typeof ApiPublicPipedRoute
   '/api/public/soundcloud': typeof ApiPublicSoundcloudRoute
-  '/api/public/thumb': typeof ApiPublicThumbRoute
   '/uv/service/$': typeof UvServiceSplatRoute
   '/api/public/jobs/cleanup': typeof ApiPublicJobsCleanupRoute
 }
@@ -115,14 +91,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
-  '/api/stream': typeof ApiStreamRoute
   '/api/public/attachment': typeof ApiPublicAttachmentRoute
   '/api/public/invidious': typeof ApiPublicInvidiousRoute
   '/api/public/p': typeof ApiPublicPRoute
   '/api/public/ping': typeof ApiPublicPingRoute
-  '/api/public/piped': typeof ApiPublicPipedRoute
   '/api/public/soundcloud': typeof ApiPublicSoundcloudRoute
-  '/api/public/thumb': typeof ApiPublicThumbRoute
   '/uv/service/$': typeof UvServiceSplatRoute
   '/api/public/jobs/cleanup': typeof ApiPublicJobsCleanupRoute
 }
@@ -131,42 +104,33 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$'
-    | '/api/stream'
     | '/api/public/attachment'
     | '/api/public/invidious'
     | '/api/public/p'
     | '/api/public/ping'
-    | '/api/public/piped'
     | '/api/public/soundcloud'
-    | '/api/public/thumb'
     | '/uv/service/$'
     | '/api/public/jobs/cleanup'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/$'
-    | '/api/stream'
     | '/api/public/attachment'
     | '/api/public/invidious'
     | '/api/public/p'
     | '/api/public/ping'
-    | '/api/public/piped'
     | '/api/public/soundcloud'
-    | '/api/public/thumb'
     | '/uv/service/$'
     | '/api/public/jobs/cleanup'
   id:
     | '__root__'
     | '/'
     | '/$'
-    | '/api/stream'
     | '/api/public/attachment'
     | '/api/public/invidious'
     | '/api/public/p'
     | '/api/public/ping'
-    | '/api/public/piped'
     | '/api/public/soundcloud'
-    | '/api/public/thumb'
     | '/uv/service/$'
     | '/api/public/jobs/cleanup'
   fileRoutesById: FileRoutesById
@@ -174,14 +138,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
-  ApiStreamRoute: typeof ApiStreamRoute
   ApiPublicAttachmentRoute: typeof ApiPublicAttachmentRoute
   ApiPublicInvidiousRoute: typeof ApiPublicInvidiousRoute
   ApiPublicPRoute: typeof ApiPublicPRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
-  ApiPublicPipedRoute: typeof ApiPublicPipedRoute
   ApiPublicSoundcloudRoute: typeof ApiPublicSoundcloudRoute
-  ApiPublicThumbRoute: typeof ApiPublicThumbRoute
   UvServiceSplatRoute: typeof UvServiceSplatRoute
   ApiPublicJobsCleanupRoute: typeof ApiPublicJobsCleanupRoute
 }
@@ -200,13 +161,6 @@ declare module '@tanstack/react-router' {
       path: '/$'
       fullPath: '/$'
       preLoaderRoute: typeof SplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/stream': {
-      id: '/api/stream'
-      path: '/api/stream'
-      fullPath: '/api/stream'
-      preLoaderRoute: typeof ApiStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/attachment': {
@@ -237,25 +191,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/piped': {
-      id: '/api/public/piped'
-      path: '/api/public/piped'
-      fullPath: '/api/public/piped'
-      preLoaderRoute: typeof ApiPublicPipedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/soundcloud': {
       id: '/api/public/soundcloud'
       path: '/api/public/soundcloud'
       fullPath: '/api/public/soundcloud'
       preLoaderRoute: typeof ApiPublicSoundcloudRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/thumb': {
-      id: '/api/public/thumb'
-      path: '/api/public/thumb'
-      fullPath: '/api/public/thumb'
-      preLoaderRoute: typeof ApiPublicThumbRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/uv/service/$': {
@@ -278,14 +218,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
-  ApiStreamRoute: ApiStreamRoute,
   ApiPublicAttachmentRoute: ApiPublicAttachmentRoute,
   ApiPublicInvidiousRoute: ApiPublicInvidiousRoute,
   ApiPublicPRoute: ApiPublicPRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
-  ApiPublicPipedRoute: ApiPublicPipedRoute,
   ApiPublicSoundcloudRoute: ApiPublicSoundcloudRoute,
-  ApiPublicThumbRoute: ApiPublicThumbRoute,
   UvServiceSplatRoute: UvServiceSplatRoute,
   ApiPublicJobsCleanupRoute: ApiPublicJobsCleanupRoute,
 }
