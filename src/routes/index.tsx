@@ -26,6 +26,7 @@ import { canToggleSafeSearch } from "@/lib/account-permissions";
 import { applySearchPolicy, browserDestination, cleanBrowserAddress, safeSearchEnabled, searchQueryOf } from "@/lib/browser-policy";
 import { isHostingErrorPage, resetUltraviolet, setupUltraviolet, uvTargetOf, uvUrl, type UvFailure } from "@/lib/ultraviolet";
 import {
+  invidiousEmbedUrl,
   formatDuration,
   formatViews,
   getComments,
@@ -41,9 +42,7 @@ import {
   useRadium,
   videoPlayerUrl,
 } from "@/lib/radium";
-import { pipedMore, pipedSearch, pipedStreams, type PipedItem, type PipedVideo } from "@/lib/piped";
 import { track } from "@/lib/track";
-import { firstUsable, preloadVideo } from "@/lib/video-loading";
 import { useAccount } from "@/lib/account";
 import { AuthScreen } from "@/components/auth-screen";
 import { Avatar, ProfileDialog } from "@/components/profile";
@@ -358,11 +357,8 @@ function BrowserTab() {
   </div>;
 }
 
-type Provider = "invidious" | "piped";
 function YouTubeTab() {
-  const [provider, setProvider] = useState<Provider>("invidious");
-  const options = <OptionsMenu provider={provider} onPick={setProvider} />;
-  return provider === "piped" ? <PipedView options={options} /> : <InvidiousView options={options} />;
+  return <InvidiousView />;
 }
 
 function VideoStartScreen({ onSearch }: { onSearch: () => void }) {
@@ -387,18 +383,6 @@ const btnStyle = {
   color: "var(--rd-button-text)",
   border: "1px solid var(--rd-line)",
 } as const;
-
-function OptionsMenu({ provider, onPick }: { provider: Provider; onPick: (p: Provider) => void }) {
-  return (
-    <select aria-label="Video provider" value={provider} onChange={(e) => onPick(e.target.value as Provider)}
-      className="video-provider h-9 max-w-full rounded-sm px-2 font-mono text-xs">
-      <option value="invidious">Invidious</option>
-      <option value="piped">Piped</option>
-    </select>
-  );
-}
-
-const EMBED = "__embed__";
 
 function SkeletonCards({ count = 6 }: { count?: number }) {
   return (
@@ -429,241 +413,7 @@ function useBottom(cb: () => void) {
   return setEl;
 }
 
-const pipedToInv = (v: PipedItem): InvidiousVideo => ({
-  videoId: v.videoId, title: v.title, author: v.author, authorId: null, viewCount: v.views, published: null,
-  publishedText: v.uploaded, lengthSeconds: v.duration, liveNow: false, thumbnail: v.thumbnail, description: null,
-});
-const invToPiped = (v: InvidiousVideo): PipedItem => ({
-  videoId: v.videoId ?? "", title: v.title, author: v.author, views: v.viewCount, uploaded: v.publishedText,
-  duration: v.lengthSeconds, thumbnail: v.thumbnail,
-});
-
-function PipedView({ options }: { options: React.ReactNode }) {
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
-  const searchRef = useRef<HTMLInputElement>(null);
-  const [started, setStarted] = useState(false);
-  const activeId = useRef<string | null>(null);
-  const [results, setResults] = useState<PipedItem[]>([]);
-  const [video, setVideo] = useState<PipedVideo | null>(null);
-  const [quality, setQuality] = useState<string>("");
-  const [busy, setBusy] = useState(false);
-  const [term, setTerm] = useState("gaming");
-  const [page, setPage] = useState(1);
-  const [next, setNext] = useState<string | null>(null);
-  const [src, setSrc] = useState<"piped" | "invidious">("piped");
-  const moreRef = useRef(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  const runSearch = useCallback(async (q: string, label: string) => {
-    setStarted(true);
-    activeId.current = null;
-    setBusy(true);
-    setResults([]);
-    setVideo(null);
-    setStatus(`Loading ${label}…`);
-    setTerm(q);
-    setPage(1);
-    setNext(null);
-    const r = await firstUsable<{ source: Provider; results: PipedItem[]; next: string | null }>([
-      pipedSearch(q).then((r) => r.success ? { source: "piped" as const, results: r.results, next: r.nextpage ?? null } : { source: "piped" as const, results: [], next: null }),
-      searchVideos(q, { region: "SG" }).then((r) => ({ source: "invidious" as const, results: r.success ? r.results.filter((v) => v.videoId).map(invToPiped) : [], next: null })),
-    ], (r) => r.results.length > 0);
-    if (r) {
-      setSrc(r.source);
-      setNext(r.next);
-      setResults(r.results);
-      setStatus(label);
-    } else setStatus("No videos found. Try another search.");
-    setBusy(false);
-  }, []);
-
-  const loadMore = async () => {
-    if (busy || video || moreRef.current || !results.length) return;
-    moreRef.current = true;
-    setLoadingMore(true);
-    let more: PipedItem[] = [];
-    if (src === "piped" && next) {
-      const r = await pipedMore(term, next);
-      if (r.success) { more = r.results; setNext(r.nextpage ?? null); }
-    } else if (src === "invidious") {
-      const r = await searchVideos(term, { region: "SG", page: page + 1 });
-      if (r.success) { more = r.results.filter((v) => v.videoId).map(invToPiped); setPage(page + 1); }
-    }
-    setResults((cur) => { const seen = new Set(cur.map((v) => v.videoId)); return [...cur, ...more.filter((v) => !seen.has(v.videoId))]; });
-    moreRef.current = false;
-    setLoadingMore(false);
-  };
-  const sentinel = useBottom(() => void loadMore());
-
-
-  const open = async (id: string) => {
-    const card = results.find((x) => x.videoId === id);
-    track("video", card?.title ?? id, { videoId: id, url: `https://youtube.com/watch?v=${id}` });
-    const fallback: PipedVideo = {
-      videoId: id,
-      title: card?.title ?? "Video",
-      author: card?.author ?? "",
-      views: card?.views ?? null,
-      duration: card?.duration ?? null,
-      description: "",
-      thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
-      hls: null,
-      streams: [],
-    };
-    setStarted(true);
-    activeId.current = id;
-    setVideo(fallback);
-    setQuality(EMBED);
-    setStatus(fallback.title);
-    const streams = await preloadVideo(id);
-    if (activeId.current !== id || !streams?.length) return;
-    setVideo({ ...fallback, streams });
-    setQuality(streams[0]?.url ?? EMBED);
-  };
-
-  const onStreamError = () => {
-    if (!video) return;
-    const i = video.streams.findIndex((s) => s.url === quality);
-    const next = video.streams[i + 1];
-    if (next) {
-      setQuality(next.url);
-      setStatus(`Stream failed — trying ${next.quality}`);
-    } else {
-      setQuality(EMBED);
-      setStatus(video.title);
-    }
-  };
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const raw = query.trim();
-    if (!raw) return;
-    track("search", raw, { source: "youtube" });
-    const id = getYouTubeVideoId(raw) ?? (/^[\w-]{11}$/.test(raw) ? raw : null);
-    if (id) return void open(id);
-    await runSearch(raw, `Results for “${raw}”`);
-  };
-
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
-        <form className="min-w-[200px] flex-1" onSubmit={submit}>
-          <div
-            className="flex items-center gap-2 rounded-md px-3 py-2"
-            style={{ background: "var(--rd-search)", border: "1px solid var(--rd-line)" }}
-          >
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search YouTube or paste a video link"
-              aria-label="YouTube search"
-              className="w-full bg-transparent font-mono text-sm outline-none"
-              style={{ color: "var(--rd-search-text)" }}
-            />
-            <Button
-              type="submit"
-              disabled={busy}
-              className="shrink-0 rounded px-3 py-1 text-xs font-medium disabled:opacity-60"
-              style={{ background: "var(--rd-accent)", color: "var(--rd-bg)" }}
-            >
-              Search
-            </Button>
-          </div>
-        </form>
-        {options}
-        {video && (
-          <button onClick={() => { activeId.current = null; setVideo(null); }} className="rounded-md px-4 py-2 text-xs" style={btnStyle}>
-            ← Back
-          </button>
-        )}
-      </div>
-      {started && <div
-        className="flex items-center justify-between gap-3 px-4 py-1.5 font-mono text-[11px] tracking-[0.12em]"
-        style={{ borderTop: "1px solid var(--rd-line)", borderBottom: "1px solid var(--rd-line)", color: "var(--rd-muted)" }}
-      >
-        <span className="truncate">{status}</span>
-      </div>}
-      <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
-        {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : video ? (
-          <div className="space-y-3">
-            {quality === EMBED ? (
-              <iframe
-                key={video.videoId}
-                src={`https://piped.video/embed/${video.videoId}?autoplay=1`}
-                title={video.title}
-                allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                allowFullScreen
-                referrerPolicy="strict-origin-when-cross-origin"
-                className={`w-full rounded-md border-0 aspect-video`}
-                style={{ background: "var(--rd-surface)" }}
-              />
-            ) : (
-              <video
-                key={quality}
-                src={quality ? `/api/stream?url=${encodeURIComponent(quality)}` : undefined}
-                preload="auto"
-                poster={video.thumbnail}
-                controls
-                autoPlay
-                playsInline
-                className={`w-full rounded-md aspect-video`}
-                style={{ background: "var(--rd-surface)" }}
-                onError={onStreamError}
-              />
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>QUALITY</span>
-              <select
-                value={quality}
-                onChange={(e) => setQuality(e.target.value)}
-                className="rounded px-2 py-1 text-xs"
-                style={{ ...btnStyle }}
-              >
-                {video.streams.map((s) => (
-                  <option key={s.url} value={s.url}>
-                    {s.quality}
-                  </option>
-                ))}
-                <option value={EMBED}>Backup player</option>
-              </select>
-            </div>
-            <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>{video.title}</h2>
-            <p className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>
-              {[video.author, formatViews(video.views), formatDuration(video.duration)].filter(Boolean).join(" · ")}
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {results.map((v, index) => (
-              <button
-                key={v.videoId}
-                onPointerEnter={() => void preloadVideo(v.videoId)}
-                onFocus={() => void preloadVideo(v.videoId)}
-                onClick={() => void open(v.videoId)}
-                className="overflow-hidden rounded-lg text-left"
-                style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
-              >
-                <VideoThumbnail videoId={v.videoId} priority={index < 6} />
-                <div className="space-y-1 p-2">
-                  <p className="line-clamp-2 text-xs font-medium" style={{ color: "var(--rd-text)" }}>{v.title}</p>
-                  <p className="truncate font-mono text-[10px]" style={{ color: "var(--rd-muted)" }}>
-                    {[v.author, formatViews(v.views), formatDuration(v.duration)].filter(Boolean).join(" · ")}
-                  </p>
-                </div>
-              </button>
-            ))}
-            {(busy && !results.length) || loadingMore ? <SkeletonCards /> : null}
-          </div>
-        )}
-        {started && !video && <div ref={sentinel} className="h-8" />}
-      </div>
-    </div>
-  );
-}
-
-function InvidiousView({ options }: { options: React.ReactNode }) {
+function InvidiousView() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -672,15 +422,10 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
   const [selected, setSelected] = useState<InvidiousVideo | null>(null);
   const [comments, setComments] = useState<InvidiousComment[]>([]);
   const [busy, setBusy] = useState(false);
-  const [, setPlayerState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [term, setTerm] = useState("gaming");
   const [page, setPage] = useState(1);
-  const [next, setNext] = useState<string | null>(null);
-  const [src, setSrc] = useState<"invidious" | "piped">("invidious");
   const moreRef = useRef(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [streamUrl, setStreamUrl] = useState<string | null>(null);
-  const [playMode, setPlayMode] = useState<"resolving" | "stream" | "embed">("resolving");
 
   const runSearch = useCallback(async (q: string, label: string) => {
     setStarted(true);
@@ -690,17 +435,11 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
     setStatus(`Loading ${label}…`);
     setTerm(q);
     setPage(1);
-    setNext(null);
-    const r = await firstUsable<{ source: Provider; results: InvidiousVideo[]; next: string | null }>([
-      searchVideos(q, { region: "SG" }).then((r) => ({ source: "invidious" as const, results: r.success ? r.results : [], next: null })),
-      pipedSearch(q).then((r) => ({ source: "piped" as const, results: r.success ? r.results.map(pipedToInv) : [], next: r.success ? r.nextpage ?? null : null })),
-    ], (r) => r.results.length > 0);
-    if (r) {
-      setSrc(r.source);
-      setNext(r.next);
+    const r = await searchVideos(q, { region: "SG" });
+    if (r.success) {
       setResults(r.results);
-      setStatus(label);
-    } else setStatus("No videos found. Try another search.");
+      setStatus(r.results.length ? label : "No videos found. Try another search.");
+    } else setStatus(r.error);
     setBusy(false);
   }, []);
 
@@ -709,13 +448,8 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
     moreRef.current = true;
     setLoadingMore(true);
     let more: InvidiousVideo[] = [];
-    if (src === "invidious") {
-      const res = await searchVideos(term, { region: "SG", page: page + 1 });
-      if (res.success) { more = res.results; setPage(page + 1); }
-    } else if (next) {
-      const res = await pipedMore(term, next);
-      if (res.success) { more = res.results.map(pipedToInv); setNext(res.nextpage ?? null); }
-    }
+    const res = await searchVideos(term, { region: "SG", page: page + 1 });
+    if (res.success) { more = res.results; setPage(page + 1); }
     setResults((cur) => { const seen = new Set(cur.map((v) => v.videoId)); return [...cur, ...more.filter((v) => !seen.has(v.videoId))]; });
     moreRef.current = false;
     setLoadingMore(false);
@@ -729,23 +463,12 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
     track("video", v.title ?? v.videoId, { videoId: v.videoId, url: `https://youtube.com/watch?v=${v.videoId}` });
     setSelected(v);
     setComments([]);
-    setPlayerState("loading");
-    setStreamUrl(null);
     setStarted(true);
-    setPlayMode("embed");
     setStatus(v.title || "Opening player…");
 
     const videoId = v.videoId;
     void getVideo(videoId).then((meta) => {
       if (meta.success) setSelected((current) => current?.videoId === videoId ? { ...current, ...meta.video } : current);
-    });
-    void preloadVideo(videoId).then((streams) => {
-      const url = streams?.[0]?.url;
-      if (!url) return;
-      setSelected((current) => {
-        if (current?.videoId === videoId) { setStreamUrl(url); setPlayMode("stream"); }
-        return current;
-      });
     });
     void getComments(videoId).then((response) => {
       if (!response.success) return;
@@ -761,7 +484,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
     const raw = query.trim();
     if (!raw) return;
     track("search", raw, { source: "youtube" });
-    const videoId = getYouTubeVideoId(raw);
+    const videoId = getYouTubeVideoId(raw) ?? (/^[\w-]{11}$/.test(raw) ? raw : null);
     if (videoId) {
       openVideo({
         videoId,
@@ -782,7 +505,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
   };
 
   const embed = selected?.videoId
-    ? `https://yewtu.be/embed/${selected.videoId}?autoplay=1`
+    ? invidiousEmbedUrl(selected.videoId)
     : null;
 
   return (
@@ -816,7 +539,6 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
             </Button>
           </div>
         </form>
-        {options}
         {selected && (
           <button
             onClick={() => {
@@ -849,25 +571,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
       <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
         {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : selected ? (
           <div className="space-y-4">
-            {playMode === "stream" && streamUrl ? (
-              <video
-                key={streamUrl}
-                src={`/api/stream?url=${encodeURIComponent(streamUrl)}`}
-                poster={selected.thumbnail ?? undefined}
-                preload="auto"
-                controls
-                autoPlay
-                playsInline
-                className="w-full rounded-md aspect-video"
-                style={{ background: "var(--rd-surface)" }}
-                onLoadedData={() => { setPlayerState("ready"); setStatus(selected.title || "Playing through Radium"); }}
-                onError={() => { setStreamUrl(null); setPlayMode("embed"); setStatus(selected.title); }}
-              />
-            ) : playMode === "resolving" ? (
-              <div className="flex w-full items-center justify-center rounded-md aspect-video animate-pulse font-mono text-[11px]" style={{ background: "var(--rd-surface)", color: "var(--rd-muted)" }}>
-                Finding a stream through Radium…
-              </div>
-            ) : embed && (
+            {embed && (
               <div className={`relative w-full overflow-hidden rounded-md aspect-video`} style={{ background: "var(--rd-surface)" }}>
                 <iframe
                   key={embed}
@@ -878,11 +582,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
                   allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                   allowFullScreen
                   referrerPolicy="strict-origin-when-cross-origin"
-                  onLoad={() => {
-                    setPlayerState("ready");
-                  }}
                   onError={() => {
-                    setPlayerState("error");
                     setStatus("The video player could not load. Try another video.");
                   }}
                 />
@@ -937,14 +637,12 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
             {results.map((v, index) => (
               <button
                 key={v.videoId}
-                onPointerEnter={() => { if (v.videoId) void preloadVideo(v.videoId); }}
-                onFocus={() => { if (v.videoId) void preloadVideo(v.videoId); }}
                 onClick={() => openVideo(v)}
                 className="overflow-hidden rounded-lg text-left"
                 style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
               >
                  {v.videoId && (
-                   <VideoThumbnail videoId={v.videoId} priority={index < 6} />
+                   <VideoThumbnail videoId={v.videoId} thumbnail={v.thumbnail} priority={index < 6} />
                  )}
                 <div className="space-y-1 p-2">
                   <p className="line-clamp-2 text-xs font-medium" style={{ color: "var(--rd-text)" }}>

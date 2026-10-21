@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { thumbUrl } from "@/lib/piped";
+import { invidiousThumbnailUrl } from "@/lib/invidious";
 
 /** Start loading a few rows ahead without fetching the entire result list. */
-export function VideoThumbnail({ videoId, priority = false }: { videoId: string; priority?: boolean }) {
+export function VideoThumbnail({ videoId, thumbnail, priority = false }: { videoId: string; thumbnail?: string | null; priority?: boolean }) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [failedId, setFailedId] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export function VideoThumbnail({ videoId, priority = false }: { videoId: string;
     <img
       ref={imageRef}
       src={loadedId === videoId
-        ? fallback ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : thumbUrl(videoId)
+        ? fallback ? invidiousThumbnailUrl(videoId, "mqdefault") : thumbnail ?? invidiousThumbnailUrl(videoId)
         : undefined}
       referrerPolicy="no-referrer"
       onError={() => { if (!fallback) setFailedId(videoId); }}

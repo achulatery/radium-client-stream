@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { playableWithoutLogin } from "@/routes/api/public/piped";
+import { playableWithoutLogin } from "@/routes/api/public/invidious";
 
 const stub = (impl: () => Promise<Response>) => vi.stubGlobal("fetch", vi.fn(impl));
 
