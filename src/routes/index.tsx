@@ -1,4 +1,3 @@
-import { EmbedPlayer, INVIDIOUS_EMBEDS, PIPED_EMBEDS } from "@/components/embed-player";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -44,7 +43,7 @@ import {
 } from "@/lib/radium";
 import { pipedMore, pipedSearch, pipedStreams, type PipedItem, type PipedVideo } from "@/lib/piped";
 import { track } from "@/lib/track";
-import { firstUsable } from "@/lib/video-loading";
+import { firstUsable, preloadVideo } from "@/lib/video-loading";
 import { useAccount } from "@/lib/account";
 import { AuthScreen } from "@/components/auth-screen";
 import { Avatar, ProfileDialog } from "@/components/profile";
@@ -447,6 +446,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
   const activeId = useRef<string | null>(null);
   const [results, setResults] = useState<PipedItem[]>([]);
   const [video, setVideo] = useState<PipedVideo | null>(null);
+  const [quality, setQuality] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [term, setTerm] = useState("gaming");
   const [page, setPage] = useState(1);
@@ -514,9 +514,26 @@ function PipedView({ options }: { options: React.ReactNode }) {
     setStarted(true);
     activeId.current = id;
     setVideo(fallback);
+    setQuality(EMBED);
     setStatus(fallback.title);
+    const streams = await preloadVideo(id);
+    if (activeId.current !== id || !streams?.length) return;
+    setVideo({ ...fallback, streams });
+    setQuality(streams[0]?.url ?? EMBED);
   };
 
+  const onStreamError = () => {
+    if (!video) return;
+    const i = video.streams.findIndex((s) => s.url === quality);
+    const next = video.streams[i + 1];
+    if (next) {
+      setQuality(next.url);
+      setStatus(`Stream failed — trying ${next.quality}`);
+    } else {
+      setQuality(EMBED);
+      setStatus(video.title);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -571,7 +588,47 @@ function PipedView({ options }: { options: React.ReactNode }) {
       <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
         {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : video ? (
           <div className="space-y-3">
-            <EmbedPlayer videoId={video.videoId} title={video.title} hosts={PIPED_EMBEDS} />
+            {quality === EMBED ? (
+              <iframe
+                key={video.videoId}
+                src={`https://piped.video/embed/${video.videoId}?autoplay=1`}
+                title={video.title}
+                allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
+                className={`w-full rounded-md border-0 aspect-video`}
+                style={{ background: "var(--rd-surface)" }}
+              />
+            ) : (
+              <video
+                key={quality}
+                src={quality ? `/api/stream?url=${encodeURIComponent(quality)}` : undefined}
+                preload="auto"
+                poster={video.thumbnail}
+                controls
+                autoPlay
+                playsInline
+                className={`w-full rounded-md aspect-video`}
+                style={{ background: "var(--rd-surface)" }}
+                onError={onStreamError}
+              />
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>QUALITY</span>
+              <select
+                value={quality}
+                onChange={(e) => setQuality(e.target.value)}
+                className="rounded px-2 py-1 text-xs"
+                style={{ ...btnStyle }}
+              >
+                {video.streams.map((s) => (
+                  <option key={s.url} value={s.url}>
+                    {s.quality}
+                  </option>
+                ))}
+                <option value={EMBED}>Backup player</option>
+              </select>
+            </div>
             <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>{video.title}</h2>
             <p className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>
               {[video.author, formatViews(video.views), formatDuration(video.duration)].filter(Boolean).join(" · ")}
@@ -582,6 +639,8 @@ function PipedView({ options }: { options: React.ReactNode }) {
             {results.map((v, index) => (
               <button
                 key={v.videoId}
+                onPointerEnter={() => void preloadVideo(v.videoId)}
+                onFocus={() => void preloadVideo(v.videoId)}
                 onClick={() => void open(v.videoId)}
                 className="overflow-hidden rounded-lg text-left"
                 style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
@@ -679,6 +738,14 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
     const videoId = v.videoId;
     void getVideo(videoId).then((meta) => {
       if (meta.success) setSelected((current) => current?.videoId === videoId ? { ...current, ...meta.video } : current);
+    });
+    void preloadVideo(videoId).then((streams) => {
+      const url = streams?.[0]?.url;
+      if (!url) return;
+      setSelected((current) => {
+        if (current?.videoId === videoId) { setStreamUrl(url); setPlayMode("stream"); }
+        return current;
+      });
     });
     void getComments(videoId).then((response) => {
       if (!response.success) return;
@@ -782,7 +849,45 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
       <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
         {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : selected ? (
           <div className="space-y-4">
-            <EmbedPlayer videoId={selected.videoId ?? ""} title={selected.title} hosts={INVIDIOUS_EMBEDS} />
+            {playMode === "stream" && streamUrl ? (
+              <video
+                key={streamUrl}
+                src={`/api/stream?url=${encodeURIComponent(streamUrl)}`}
+                poster={selected.thumbnail ?? undefined}
+                preload="auto"
+                controls
+                autoPlay
+                playsInline
+                className="w-full rounded-md aspect-video"
+                style={{ background: "var(--rd-surface)" }}
+                onLoadedData={() => { setPlayerState("ready"); setStatus(selected.title || "Playing through Radium"); }}
+                onError={() => { setStreamUrl(null); setPlayMode("embed"); setStatus(selected.title); }}
+              />
+            ) : playMode === "resolving" ? (
+              <div className="flex w-full items-center justify-center rounded-md aspect-video animate-pulse font-mono text-[11px]" style={{ background: "var(--rd-surface)", color: "var(--rd-muted)" }}>
+                Finding a stream through Radium…
+              </div>
+            ) : embed && (
+              <div className={`relative w-full overflow-hidden rounded-md aspect-video`} style={{ background: "var(--rd-surface)" }}>
+                <iframe
+                  key={embed}
+                  src={embed}
+                  title={selected.title}
+                  className="h-full w-full"
+                  style={{ border: "none" }}
+                  allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  onLoad={() => {
+                    setPlayerState("ready");
+                  }}
+                  onError={() => {
+                    setPlayerState("error");
+                    setStatus("The video player could not load. Try another video.");
+                  }}
+                />
+              </div>
+            )}
             <div className="space-y-1">
               <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>
                 {selected.title}
@@ -832,6 +937,8 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
             {results.map((v, index) => (
               <button
                 key={v.videoId}
+                onPointerEnter={() => { if (v.videoId) void preloadVideo(v.videoId); }}
+                onFocus={() => { if (v.videoId) void preloadVideo(v.videoId); }}
                 onClick={() => openVideo(v)}
                 className="overflow-hidden rounded-lg text-left"
                 style={{ background: "var(--rd-button)", border: "1px solid var(--rd-line)" }}
