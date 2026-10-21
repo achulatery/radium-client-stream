@@ -1,6 +1,4 @@
-import { PlayerModeContext, VideoPlayer, INVIDIOUS_EMBEDS, PIPED_EMBEDS } from "@/components/embed-player";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getYouTubeSettings, setYouTubeSettings } from "@/lib/youtube-settings.functions";
+import { EmbedPlayer, INVIDIOUS_EMBEDS, PIPED_EMBEDS } from "@/components/embed-player";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -363,31 +361,9 @@ function BrowserTab() {
 
 type Provider = "invidious" | "piped";
 function YouTubeTab() {
-  const { user } = useAccount();
-  const qc = useQueryClient();
-  const { data: yt } = useQuery({ queryKey: ["youtube-settings"], queryFn: () => getYouTubeSettings(), staleTime: 30_000, refetchInterval: 60_000 });
-  const provider: Provider = yt?.provider ?? "invidious";
-  const player = yt?.player ?? "mirror";
-  const isOwner = user?.role === "owner";
-  const save = (next: { provider: Provider; player: "mirror" | "direct" }) => {
-    qc.setQueryData(["youtube-settings"], next);
-    void setYouTubeSettings({ data: next }).catch(() => void qc.invalidateQueries({ queryKey: ["youtube-settings"] }));
-  };
-  const options = isOwner ? (
-    <div className="flex flex-wrap gap-2">
-      <OptionsMenu provider={provider} onPick={(p) => save({ provider: p, player })} />
-      <select aria-label="Player for everyone" value={player} onChange={(e) => save({ provider, player: e.target.value as "mirror" | "direct" })}
-        className="video-provider h-9 max-w-full rounded-sm px-2 font-mono text-xs">
-        <option value="mirror">Mirror player (proxied)</option>
-        <option value="direct">Direct player</option>
-      </select>
-    </div>
-  ) : null;
-  return (
-    <PlayerModeContext.Provider value={player}>
-      {provider === "piped" ? <PipedView key="piped" options={options} /> : <InvidiousView key="inv" options={options} />}
-    </PlayerModeContext.Provider>
-  );
+  const [provider, setProvider] = useState<Provider>("invidious");
+  const options = <OptionsMenu provider={provider} onPick={setProvider} />;
+  return provider === "piped" ? <PipedView options={options} /> : <InvidiousView options={options} />;
 }
 
 function VideoStartScreen({ onSearch }: { onSearch: () => void }) {
@@ -595,7 +571,7 @@ function PipedView({ options }: { options: React.ReactNode }) {
       <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
         {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : video ? (
           <div className="space-y-3">
-            <VideoPlayer videoId={video.videoId} title={video.title} hosts={PIPED_EMBEDS} poster={video.thumbnail} />
+            <EmbedPlayer videoId={video.videoId} title={video.title} hosts={PIPED_EMBEDS} />
             <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>{video.title}</h2>
             <p className="font-mono text-[11px]" style={{ color: "var(--rd-muted)" }}>
               {[video.author, formatViews(video.views), formatDuration(video.duration)].filter(Boolean).join(" · ")}
@@ -806,7 +782,7 @@ function InvidiousView({ options }: { options: React.ReactNode }) {
       <div className={`min-h-0 flex-1 overflow-y-auto ${started ? "p-3" : ""}`}>
         {!started ? <VideoStartScreen onSearch={() => searchRef.current?.focus()} /> : selected ? (
           <div className="space-y-4">
-            <VideoPlayer videoId={selected.videoId ?? ""} title={selected.title} hosts={INVIDIOUS_EMBEDS} poster={selected.thumbnail} />
+            <EmbedPlayer videoId={selected.videoId ?? ""} title={selected.title} hosts={INVIDIOUS_EMBEDS} />
             <div className="space-y-1">
               <h2 className="text-base font-medium" style={{ color: "var(--rd-text)" }}>
                 {selected.title}

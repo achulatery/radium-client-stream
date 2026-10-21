@@ -51,4 +51,3 @@ Chat messages auto-delete 3 hours after creation, except the owner's: listMessag
 Announcements and Updates are real chat rooms (codes announcements/updates) pinned above general; app_chat_rooms.read_only rooms accept messages only from canModerate staff, and only the owner toggles read_only. Staff moderation actions are logged to app_activity kind 'staff' so the owner sees them in Console history.
 Mods can revoke menu access but cannot ban (canBan is owner/admin only); canRevokeTabs covers all staff.
 Kleb has exactly one holder at a time: granting (grantKleb or ownerSetExtras) clears kleb_enabled from everyone else, staff and the holder view the page through getKlebPage, and only the holder edits it.
-- YouTube source and player type are one site-wide setting in app_site_settings (key youtube), read by all signed-in users and written only by the owner; mirror embeds load through Ultraviolet when it connects.
