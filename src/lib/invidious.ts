@@ -39,13 +39,13 @@ const str = (value: unknown) => typeof value === "string" ? value : "";
 const num = (value: unknown) => typeof value === "number" ? value : null;
 
 function shapeVideo(v: Raw): InvidiousVideo {
-  const videoId = str(v.videoId) || null;
+  const videoId = str(v["videoId"]) || null;
   return {
-    videoId, title: str(v.title), author: str(v.author), authorId: str(v.authorId) || null,
-    viewCount: num(v.viewCount), published: num(v.published), publishedText: str(v.publishedText) || null,
-    lengthSeconds: num(v.lengthSeconds), liveNow: Boolean(v.liveNow),
+    videoId, title: str(v["title"]), author: str(v["author"]), authorId: str(v["authorId"]) || null,
+    viewCount: num(v["viewCount"]), published: num(v["published"]), publishedText: str(v["publishedText"]) || null,
+    lengthSeconds: num(v["lengthSeconds"]), liveNow: Boolean(v["liveNow"]),
     thumbnail: videoId ? invidiousThumbnailUrl(videoId) : null,
-    description: str(v.description) || null,
+    description: str(v["description"]) || null,
     embedUrl: videoId ? invidiousEmbedUrl(videoId) : null,
   };
 }
@@ -66,8 +66,8 @@ async function list(path: string): Promise<{ success: true; instance: string; re
   try {
     const data = await direct(path);
     if (!Array.isArray(data)) throw new Error("The video site returned invalid search results.");
-    const videos = data.filter(record).filter((v) => str(v.videoId) && (v.type === undefined || v.type === "video")
-      && v.ageRestricted !== true && v.isAgeRestricted !== true && v.requiresLogin !== true).map(shapeVideo);
+    const videos = data.filter(record).filter((v) => str(v["videoId"]) && (v["type"] === undefined || v["type"] === "video")
+      && v["ageRestricted"] !== true && v["isAgeRestricted"] !== true && v["requiresLogin"] !== true).map(shapeVideo);
     // Eligibility only: the instance's JSON, embeds and images remain direct.
     let blocked = new Set<string>();
     if (videos.length) {
@@ -75,9 +75,10 @@ async function list(path: string): Promise<{ success: true; instance: string; re
         const res = await fetch("/api/public/invidious", {
           method: "POST", headers: { "content-type": "application/json" },
           body: JSON.stringify({ ids: videos.map((v) => v.videoId) }),
+          signal: AbortSignal.timeout(4000),
         });
         const result: unknown = await res.json();
-        if (res.ok && record(result) && Array.isArray(result.blocked)) blocked = new Set(result.blocked.filter((id): id is string => typeof id === "string"));
+        if (res.ok && record(result) && Array.isArray(result["blocked"])) blocked = new Set(result["blocked"].filter((id): id is string => typeof id === "string"));
       } catch { /* An unavailable eligibility check must not blank results. */ }
     }
     return { success: true, instance: INVIDIOUS_INSTANCE, results: videos.filter((v) => !v.videoId || !blocked.has(v.videoId)) };
@@ -99,11 +100,11 @@ export async function getVideo(id: string): Promise<{ success: true; instance: s
 export async function getComments(id: string): Promise<{ success: true; comments: InvidiousComment[] } | Fail> {
   try {
     const data = await direct(`comments/${encodeURIComponent(id)}`);
-    if (!record(data) || !Array.isArray(data.comments)) throw new Error("Comments could not load.");
-    return { success: true, comments: data.comments.filter(record).map((c) => ({
-      commentId: str(c.commentId) || null, author: str(c.author), authorAvatar: null,
-      content: str(c.content), published: num(c.published), publishedText: str(c.publishedText) || null,
-      likeCount: num(c.likeCount) ?? 0, replyCount: record(c.replies) ? num(c.replies.replyCount) ?? 0 : 0,
+    if (!record(data) || !Array.isArray(data["comments"])) throw new Error("Comments could not load.");
+    return { success: true, comments: data["comments"].filter(record).map((c) => ({
+      commentId: str(c["commentId"]) || null, author: str(c["author"]), authorAvatar: null,
+      content: str(c["content"]), published: num(c["published"]), publishedText: str(c["publishedText"]) || null,
+      likeCount: num(c["likeCount"]) ?? 0, replyCount: record(c["replies"]) ? num(c["replies"]["replyCount"]) ?? 0 : 0,
     })) };
   } catch (error) { return fail(error); }
 }
