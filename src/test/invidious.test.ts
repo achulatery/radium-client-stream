@@ -20,3 +20,12 @@ it("searches the supplied instance directly while excluding restricted videos", 
   expect(fetcher.mock.calls[0]?.[0]).toBe("https://tube.mint.lgbt/api/v1/search?q=test&type=video&region=SG&page=1");
   expect(result.success && result.results.map((v) => v.videoId)).toEqual(["abcdefghijk"]);
 });
+
+it("keeps usable results if the eligibility service is unavailable", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(Response.json([
+    { type: "video", videoId: "abcdefghijk", title: "Allowed" },
+    { type: "video", videoId: "restricted1", requiresLogin: true },
+  ])).mockRejectedValueOnce(new Error("offline")));
+  const result = await searchVideos("test");
+  expect(result.success && result.results.map((v) => v.videoId)).toEqual(["abcdefghijk"]);
+});

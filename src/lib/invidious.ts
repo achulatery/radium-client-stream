@@ -66,7 +66,7 @@ async function list(path: string): Promise<{ success: true; instance: string; re
   try {
     const data = await direct(path);
     if (!Array.isArray(data)) throw new Error("The video site returned invalid search results.");
-    const videos = data["filter"](record).filter((v) => str(v["videoId"]) && (v["type"] === undefined || v["type"] === "video")
+    const videos = data.filter(record).filter((v) => str(v["videoId"]) && (v["type"] === undefined || v["type"] === "video")
       && v["ageRestricted"] !== true && v["isAgeRestricted"] !== true && v["requiresLogin"] !== true).map(shapeVideo);
     // Eligibility only: the instance's JSON, embeds and images remain direct.
     let blocked = new Set<string>();
@@ -74,14 +74,14 @@ async function list(path: string): Promise<{ success: true; instance: string; re
       try {
         const res = await fetch("/api/public/invidious", {
           method: "POST", headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ids: videos.map((v) => v["videoId"]) }),
+          body: JSON.stringify({ ids: videos.map((v) => v.videoId) }),
           signal: AbortSignal.timeout(4000),
         });
         const result: unknown = await res.json();
         if (res.ok && record(result) && Array.isArray(result["blocked"])) blocked = new Set(result["blocked"].filter((id): id is string => typeof id === "string"));
       } catch { /* An unavailable eligibility check must not blank results. */ }
     }
-    return { success: true, instance: INVIDIOUS_INSTANCE, results: videos.filter((v) => !v["videoId"] || !blocked.has(v["videoId"])) };
+    return { success: true, instance: INVIDIOUS_INSTANCE, results: videos.filter((v) => !v.videoId || !blocked.has(v.videoId)) };
   } catch (error) { return fail(error); }
 }
 export function searchVideos(query: string, options?: { page?: number; region?: string }) {
