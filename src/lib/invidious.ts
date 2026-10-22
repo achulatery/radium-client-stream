@@ -75,6 +75,7 @@ async function list(path: string): Promise<{ success: true; instance: string; re
         const res = await fetch("/api/public/invidious", {
           method: "POST", headers: { "content-type": "application/json" },
           body: JSON.stringify({ ids: videos.map((v) => v.videoId) }),
+          signal: AbortSignal.timeout(4000),
         });
         const result: unknown = await res.json();
         if (res.ok && record(result) && Array.isArray(result.blocked)) blocked = new Set(result.blocked.filter((id): id is string => typeof id === "string"));

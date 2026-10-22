@@ -148,7 +148,7 @@ export function RadiumProvider({ children }: { children: ReactNode }) {
     track("search", url, { source: "browser" });
     setHistory((prev) => {
       const next = [{ url, at: Date.now() }, ...prev.filter((h) => h.url !== url)].slice(0, 30);
-      localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(next));
+      try { localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(next)); } catch { /* Keep navigation usable when device storage is unavailable. */ }
       return next;
     });
   }, []);

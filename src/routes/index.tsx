@@ -216,6 +216,8 @@ function ClientShell() {
 
 const UV_FAILURE_HINTS: Record<UvFailure, string> = {
   "private-mode": "This browsing mode blocks Radium's page loader. If you're in Private Browsing, open Radium in a normal tab instead.",
+  unsupported: "This browser version cannot run Ultraviolet. Update your iPad or browser, then reopen Radium in a normal browser tab.",
+  storage: "Radium cannot access browser storage. Allow website storage and open Radium in a normal tab, then retry.",
   relay: "The connection server didn't answer. Check your internet and try again.",
   transport: "The page loader couldn't start on this device. Fully close Radium and open it again.",
   register: "The page loader couldn't start on this device. Fully close Radium and open it again.",
@@ -252,6 +254,7 @@ function BrowserTab() {
   const [cursor, setCursor] = useState(-1);
   const frame = useRef<HTMLIFrameElement>(null);
   const current = useRef<string | null>(null);
+  const cursorRef = useRef(-1);
   const addressFocused = useRef(false);
   const videoId = loadUrl ? getYouTubeVideoId(loadUrl) : null;
   const [uvReady, setUvReady] = useState(false);
@@ -281,10 +284,12 @@ function BrowserTab() {
     current.current = url;
     setTarget(url);
     if (!addressFocused.current) setInput(cleanBrowserAddress(url));
-    setEntries((previous) => [...previous.slice(0, cursor + 1), url]);
-    setCursor((previous) => previous + 1);
+    const nextCursor = cursorRef.current + 1;
+    setEntries((previous) => [...previous.slice(0, nextCursor), url]);
+    cursorRef.current = nextCursor;
+    setCursor(nextCursor);
     pushHistory(url);
-  }, [cursor, pushHistory]);
+  }, [pushHistory]);
 
   // Radium visits DuckDuckGo itself through Ultraviolet.
   const home = applySearchPolicy(new URL("https://duckduckgo.com/"), safe).href;
@@ -316,6 +321,7 @@ function BrowserTab() {
     const url = entries[next];
     if (!url) return;
     current.current = url;
+    cursorRef.current = next;
     setCursor(next); setTarget(url); setLoadUrl(url); setInput(cleanBrowserAddress(url));
     setNonce((n) => n + 1); setStatus("Loading page");
   };
@@ -352,7 +358,7 @@ function BrowserTab() {
     </div>
     <span className="sr-only" aria-live="polite">{status}</span>
     <div className="relative min-h-0 flex-1">
-      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { setStatus("Ready"); try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Ultraviolet connection unavailable"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <div className="flex h-full flex-col items-center justify-center gap-4 text-client-muted"><ShieldCheck size={28} /><p className="max-w-sm text-center">{uvStarting ? "Connecting…" : uvFailureMessage(uvReason)}</p>{!uvStarting && <Button variant="secondary" onClick={() => { setUvReady(false); setUvAttempt((n) => n + 1); }}><RefreshCw size={14} />Retry connection</Button>}</div>}
+      {frameSrc ? <iframe ref={frame} key={`web-${nonce}`} src={frameSrc} title="Proxied content" className="h-full w-full border-0 bg-client-background" loading="eager" referrerPolicy="same-origin" onLoad={() => { try { if (uvReady && isHostingErrorPage(frame.current?.contentDocument?.body?.innerText)) { setStatus("Ultraviolet connection unavailable"); setUvReason("probe"); setUvReady(false); void resetUltraviolet(); return; } const url = frame.current?.contentWindow?.location.href; if (url) { const destination = browserDestination(url) ?? uvTargetOf(url); if (destination) remember(destination); } setStatus("Ready"); } catch { /* Provider navigated outside the proxy. */ } }} sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-presentation" /> : <div className="flex h-full flex-col items-center justify-center gap-4 text-client-muted"><ShieldCheck size={28} /><p className="max-w-sm text-center">{uvStarting ? "Connecting…" : uvFailureMessage(uvReason)}</p>{!uvStarting && <Button variant="secondary" onClick={() => { setUvReady(false); setUvAttempt((n) => n + 1); }}><RefreshCw size={14} />Retry connection</Button>}</div>}
     </div>
   </div>;
 }
@@ -421,6 +427,7 @@ function InvidiousView() {
   const [results, setResults] = useState<InvidiousVideo[]>([]);
   const [selected, setSelected] = useState<InvidiousVideo | null>(null);
   const [comments, setComments] = useState<InvidiousComment[]>([]);
+  const selectedId = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [term, setTerm] = useState("gaming");
   const [page, setPage] = useState(1);
@@ -432,6 +439,7 @@ function InvidiousView() {
     setBusy(true);
     setResults([]);
     setSelected(null);
+    selectedId.current = null;
     setStatus(`Loading ${label}…`);
     setTerm(q);
     setPage(1);
@@ -467,15 +475,13 @@ function InvidiousView() {
     setStatus(v.title || "Opening player…");
 
     const videoId = v.videoId;
+    selectedId.current = videoId;
     void getVideo(videoId).then((meta) => {
       if (meta.success) setSelected((current) => current?.videoId === videoId ? { ...current, ...meta.video } : current);
     });
     void getComments(videoId).then((response) => {
       if (!response.success) return;
-      setSelected((current) => {
-        if (current?.videoId === videoId) setComments(response.comments);
-        return current;
-      });
+      if (selectedId.current === videoId) setComments(response.comments);
     });
   };
 
@@ -543,6 +549,7 @@ function InvidiousView() {
           <button
             onClick={() => {
               setSelected(null);
+              selectedId.current = null;
               setComments([]);
             }}
             className="rounded-md px-4 py-2 text-xs"
