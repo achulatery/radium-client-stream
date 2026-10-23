@@ -109,8 +109,7 @@ export async function getVideo(id: string): Promise<{ success: true; instance: s
     // local=true routes media bytes through the instance itself (/videoplayback), never googlevideo.com.
     const data = await direct(`videos/${encodeURIComponent(id)}?local=true`);
     if (!record(data)) throw new Error("The video site returned invalid video details.");
-    const video = shapeVideo({ ...record(data) ? data : {}, videoId: id });
-    return { success: true, instance: INVIDIOUS_INSTANCE, video };
+    return { success: true, instance: INVIDIOUS_INSTANCE, video: shapeVideo({ ...data, videoId: id }) };
   } catch (error) { return fail(error); }
 }
 export async function getComments(id: string): Promise<{ success: true; comments: InvidiousComment[] } | Fail> {
