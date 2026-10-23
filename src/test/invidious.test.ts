@@ -29,7 +29,18 @@ it("keeps usable results if the eligibility service is unavailable", async () =>
   const result = await searchVideos("test");
   expect(result.success && result.results.map((v) => v.videoId)).toEqual(["abcdefghijk"]);
 });
-import { instanceStreams } from "@/lib/invidious";
+import { getVideo, instanceStreams } from "@/lib/invidious";
+it("requests local=true so streams are served by the instance", async () => {
+  const fetcher = vi.fn().mockResolvedValue(Response.json({
+    videoId: "abcdefghijk", title: "Local", formatStreams: [
+      { url: "http://tube.mint.lgbt/videoplayback?id=1", qualityLabel: "360p", type: "video/mp4; codecs=x" },
+    ],
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  const result = await getVideo("abcdefghijk");
+  expect(fetcher.mock.calls[0]?.[0]).toBe("https://tube.mint.lgbt/api/v1/videos/abcdefghijk?local=true");
+  expect(result.success && result.video.streams?.[0]?.url).toBe("https://tube.mint.lgbt/videoplayback?id=1");
+});
 it("keeps only instance-served streams and drops googlevideo.com", () => {
   const s = instanceStreams([
     { url: "http://tube.mint.lgbt/videoplayback?id=1", qualityLabel: "360p", type: "video/mp4; codecs=x" },

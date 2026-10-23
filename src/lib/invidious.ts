@@ -106,7 +106,8 @@ export function getTrending(options?: { region?: string }) {
 }
 export async function getVideo(id: string): Promise<{ success: true; instance: string; video: InvidiousVideo } | Fail> {
   try {
-    const data = await direct(`videos/${encodeURIComponent(id)}`);
+    // local=true routes media bytes through the instance itself (/videoplayback), never googlevideo.com.
+    const data = await direct(`videos/${encodeURIComponent(id)}?local=true`);
     if (!record(data)) throw new Error("The video site returned invalid video details.");
     return { success: true, instance: INVIDIOUS_INSTANCE, video: shapeVideo({ ...data, videoId: id }) };
   } catch (error) { return fail(error); }
