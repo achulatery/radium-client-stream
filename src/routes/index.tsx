@@ -477,7 +477,9 @@ function InvidiousView() {
     const videoId = v.videoId;
     selectedId.current = videoId;
     void getVideo(videoId).then((meta) => {
-      if (meta.success) setSelected((current) => current?.videoId === videoId ? { ...current, ...meta.video } : current);
+      if (selectedId.current !== videoId) return;
+      if (meta.success && meta.video.streams?.length) setSelected((current) => current?.videoId === videoId ? { ...current, ...meta.video, thumbnail: current.thumbnail ?? meta.video.thumbnail } : current);
+      else setStatus("This video could not play. Try another video.");
     });
     void getComments(videoId).then((response) => {
       if (!response.success) return;
@@ -580,19 +582,25 @@ function InvidiousView() {
           <div className="space-y-4">
             {embed && (
               <div className={`relative w-full overflow-hidden rounded-md aspect-video`} style={{ background: "var(--rd-surface)" }}>
-                <iframe
-                  key={embed}
-                  src={embed}
-                  title={selected.title}
-                  className="h-full w-full"
-                  style={{ border: "none" }}
-                  allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  onError={() => {
-                    setStatus("The video player could not load. Try another video.");
-                  }}
-                />
+                {selected.streams?.length ? (
+                  <video
+                    key={selected.streams[0].url}
+                    src={selected.streams[0].url}
+                    poster={selected.thumbnail ?? undefined}
+                    title={selected.title}
+                    className="h-full w-full"
+                    controls
+                    autoPlay
+                    playsInline
+                    preload="auto"
+                    onPlaying={() => setStatus(selected.title || "Playing")}
+                    onError={() => setStatus("This video could not play. Try another video.")}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center font-mono text-xs" style={{ color: "var(--rd-muted)" }}>
+                    {status.startsWith("This video") ? status : "Loading player…"}
+                  </div>
+                )}
               </div>
             )}
             <div className="space-y-1">
