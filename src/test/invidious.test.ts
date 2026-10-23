@@ -29,3 +29,11 @@ it("keeps usable results if the eligibility service is unavailable", async () =>
   const result = await searchVideos("test");
   expect(result.success && result.results.map((v) => v.videoId)).toEqual(["abcdefghijk"]);
 });
+import { instanceStreams } from "@/lib/invidious";
+it("keeps only instance-served streams and drops googlevideo.com", () => {
+  const s = instanceStreams([
+    { url: "http://tube.mint.lgbt/videoplayback?id=1", qualityLabel: "360p", type: "video/mp4; codecs=x" },
+    { url: "https://rr1.googlevideo.com/videoplayback?id=1", qualityLabel: "720p" },
+  ]);
+  expect(s).toEqual([{ url: "https://tube.mint.lgbt/videoplayback?id=1", quality: "360p", type: "video/mp4" }]);
+});
