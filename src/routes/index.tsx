@@ -584,8 +584,8 @@ function InvidiousView() {
               <div className={`relative w-full overflow-hidden rounded-md aspect-video`} style={{ background: "var(--rd-surface)" }}>
                 {selected.streams?.length ? (
                   <video
-                    key={selected.streams[0].url}
-                    src={selected.streams[0].url}
+                    key={selected.streams[0]?.url}
+                    src={selected.streams[0]?.url}
                     poster={selected.thumbnail ?? undefined}
                     title={selected.title}
                     className="h-full w-full"
