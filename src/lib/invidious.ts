@@ -47,7 +47,21 @@ function shapeVideo(v: Raw): InvidiousVideo {
     thumbnail: videoId ? invidiousThumbnailUrl(videoId) : null,
     description: str(v["description"]) || null,
     embedUrl: videoId ? invidiousEmbedUrl(videoId) : null,
+    streams: instanceStreams(v["formatStreams"]),
   };
+}
+
+/** Keeps only playable streams served by the instance itself (local=true), never googlevideo.com. */
+export function instanceStreams(raw: unknown): { url: string; quality: string; type: string | null }[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(record).flatMap((s) => {
+    try {
+      const u = new URL(str(s["url"]), INVIDIOUS_INSTANCE);
+      if (u.hostname !== new URL(INVIDIOUS_INSTANCE).hostname || !u.pathname.startsWith("/videoplayback")) return [];
+      const url = `${INVIDIOUS_INSTANCE}${u.pathname}${u.search}`;
+      return [{ url, quality: str(s["qualityLabel"]) || str(s["resolution"]) || "auto", type: str(s["type"]).split(";")[0] || null }];
+    } catch { return []; }
+  }).sort((a, b) => (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0));
 }
 
 async function direct(path: string): Promise<unknown> {
