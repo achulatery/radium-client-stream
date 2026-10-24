@@ -479,7 +479,7 @@ function InvidiousView() {
     void getVideo(videoId).then((meta) => {
       if (selectedId.current !== videoId) return;
       if (meta.success && meta.video.streams?.length) setSelected((current) => current?.videoId === videoId ? { ...current, ...meta.video, thumbnail: current.thumbnail ?? meta.video.thumbnail } : current);
-      else setStatus("This video could not play. Try another video.");
+      else setSelected((current) => current?.videoId === videoId ? { ...current, streams: [], embedUrl: "frame" } : current);
     });
     void getComments(videoId).then((response) => {
       if (!response.success) return;
@@ -595,6 +595,14 @@ function InvidiousView() {
                     preload="auto"
                     onPlaying={() => setStatus(selected.title || "Playing")}
                     onError={() => setStatus("This video could not play. Try another video.")}
+                  />
+                ) : selected.embedUrl === "frame" ? (
+                  <iframe
+                    src={embed}
+                    title={selected.title}
+                    className="h-full w-full border-0"
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center font-mono text-xs" style={{ color: "var(--rd-muted)" }}>

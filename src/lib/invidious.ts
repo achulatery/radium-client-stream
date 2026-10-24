@@ -1,5 +1,7 @@
 /** Direct Invidious requests; Radium never relays instance content or media. */
 export const INVIDIOUS_INSTANCE = "https://invidious.tiekoetter.com";
+/** Tried in order when the primary refuses; all serve media themselves (local=true). */
+export const INVIDIOUS_FALLBACKS = ["https://inv.nadeko.net", "https://invidious.nerdvpn.de", "https://yewtu.be"];
 export const invidiousEmbedUrl = (id: string) => `${INVIDIOUS_INSTANCE}/embed/${encodeURIComponent(id)}?autoplay=1&local=true`;
 export const invidiousThumbnailUrl = (id: string, size = "hqdefault") => `${INVIDIOUS_INSTANCE}/vi/${encodeURIComponent(id)}/${size}.jpg`;
 
@@ -52,40 +54,36 @@ function shapeVideo(v: Raw): InvidiousVideo {
 }
 
 /** Keeps only playable streams served by the instance itself (local=true), never googlevideo.com. */
-export function instanceStreams(raw: unknown): { url: string; quality: string; type: string | null }[] {
+export function instanceStreams(raw: unknown, instance = INVIDIOUS_INSTANCE): { url: string; quality: string; type: string | null }[] {
   if (!Array.isArray(raw)) return [];
   return raw.filter(record).flatMap((s) => {
     try {
-      const u = new URL(str(s["url"]), INVIDIOUS_INSTANCE);
-      if (u.hostname !== new URL(INVIDIOUS_INSTANCE).hostname || !u.pathname.startsWith("/videoplayback")) return [];
-      const url = `${INVIDIOUS_INSTANCE}${u.pathname}${u.search}`;
+      const u = new URL(str(s["url"]), instance);
+      if (u.hostname !== new URL(instance).hostname || !u.pathname.startsWith("/videoplayback")) return [];
+      const url = `${instance}${u.pathname}${u.search}`;
       return [{ url, quality: str(s["qualityLabel"]) || str(s["resolution"]) || "auto", type: str(s["type"]).split(";")[0] || null }];
     } catch { return []; }
   }).sort((a, b) => (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0));
 }
 
-async function direct(path: string): Promise<unknown> {
-  const url = `${INVIDIOUS_INSTANCE}/api/v1/${path}`;
-  const attempt = (target: string) => fetch(target, {
+async function fetchJson(base: string, path: string): Promise<unknown> {
+  const res = await fetch(`${base}/api/v1/${path}`, {
     credentials: "omit", cache: "no-store", headers: { accept: "application/json" },
-    signal: AbortSignal.timeout(12_000),
+    signal: AbortSignal.timeout(10_000),
   });
-  let res: Response;
-  try {
-    res = await attempt(url);
-  } catch {
-    // Some networks or the instance itself refuse cross-site reads; retry
-    // through the app's own in-browser relay before giving up.
-    const { setupUltraviolet, uvUrl } = await import("./ultraviolet");
-    const setup = await setupUltraviolet("wss://wisp.mercurywork.shop/");
-    if (!setup.ok) throw new Error("The video site is unavailable or requires a browser check. Try again later.");
-    res = await attempt(uvUrl(url));
-  }
-  if (!res.ok || !(res.headers.get("content-type") ?? "").includes("json")) {
-    throw new Error("The video site is unavailable or requires a browser check. Try again later.");
-  }
-  return res.json();
+  if (!res.ok || !(res.headers.get("content-type") ?? "").includes("json")) throw new Error("blocked");
+  const data: unknown = await res.json();
+  if (record(data) && typeof data["error"] === "string") throw new Error("blocked");
+  return data;
 }
+/** Direct browser requests only; moves to the next instance when one refuses. */
+async function directFrom(path: string): Promise<{ data: unknown; instance: string }> {
+  for (const base of [INVIDIOUS_INSTANCE, ...INVIDIOUS_FALLBACKS]) {
+    try { return { data: await fetchJson(base, path), instance: base }; } catch { /* try next */ }
+  }
+  throw new Error("The video site is unavailable right now. Try again shortly.");
+}
+async function direct(path: string): Promise<unknown> { return (await directFrom(path)).data; }
 const fail = (error: unknown): Fail => ({ success: false, error: error instanceof Error ? error.message : "The video site could not load." });
 
 async function list(path: string): Promise<{ success: true; instance: string; results: InvidiousVideo[] } | Fail> {
@@ -119,9 +117,18 @@ export function getTrending(options?: { region?: string }) {
 export async function getVideo(id: string): Promise<{ success: true; instance: string; video: InvidiousVideo } | Fail> {
   try {
     // local=true routes media bytes through the instance itself (/videoplayback), never googlevideo.com.
-    const data = await direct(`videos/${encodeURIComponent(id)}?local=true`);
-    if (!record(data)) throw new Error("The video site returned invalid video details.");
-    return { success: true, instance: INVIDIOUS_INSTANCE, video: shapeVideo({ ...data, videoId: id }) };
+    let last: unknown = null;
+    for (const base of [INVIDIOUS_INSTANCE, ...INVIDIOUS_FALLBACKS]) {
+      try {
+        const data = await fetchJson(base, `videos/${encodeURIComponent(id)}?local=true`);
+        if (!record(data)) continue;
+        const video = { ...shapeVideo({ ...data, videoId: id }), streams: instanceStreams(data["formatStreams"], base) };
+        if (video.streams.length) return { success: true, instance: base, video };
+        last = video;
+      } catch { /* try next instance */ }
+    }
+    if (last) return { success: true, instance: INVIDIOUS_INSTANCE, video: last as InvidiousVideo };
+    throw new Error("The video site is unavailable right now.");
   } catch (error) { return fail(error); }
 }
 export async function getComments(id: string): Promise<{ success: true; comments: InvidiousComment[] } | Fail> {
