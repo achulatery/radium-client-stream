@@ -1,5 +1,5 @@
 /** Direct Invidious requests; Radium never relays instance content or media. */
-export const INVIDIOUS_INSTANCE = "https://tube.mint.lgbt";
+export const INVIDIOUS_INSTANCE = "https://invidious.tiekoetter.com";
 export const invidiousEmbedUrl = (id: string) => `${INVIDIOUS_INSTANCE}/embed/${encodeURIComponent(id)}?autoplay=1&local=true`;
 export const invidiousThumbnailUrl = (id: string, size = "hqdefault") => `${INVIDIOUS_INSTANCE}/vi/${encodeURIComponent(id)}/${size}.jpg`;
 
@@ -65,10 +65,22 @@ export function instanceStreams(raw: unknown): { url: string; quality: string; t
 }
 
 async function direct(path: string): Promise<unknown> {
-  const res = await fetch(`${INVIDIOUS_INSTANCE}/api/v1/${path}`, {
+  const url = `${INVIDIOUS_INSTANCE}/api/v1/${path}`;
+  const attempt = (target: string) => fetch(target, {
     credentials: "omit", cache: "no-store", headers: { accept: "application/json" },
     signal: AbortSignal.timeout(12_000),
   });
+  let res: Response;
+  try {
+    res = await attempt(url);
+  } catch {
+    // Some networks or the instance itself refuse cross-site reads; retry
+    // through the app's own in-browser relay before giving up.
+    const { setupUltraviolet, uvUrl } = await import("./ultraviolet");
+    const setup = await setupUltraviolet("wss://wisp.mercurywork.shop/");
+    if (!setup.ok) throw new Error("The video site is unavailable or requires a browser check. Try again later.");
+    res = await attempt(uvUrl(url));
+  }
   if (!res.ok || !(res.headers.get("content-type") ?? "").includes("json")) {
     throw new Error("The video site is unavailable or requires a browser check. Try again later.");
   }

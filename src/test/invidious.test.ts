@@ -3,9 +3,9 @@ import { invidiousEmbedUrl, invidiousThumbnailUrl, searchVideos } from "@/lib/in
 
 afterEach(() => vi.unstubAllGlobals());
 
-it("uses tube.mint.lgbt directly for embeds and thumbnails", () => {
-  expect(invidiousEmbedUrl("abcdefghijk")).toBe("https://tube.mint.lgbt/embed/abcdefghijk?autoplay=1&local=true");
-  expect(invidiousThumbnailUrl("abcdefghijk")).toBe("https://tube.mint.lgbt/vi/abcdefghijk/hqdefault.jpg");
+it("uses invidious.tiekoetter.com directly for embeds and thumbnails", () => {
+  expect(invidiousEmbedUrl("abcdefghijk")).toBe("https://invidious.tiekoetter.com/embed/abcdefghijk?autoplay=1&local=true");
+  expect(invidiousThumbnailUrl("abcdefghijk")).toBe("https://invidious.tiekoetter.com/vi/abcdefghijk/hqdefault.jpg");
 });
 
 it("searches the supplied instance directly while excluding restricted videos", async () => {
@@ -17,7 +17,7 @@ it("searches the supplied instance directly while excluding restricted videos", 
   ])).mockResolvedValueOnce(Response.json({ blocked: ["restricted1"] }));
   vi.stubGlobal("fetch", fetcher);
   const result = await searchVideos("test");
-  expect(fetcher.mock.calls[0]?.[0]).toBe("https://tube.mint.lgbt/api/v1/search?q=test&type=video&region=SG&page=1");
+  expect(fetcher.mock.calls[0]?.[0]).toBe("https://invidious.tiekoetter.com/api/v1/search?q=test&type=video&region=SG&page=1");
   expect(result.success && result.results.map((v) => v.videoId)).toEqual(["abcdefghijk"]);
 });
 
@@ -33,18 +33,18 @@ import { getVideo, instanceStreams } from "@/lib/invidious";
 it("requests local=true so streams are served by the instance", async () => {
   const fetcher = vi.fn().mockResolvedValue(Response.json({
     videoId: "abcdefghijk", title: "Local", formatStreams: [
-      { url: "http://tube.mint.lgbt/videoplayback?id=1", qualityLabel: "360p", type: "video/mp4; codecs=x" },
+      { url: "https://invidious.tiekoetter.com/videoplayback?id=1", qualityLabel: "360p", type: "video/mp4; codecs=x" },
     ],
   }));
   vi.stubGlobal("fetch", fetcher);
   const result = await getVideo("abcdefghijk");
-  expect(fetcher.mock.calls[0]?.[0]).toBe("https://tube.mint.lgbt/api/v1/videos/abcdefghijk?local=true");
-  expect(result.success && result.video.streams?.[0]?.url).toBe("https://tube.mint.lgbt/videoplayback?id=1");
+  expect(fetcher.mock.calls[0]?.[0]).toBe("https://invidious.tiekoetter.com/api/v1/videos/abcdefghijk?local=true");
+  expect(result.success && result.video.streams?.[0]?.url).toBe("https://invidious.tiekoetter.com/videoplayback?id=1");
 });
 it("keeps only instance-served streams and drops googlevideo.com", () => {
   const s = instanceStreams([
-    { url: "http://tube.mint.lgbt/videoplayback?id=1", qualityLabel: "360p", type: "video/mp4; codecs=x" },
+    { url: "https://invidious.tiekoetter.com/videoplayback?id=1", qualityLabel: "360p", type: "video/mp4; codecs=x" },
     { url: "https://rr1.googlevideo.com/videoplayback?id=1", qualityLabel: "720p" },
   ]);
-  expect(s).toEqual([{ url: "https://tube.mint.lgbt/videoplayback?id=1", quality: "360p", type: "video/mp4" }]);
+  expect(s).toEqual([{ url: "https://invidious.tiekoetter.com/videoplayback?id=1", quality: "360p", type: "video/mp4" }]);
 });
