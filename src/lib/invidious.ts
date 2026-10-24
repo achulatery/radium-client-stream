@@ -1,5 +1,5 @@
 /** Direct Invidious requests; Radium never relays instance content or media. */
-export const INVIDIOUS_INSTANCE = "https://tube.mint.lgbt";
+export const INVIDIOUS_INSTANCE = "https://invidious.tiekoetter.com";
 export const invidiousEmbedUrl = (id: string) => `${INVIDIOUS_INSTANCE}/embed/${encodeURIComponent(id)}?autoplay=1&local=true`;
 export const invidiousThumbnailUrl = (id: string, size = "hqdefault") => `${INVIDIOUS_INSTANCE}/vi/${encodeURIComponent(id)}/${size}.jpg`;
 
