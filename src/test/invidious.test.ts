@@ -3,7 +3,7 @@ import { invidiousEmbedUrl, invidiousThumbnailUrl, searchVideos } from "@/lib/in
 
 afterEach(() => vi.unstubAllGlobals());
 
-it("uses tube.mint.lgbt directly for embeds and thumbnails", () => {
+it("uses invidious.tiekoetter.com directly for embeds and thumbnails", () => {
   expect(invidiousEmbedUrl("abcdefghijk")).toBe("https://invidious.tiekoetter.com/embed/abcdefghijk?autoplay=1&local=true");
   expect(invidiousThumbnailUrl("abcdefghijk")).toBe("https://invidious.tiekoetter.com/vi/abcdefghijk/hqdefault.jpg");
 });
